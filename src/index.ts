@@ -34,6 +34,11 @@ export * from "./rules/dead-code-guard.js";
 export * from "./ai/secret-detector.js";
 export * from "./ai/advisor.js";
 
+// CLI
+export * from "./cli/index.js";
+export * from "./cli/formatters.js";
+export * from "./cli/types.js";
+
 export async function runAudit() {
   return { success: true, message: "Muraqib Core initialized" };
 }
