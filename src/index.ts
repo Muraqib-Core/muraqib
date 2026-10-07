@@ -23,6 +23,7 @@ export * from "./core/performance/optimizer-engine.js";
 // Rules
 export * from "./rules/bundle-budget.js";
 export * from "./rules/cache-guard.js";
+export * from "./rules/dead-code-guard.js";
 
 // AI Integration
 export * from "./ai/secret-detector.js";
