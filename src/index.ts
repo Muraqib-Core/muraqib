@@ -19,6 +19,11 @@ export * from "./core/performance/auditor.js";
 export * from "./core/performance/image-guard.js";
 export * from "./core/performance/network-latency-advisor.js";
 export * from "./core/performance/optimizer-engine.js";
+export * from "./core/performance/render-blocking.js";
+export * from "./core/performance/html-scanner.js";
+
+// Configuration
+export * from "./core/config-guard.js";
 
 // Rules
 export * from "./rules/bundle-budget.js";
