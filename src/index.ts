@@ -35,7 +35,9 @@
 export * from "./core/types.js";
 export { BaseGuard } from "./core/base-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
-export { AuditOrchestrator } from "./core/orchestrator.js";
+import { AuditOrchestrator } from "./core/orchestrator.js";
+import { buildAuditContext } from "./core/audit-context.js";
+export { AuditOrchestrator, buildAuditContext };
 
 // Core Guards - Each guard specializes in a specific audit category
 /** Memory and heap leak detection */
@@ -166,11 +168,22 @@ export * from "./core/findings/finding-collector.js";
  * @example
  * ```typescript
  * const result = await runAudit();
- * // { success: true, message: "Muraqib Core initialized" }
+ * // { success, results, findings, summary }
  * ```
  */
-export async function runAudit() {
-  return { success: true, message: "Muraqib Core initialized" };
+export async function runAudit(options: { projectRoot?: string; securityUrl?: string } = {}) {
+  const root = options.projectRoot ?? process.cwd();
+  const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
+    projectRoot: root,
+    asyncTargetPath: root,
+    configProjectRoot: root,
+    dependencyTargetPath: root,
+    dockerProjectRoot: root,
+    imageTargetPath: root,
+    deadCodeTargetPath: root,
+    securityTargetUrl: options.securityUrl,
+  });
+  return orchestrator.execute();
 }
 
 // Environment Engine (createEnv / safeCreateEnv / loadEnv / createEnvWithPresets)
