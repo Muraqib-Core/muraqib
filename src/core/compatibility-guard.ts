@@ -1,5 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface CompatibilityAuditResult {
   isCompatible: boolean;
@@ -24,7 +26,7 @@ const deprecatedPackages: Record<
   },
 };
 
-export function performCompatibilityAudit(
+function performCompatibilityAuditInternal(
   projectRoot?: string
 ): CompatibilityAuditResult {
   const root = projectRoot || process.cwd();
@@ -105,4 +107,45 @@ export function performCompatibilityAudit(
   }
 
   return { isCompatible, reports, issues };
+}
+
+export { performCompatibilityAuditInternal as performCompatibilityAudit };
+
+export class CompatibilityGuard extends BaseGuard {
+  private projectRoot?: string;
+
+  constructor(projectRoot?: string, context?: AuditContext) {
+    super("compatibility-guard", context);
+    this.projectRoot = projectRoot;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performCompatibilityAuditInternal(this.projectRoot);
+    const auditIssues: AuditIssue[] = [];
+
+    if (!result.isCompatible) {
+      for (const issue of result.issues) {
+        auditIssues.push(
+          this.createIssue(
+            "COMPATIBILITY_ERROR",
+            "error",
+            "Compatibility Issue",
+            issue,
+            undefined,
+            "Review and update dependencies to supported versions",
+            ["compatibility", "dependency"]
+          )
+        );
+      }
+    }
+
+    const status = result.isCompatible ? "ok" : "issues";
+    return this.createResult(
+      status,
+      auditIssues,
+      result.isCompatible
+        ? "✅ All dependencies compatible"
+        : `❌ ${result.issues.length} compatibility issues found`
+    );
+  }
 }
