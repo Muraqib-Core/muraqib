@@ -77,6 +77,12 @@ export * from "./rules/cache-guard.js";
 /** Dead code detection and removal recommendations */
 export * from "./rules/dead-code-guard.js";
 
+// Dependency Vulnerability Scanning
+/** OSV API client for querying known vulnerabilities */
+export * from "./scanners/dependency/osv-client.js";
+/** Dependency vulnerability scanner using OSV database */
+export * from "./scanners/dependency/osv-engine.js";
+
 // Docker Security & Discovery
 /** Docker security and performance scanner engine */
 export * from "./scanners/docker/docker-engine.js";
