@@ -32,6 +32,10 @@ export * from "./rules/bundle-budget.js";
 export * from "./rules/cache-guard.js";
 export * from "./rules/dead-code-guard.js";
 
+// Scanners
+export * from "./scanners/dependency/osv-client.js";
+export * from "./scanners/dependency/osv-engine.js";
+
 // AI Integration
 export * from "./ai/secret-detector.js";
 export * from "./ai/advisor.js";
