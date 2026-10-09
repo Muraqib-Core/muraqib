@@ -34,6 +34,8 @@
 // Core Types and Base Classes
 export * from "./core/types.js";
 export { BaseGuard } from "./core/base-guard.js";
+export { GuardFactory } from "./core/guard-factory.js";
+export { AuditOrchestrator } from "./core/orchestrator.js";
 
 // Core Guards - Each guard specializes in a specific audit category
 /** Memory and heap leak detection */

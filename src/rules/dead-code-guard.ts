@@ -1,3 +1,5 @@
+import { BaseGuard } from "../core/base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "../core/types.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
 
 /**
@@ -12,18 +14,7 @@ export interface DeadCodeAuditResult {
   unusedExports: string[];
 }
 
-/**
- * Performs a comprehensive dead code analysis on a project.
- * Detects empty functions, unreachable code paths, and unused exports.
- * Respects muraqib-ignore-dead and muraqib-unreachable suppression comments.
- *
- * @param targetPath - Root directory path to scan
- * @returns DeadCodeAuditResult with detailed reports on detected issues
- * @example
- * const result = performDeadCodeAudit('./src');
- * if (!result.isClean) console.log(result.reports);
- */
-export function performDeadCodeAudit(targetPath: string): DeadCodeAuditResult {
+function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
   const reports: string[] = [];
   const emptyFunctions: string[] = [];
   const unreachableBranches: string[] = [];
@@ -116,4 +107,71 @@ export function performDeadCodeAudit(targetPath: string): DeadCodeAuditResult {
     unreachableBranches,
     unusedExports,
   };
+}
+
+export { performDeadCodeAuditInternal as performDeadCodeAudit };
+
+export class DeadCodeGuard extends BaseGuard {
+  private targetPath: string;
+
+  constructor(targetPath: string, context?: AuditContext) {
+    super('dead-code-guard', context);
+    this.targetPath = targetPath;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performDeadCodeAuditInternal(this.targetPath);
+    const issues: AuditIssue[] = [];
+
+    for (const emptyFunc of result.emptyFunctions) {
+      issues.push(
+        this.createIssue(
+          'EMPTY_FUNCTION',
+          'warning',
+          'Empty Function Detected',
+          `Dead code detected: ${emptyFunc}`,
+          undefined,
+          'Remove unused functions or add implementation',
+          ['dead-code', 'code-quality']
+        )
+      );
+    }
+
+    for (const unreachable of result.unreachableBranches) {
+      issues.push(
+        this.createIssue(
+          'UNREACHABLE_CODE',
+          'warning',
+          'Unreachable Code',
+          `Code after control flow statement: ${unreachable}`,
+          undefined,
+          'Remove or refactor unreachable code paths',
+          ['dead-code', 'control-flow']
+        )
+      );
+    }
+
+    for (const unused of result.unusedExports) {
+      issues.push(
+        this.createIssue(
+          'UNUSED_EXPORT',
+          'info',
+          'Potentially Unused Export',
+          `Export not used elsewhere: ${unused}`,
+          undefined,
+          'Remove if truly unused or import in dependent modules',
+          ['dead-code', 'exports']
+        )
+      );
+    }
+
+    const status = result.isClean ? 'ok' : 'warning';
+    return this.createResult(
+      status,
+      issues,
+      status === 'ok'
+        ? '✅ No dead code detected'
+        : `⚠️ Found ${result.reports.length} potential dead code issues`
+    );
+  }
 }

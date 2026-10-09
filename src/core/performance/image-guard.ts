@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { BaseGuard } from '../base-guard.js';
+import type { AuditResult, AuditIssue, AuditContext } from '../types.js';
 
 const MAX_IMAGE_SIZE_BYTES = 500 * 1024;
 
@@ -38,7 +40,6 @@ const scanDirectoryForImages = (
   try {
     entries = fs.readdirSync(dirPath);
   } catch {
-    // Unreadable directory (permissions etc.) — skip silently
     return violations;
   }
 
@@ -47,13 +48,13 @@ const scanDirectoryForImages = (
 
     let stat: fs.Stats;
     try {
-      stat = fs.lstatSync(fullPath); // lstat: never follow symlinks
+      stat = fs.lstatSync(fullPath);
     } catch {
       continue;
     }
 
     if (stat.isSymbolicLink()) {
-      continue; // skip symlinks entirely to avoid loops
+      continue;
     }
 
     if (stat.isDirectory()) {
@@ -76,23 +77,46 @@ const scanDirectoryForImages = (
   return violations;
 };
 
-export const runImagePerformanceAudit = (targetPath?: string): ImageAuditResult => {
+function performImageAuditInternal(targetPath?: string): ImageAuditResult {
   const rootDir = targetPath ?? process.cwd();
-  const violations = scanDirectoryForImages(rootDir);
+  return { violations: scanDirectoryForImages(rootDir) };
+}
 
-  console.log('\n📷 [Muraqib]: Starting Image Assets Size Audit...');
+export { performImageAuditInternal as runImagePerformanceAudit };
 
-  if (violations.length > 0) {
-    console.error(`\n🚨 [Muraqib Image Guard]: Found ${violations.length} unoptimized heavy images!`);
-    console.log('=================================================================');
-    for (const img of violations) {
-      console.error(`❌ File: ${img.filePath} (${img.sizeKB} KB) -> Exceeds limit of 500 KB.`);
-      console.log(`⚡ [Muraqib Suggestion]: ${img.recommendation}\n`);
-    }
-    console.log('=================================================================');
-  } else {
-    console.log('✅ [Muraqib]: All images are optimized and under the 500KB safety limit.');
+export class ImageGuard extends BaseGuard {
+  private targetPath?: string;
+
+  constructor(targetPath?: string, context?: AuditContext) {
+    super('image-guard', context);
+    this.targetPath = targetPath;
   }
 
-  return { violations };
-};
+  async execute(): Promise<AuditResult> {
+    const result = performImageAuditInternal(this.targetPath);
+    const issues: AuditIssue[] = [];
+
+    for (const violation of result.violations) {
+      issues.push(
+        this.createIssue(
+          'IMAGE_SIZE_EXCEEDED',
+          'warning',
+          'Large Image Detected',
+          `Image '${violation.filePath}' is ${violation.sizeKB}KB (exceeds 500KB limit)`,
+          { file: violation.filePath },
+          violation.recommendation,
+          ['performance', 'image']
+        )
+      );
+    }
+
+    const status = result.violations.length === 0 ? 'ok' : 'warning';
+    return this.createResult(
+      status,
+      issues,
+      status === 'ok'
+        ? '✅ All images optimized (< 500KB)'
+        : `⚠️ ${result.violations.length} image(s) exceed size limit`
+    );
+  }
+}
