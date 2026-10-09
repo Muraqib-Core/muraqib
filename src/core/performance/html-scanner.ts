@@ -49,7 +49,7 @@ export function scanHtml(htmlContent: string): HtmlScanResult {
   const reports: string[] = [];
   const lines = htmlContent.split("\n");
 
-  let statistics = {
+  const statistics = {
     totalElements: 0,
     images: 0,
     links: 0,
