@@ -3,9 +3,12 @@
  * Main entry point for running audits from the command line
  */
 import { writeFileSync } from "fs";
-import { join } from "path";
+import { resolve } from "path";
 import type { CliOptions, AuditReport, OutputFormat } from "./types.js";
+import { pathToFileURL } from "url";
 import { formatReport } from "./formatters.js";
+import { AuditOrchestrator } from "../core/orchestrator.js";
+import { buildAuditContext } from "../core/audit-context.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -17,6 +20,7 @@ interface ExtendedCliOptions extends Partial<CliOptions> {
   aiAdvisory?: boolean;
   packageName?: string;
   packageVersion?: string;
+  securityUrl?: string;
 }
 
 function parseArgs(args: string[]): ExtendedCliOptions {
@@ -69,6 +73,11 @@ function parseArgs(args: string[]): ExtendedCliOptions {
 
     if (arg === "--modules" || arg === "-m") {
       options.modules = args[i + 1]?.split(",") || [];
+      i++;
+    }
+
+    if (arg === "--security-url") {
+      options.securityUrl = args[i + 1];
       i++;
     }
 
@@ -206,22 +215,44 @@ For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
 }
 
 export async function createAuditReport(
-  options: CliOptions
+  options: CliOptions & { securityUrl?: string }
 ): Promise<AuditReport> {
-  const report: AuditReport = {
-    timestamp: Date.now(),
-    projectRoot: options.projectRoot,
-    summary: {
-      total: 0,
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-    },
-    modules: {},
-  };
+  const root = options.projectRoot;
+  const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
+    projectRoot: root,
+    asyncTargetPath: root,
+    configProjectRoot: root,
+    dependencyTargetPath: root,
+    dockerProjectRoot: root,
+    imageTargetPath: root,
+    deadCodeTargetPath: root,
+    securityTargetUrl: options.securityUrl,
+  });
 
-  return report;
+  const unified = await orchestrator.execute();
+  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
+  const selected = wanted.length
+    ? unified.results.filter((r) => wanted.some((w) => r.module.toLowerCase().includes(w)))
+    : unified.results;
+
+  const issues = selected.flatMap((r) => r.issues);
+  const count = (sev: string) => issues.filter((i) => i.severity === sev).length;
+
+  const modules: Record<string, unknown> = {};
+  for (const r of selected) modules[r.module] = r;
+
+  return {
+    timestamp: Date.now(),
+    projectRoot: root,
+    summary: {
+      total: issues.length,
+      critical: count("critical"),
+      high: count("error"),
+      medium: count("warning"),
+      low: count("info"),
+    },
+    modules,
+  };
 }
 
 export async function runCli(args: string[]): Promise<number> {
@@ -258,7 +289,7 @@ export async function runCli(args: string[]): Promise<number> {
       const formatted = JSON.stringify(resolveReport, null, 2);
 
       if (options.output) {
-        const outputPath = join(process.cwd(), options.output);
+        const outputPath = resolve(process.cwd(), options.output);
         writeFileSync(outputPath, formatted);
         if (options.verbose) {
           console.log(`✅ Report saved to: ${outputPath}`);
@@ -274,7 +305,7 @@ export async function runCli(args: string[]): Promise<number> {
       return 0;
     } else {
       // Default audit command
-      const auditOptions = options as CliOptions;
+      const auditOptions = options as CliOptions & { securityUrl?: string };
 
       if (options.verbose) {
         console.log("🚀 Starting Muraqib Core audit...");
@@ -287,7 +318,7 @@ export async function runCli(args: string[]): Promise<number> {
       const formatted = formatReport(report, auditOptions.format);
 
       if (options.output) {
-        const outputPath = join(process.cwd(), options.output);
+        const outputPath = resolve(process.cwd(), options.output);
         writeFileSync(outputPath, formatted);
         if (options.verbose) {
           console.log(`✅ Report saved to: ${outputPath}`);
@@ -300,6 +331,9 @@ export async function runCli(args: string[]): Promise<number> {
         console.log("✅ Audit completed successfully");
       }
 
+      const { summary } = report;
+      if (summary.critical > 0 || summary.high > 0) return 1;
+      if (auditOptions.failOnWarning && summary.medium > 0) return 1;
       return 0;
     }
   } catch (error) {
@@ -312,7 +346,8 @@ export async function runCli(args: string[]): Promise<number> {
 }
 
 // CLI entry point
-if (require.main === module) {
+const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
   const args = process.argv.slice(2);
   runCli(args)
     .then((code) => process.exit(code))

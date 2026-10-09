@@ -47,3 +47,6 @@ Thumbs.db
 # Project-specific
 examples/node_modules/
 .claude/
+
+# CLI shim must be committed
+!bin/*.js
