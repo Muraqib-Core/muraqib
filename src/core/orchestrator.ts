@@ -88,7 +88,7 @@ export class AuditOrchestrator {
   /**
    * Execute all guards in parallel using Promise.allSettled
    */
-  private async executeGuardsInParallel(guards: any[]) {
+  private async executeGuardsInParallel(guards: Array<{ run(): Promise<AuditResult>; constructor: { name: string } }>) {
     const promises = guards.map((guard) => guard.run());
     const results = await Promise.allSettled(promises);
 
@@ -98,13 +98,14 @@ export class AuditOrchestrator {
       } else {
         // Handle rejected promises
         const guard = guards[index];
+        const moduleName = guard ? guard.constructor.name.replace('Guard', '').toLowerCase() : `guard-${index}`;
         return {
-          status: 'error',
-          module: guard.constructor.name.replace('Guard', '').toLowerCase(),
+          status: 'error' as const,
+          module: moduleName,
           issues: [
             {
               code: 'GUARD_REJECTED',
-              severity: 'error',
+              severity: 'error' as const,
               title: 'Guard Execution Failed',
               message: result.reason instanceof Error ? result.reason.message : String(result.reason),
               recommendation: 'Check logs for details',

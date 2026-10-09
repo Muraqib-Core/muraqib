@@ -182,7 +182,6 @@ describe('ResolutionApplier', () => {
   describe('error handling', () => {
     it('should handle errors gracefully', () => {
       const graph2 = new DependencyGraph();
-      const engine2 = new ResolutionEngine(graph2);
       const plan2 = new ResolutionPlanner(graph2, {
         success: true,
         resolutions: new Map(),
@@ -235,7 +234,6 @@ describe('ResolutionApplier', () => {
   describe('package field detection', () => {
     it('should detect dependencies field for direct packages', () => {
       const graph2 = new DependencyGraph();
-      const engine2 = new ResolutionEngine(graph2);
       graph2.addDependency('express', '4.18.0', { isDirect: true });
       const plan2 = new ResolutionPlanner(graph2, {
         success: true,
@@ -254,7 +252,6 @@ describe('ResolutionApplier', () => {
 
     it('should detect peerDependencies for peer packages', () => {
       const graph2 = new DependencyGraph();
-      const engine2 = new ResolutionEngine(graph2);
       graph2.addDependency('react', '18.0.0', { isPeerDependency: true });
       const plan2 = new ResolutionPlanner(graph2, {
         success: true,
@@ -273,7 +270,6 @@ describe('ResolutionApplier', () => {
 
     it('should detect optionalDependencies for optional packages', () => {
       const graph2 = new DependencyGraph();
-      const engine2 = new ResolutionEngine(graph2);
       graph2.addDependency('optional-lib', '1.0.0', { isOptional: true });
       const plan2 = new ResolutionPlanner(graph2, {
         success: true,

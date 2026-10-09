@@ -109,7 +109,7 @@ describe('Compatibility Guard', () => {
 
     it('should validate peer dependency ranges', () => {
       const installed = '18.2.0';
-      const required = '^16.8.0 || ^17.0.0 || ^18.0.0';
+      const _required = '^16.8.0 || ^17.0.0 || ^18.0.0';
 
       const major = parseInt(installed.split('.')[0]);
       const isCompatible = [16, 17, 18].includes(major);
@@ -260,17 +260,17 @@ describe('Compatibility Guard', () => {
 
   describe('Environment Compatibility', () => {
     it('should validate production requirements', () => {
-      const required = ['node >= 18', 'npm >= 8'];
-      
-      expect(required).toContain('node >= 18');
-      expect(required).toContain('npm >= 8');
+      const _required = ['node >= 18', 'npm >= 8'];
+
+      expect(_required).toContain('node >= 18');
+      expect(_required).toContain('npm >= 8');
     });
 
     it('should validate development requirements', () => {
-      const required = ['node >= 16', 'typescript >= 4'];
-      
-      expect(required).toContain('node >= 16');
-      expect(required).toContain('typescript >= 4');
+      const _required = ['node >= 16', 'typescript >= 4'];
+
+      expect(_required).toContain('node >= 16');
+      expect(_required).toContain('typescript >= 4');
     });
 
     it('should check CI/CD compatibility', () => {

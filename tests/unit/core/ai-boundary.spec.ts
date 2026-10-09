@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   generateAdvisory,
   generateAuditAdvisory,
-  type AIAdvisorConfig,
 } from '../../../src/ai/advisor';
 import type { AuditIssue, AuditResult } from '../../../src/core/types';
 

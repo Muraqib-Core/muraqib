@@ -68,7 +68,7 @@ describe('ResolutionEngine', () => {
 
   describe('resolveConflict()', () => {
     it('should handle direct dependencies with priority', () => {
-      const conflict = graph.addDependency('react', '18.0.0', { isDirect: true });
+      const _conflict = graph.addDependency('react', '18.0.0', { isDirect: true });
       graph.addDependency('react', '17.0.0');
       graph.detectConflicts();
 
@@ -173,8 +173,8 @@ describe('ResolutionEngine', () => {
     });
 
     it('should handle peer-dominant strategy', async () => {
-      const direct = graph.addDependency('express', '4.18.0', { isDirect: true });
-      const indirect = graph.addDependency('express', '4.17.0');
+      const _direct = graph.addDependency('express', '4.18.0', { isDirect: true });
+      const _indirect = graph.addDependency('express', '4.17.0');
 
       graph.detectConflicts();
       const result = await engine.resolve('peer-dominant');

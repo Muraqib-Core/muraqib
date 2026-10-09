@@ -117,8 +117,8 @@ describe('Resolution Engine', () => {
       const baseVersion = versions[0];
 
       const compatible = versions.filter(v => {
-        const [baseMajor, baseMinor] = baseVersion.split('.').map(Number);
-        const [major, minor] = v.split('.').map(Number);
+        const [baseMajor] = baseVersion.split('.').map(Number);
+        const [major] = v.split('.').map(Number);
         return major === baseMajor;
       });
 

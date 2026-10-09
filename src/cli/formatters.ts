@@ -38,14 +38,14 @@ export function formatText(report: AuditReport): string {
 
     for (const [moduleName, moduleData] of Object.entries(report.modules)) {
       if (typeof moduleData === "object" && moduleData !== null) {
-        const status =
-          "status" in moduleData
-            ? (moduleData as any).status
-            : "issues" in moduleData
-              ? (moduleData as any).issues.length > 0
-                ? "⚠️"
-                : "✅"
-              : "❓";
+        let status = "❓";
+        if ("status" in moduleData) {
+          const statusValue = (moduleData as unknown as { status: string }).status;
+          status = statusValue;
+        } else if ("issues" in moduleData) {
+          const issuesValue = (moduleData as unknown as { issues: unknown[] }).issues;
+          status = Array.isArray(issuesValue) && issuesValue.length > 0 ? "⚠️" : "✅";
+        }
         lines.push(`  ${status} ${moduleName}`);
       }
     }

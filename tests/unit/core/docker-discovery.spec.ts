@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { discoverDockerConfig, type DockerDiscoveryResult } from '../../../src/core/context/docker-discovery';
+import { discoverDockerConfig } from '../../../src/core/context/docker-discovery';
 
 describe('Docker Discovery', () => {
   describe('discoverDockerConfig', () => {

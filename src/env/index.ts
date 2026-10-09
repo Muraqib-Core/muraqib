@@ -2,6 +2,6 @@ export function loadEnv() {
   return process.env;
 }
 
-export function createEnv(schema: any) {
+export function createEnv(schema: unknown) {
   return schema;
 }

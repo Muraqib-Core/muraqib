@@ -168,7 +168,6 @@ describe('OSV Scanner', () => {
     });
 
     it('should handle empty package list in batch', async () => {
-      const mockFetch = vi.mocked(global.fetch);
       const client = new OSVClient();
       const results = await client.queryBatch([]);
 

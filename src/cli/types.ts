@@ -23,5 +23,5 @@ export interface AuditReport {
     medium: number;
     low: number;
   };
-  modules: Record<string, any>;
+  modules: Record<string, unknown>;
 }
