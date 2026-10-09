@@ -135,7 +135,6 @@ export {
 
 // Unified validation types (re-export from Zod engine for consistency)
 export type { ValidationIssue } from "./guard/engines/zod-engine.js";
-
 // AI-Powered Integration
 /** Sensitive data detection (API keys, passwords, tokens) */
 export * from "./ai/secret-detector.js";
