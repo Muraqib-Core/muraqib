@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import * as x from "@clack/prompts";
 import { styleText, parseArgs } from "node:util";
 import { createProjectContext } from "./core/context/project-context.js";
@@ -24,8 +25,9 @@ function renderTargetScan(result: ScanResult, json: boolean): number {
   return exitCode;
 }
 
-async function main() {
+export async function main(argv: string[] = process.argv.slice(2)) {
   const { values, positionals } = parseArgs({
+    args: argv,
     options: {
       env: {
         type: "string",
@@ -244,8 +246,11 @@ Options:
   }
 }
 
-main().catch((err) => {
-  const message = err instanceof Error ? err.message : String(err);
-  console.error(`Muraqib could not start: ${message}`);
-  process.exitCode = 3;
-});
+const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  main().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Muraqib could not start: ${message}`);
+    process.exitCode = 3;
+  });
+}
