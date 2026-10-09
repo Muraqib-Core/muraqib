@@ -79,27 +79,7 @@ export * from "./rules/cache-guard.js";
 /** Dead code detection and removal recommendations */
 export * from "./rules/dead-code-guard.js";
 
-// Dependency Vulnerability Scanning
-/** OSV API client for querying known vulnerabilities */
-export * from "./scanners/dependency/osv-client.js";
-/** Dependency vulnerability scanner using OSV database */
-export * from "./scanners/dependency/osv-engine.js";
-
-// Docker Security & Discovery
-/** Docker security and performance scanner engine */
-export * from "./scanners/docker/docker-engine.js";
-/** Docker configuration discovery and detection */
-export * from "./core/context/docker-discovery.js";
-
-// Dependency Resolution & Conflict Management
-/** Dependency graph construction and conflict detection */
-export * from "./core/resolution/dependency-graph.js";
-/** Automatic resolution engine with multiple strategies */
-export * from "./core/resolution/resolution-engine.js";
-/** Resolution plan generation and impact assessment */
-export * from "./core/resolution/resolution-plan.js";
-/** Resolution application and modification suggestions */
-export * from "./core/resolution/resolution-applier.js";
+// Scan layer modules (OSV, Docker, resolution) are exported under the `scan` namespace below.
 
 // Advanced Validation Engines
 /** Zod schema validation engine with structured error reporting */

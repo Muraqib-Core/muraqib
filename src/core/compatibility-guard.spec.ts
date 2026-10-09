@@ -90,3 +90,20 @@ describe("Compatibility Guard", () => {
     expect(result.reports.some((r) => r.includes("Failed"))).toBe(true);
   });
 });
+
+describe("CompatibilityGuard cross-package rules (scan engine)", () => {
+  it("reports Next.js x React 19 conflicts via CompatibilityEngine", async () => {
+    const { mkdtempSync, writeFileSync } = await import("fs");
+    const { tmpdir } = await import("os");
+    const { join } = await import("path");
+    const dir = mkdtempSync(join(tmpdir(), "muraqib-compat-"));
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ name: "x", dependencies: { react: "19.0.0", next: "14.0.1" } })
+    );
+    const { CompatibilityGuard } = await import("./compatibility-guard.js");
+    const result = await new CompatibilityGuard(dir).run();
+    expect(result.status).toBe("issues");
+    expect(result.issues.some((i) => i.message.includes("React 19"))).toBe(true);
+  });
+});

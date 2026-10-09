@@ -2,6 +2,8 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import { CompatibilityEngine } from "../scan/scanners/compatibility/compatibility-engine.js";
+import { findingToAuditIssue } from "../scan/bridge.js";
 
 export interface CompatibilityAuditResult {
   isCompatible: boolean;
@@ -139,13 +141,20 @@ export class CompatibilityGuard extends BaseGuard {
       }
     }
 
-    const status = result.isCompatible ? "ok" : "issues";
+    // Cross-package rules (e.g. Next.js x React 19) come from the scan layer's CompatibilityEngine
+    const root = this.projectRoot ?? process.cwd();
+    const engine = new CompatibilityEngine();
+    const scanContext = { projectPath: root, files: [] as string[] };
+    if (engine.supports(scanContext)) {
+      const scan = await engine.scan(scanContext);
+      auditIssues.push(...scan.findings.map(findingToAuditIssue));
+    }
+
+    const total = auditIssues.length;
     return this.createResult(
-      status,
+      total === 0 ? "ok" : "issues",
       auditIssues,
-      result.isCompatible
-        ? "✅ All dependencies compatible"
-        : `❌ ${result.issues.length} compatibility issues found`
+      total === 0 ? "✅ All dependencies compatible" : `❌ ${total} compatibility issues found`
     );
   }
 }
