@@ -89,6 +89,16 @@ export * from "./scanners/docker/docker-engine.js";
 /** Docker configuration discovery and detection */
 export * from "./core/context/docker-discovery.js";
 
+// Dependency Resolution & Conflict Management
+/** Dependency graph construction and conflict detection */
+export * from "./core/resolution/dependency-graph.js";
+/** Automatic resolution engine with multiple strategies */
+export * from "./core/resolution/resolution-engine.js";
+/** Resolution plan generation and impact assessment */
+export * from "./core/resolution/resolution-plan.js";
+/** Resolution application and modification suggestions */
+export * from "./core/resolution/resolution-applier.js";
+
 // AI-Powered Integration
 /** Sensitive data detection (API keys, passwords, tokens) */
 export * from "./ai/secret-detector.js";
