@@ -6,6 +6,7 @@
 import { GuardFactory } from './guard-factory.js';
 import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult, Finding } from './types.js';
 import type { GuardConfig } from './guard-factory.js';
+import { createFinding } from './findings/finding.js';
 
 export interface OrchestratorConfig extends GuardConfig {
   parallel?: boolean;
@@ -48,7 +49,7 @@ export class AuditOrchestrator {
 
       const aggregated = this.aggregateResults(results);
       const sorted = this.sortIssues(aggregated.auditIssues);
-      const findings = this.convertToFindings(sorted, results);
+      const findings = this.convertToFindings(sorted);
 
       const duration = Date.now() - startTime;
 
@@ -170,23 +171,38 @@ export class AuditOrchestrator {
   /**
    * Convert audit issues to findings format
    */
-  private convertToFindings(issues: AuditIssue[], results: AuditResult[]): Finding[] {
-    return issues.map((issue, index) => {
-      const module = issue.tags?.[0] ?? 'unknown';
-      const result = results.find((r) => r.module === module);
+  private convertToFindings(issues: AuditIssue[]): Finding[] {
+    const severityMap = {
+      critical: 'critical' as const,
+      error: 'high' as const,
+      warning: 'medium' as const,
+      info: 'info' as const,
+    };
 
-      return {
-        id: `${module}-${index}`,
-        type: issue.code,
-        severity: issue.severity,
-        title: issue.title,
-        description: issue.message,
-        file: issue.location?.file,
-        line: issue.location?.line,
-        resolution: issue.recommendation,
-        tags: [...(issue.tags ?? []), 'orchestrated'],
-        createdAt: result?.timestamp ?? Date.now(),
-      };
+    return issues.map(issue => {
+      const module = issue.tags?.[0] ?? 'unknown';
+
+      return createFinding(
+        issue.title,
+        issue.message,
+        'other',
+        severityMap[issue.severity],
+        {
+          module,
+          version: this.context.npmVersion,
+          environment: this.context.environment === 'production' ? 'production' : 'development',
+        },
+        {
+          recommendation: issue.recommendation,
+          metadata: {
+            tags: [...(issue.tags ?? []), 'orchestrated', issue.code],
+            affectedFiles: issue.location?.file ? [issue.location.file] : [],
+            customData: {
+              location: issue.location,
+            },
+          },
+        }
+      );
     });
   }
 

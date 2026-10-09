@@ -4,6 +4,9 @@
  */
 
 import { z } from "zod";
+import type { Finding } from "./findings/finding.js";
+
+export type { Finding };
 
 /**
  * StandardSchemaV1 - Universal schema compatibility
@@ -58,18 +61,6 @@ export interface AuditResult {
   duration: number;
 }
 
-export interface Finding {
-  id: string;
-  type: string;
-  severity: "critical" | "error" | "warning" | "info";
-  title: string;
-  description: string;
-  file?: string;
-  line?: number;
-  resolution?: string;
-  tags: string[];
-  createdAt: number;
-}
 
 export interface AuditContext {
   projectRoot: string;

@@ -178,11 +178,13 @@ describe('BaseGuard', () => {
 
       expect(findings).toHaveLength(2);
       expect(findings[0]).toHaveProperty('id');
-      expect(findings[0]).toHaveProperty('type');
       expect(findings[0]).toHaveProperty('severity');
+      expect(findings[0]).toHaveProperty('category');
       expect(findings[0]).toHaveProperty('title');
       expect(findings[0]).toHaveProperty('description');
-      expect(findings[0].tags).toContain('issues-guard');
+      expect(findings[0]).toHaveProperty('status');
+      expect(findings[0]).toHaveProperty('source');
+      expect(findings[0].metadata?.tags).toContain('issues-guard');
     });
   });
 
