@@ -172,3 +172,16 @@ export * from "./core/findings/finding-collector.js";
 export async function runAudit() {
   return { success: true, message: "Muraqib Core initialized" };
 }
+
+// Environment Engine (createEnv / safeCreateEnv / loadEnv / createEnvWithPresets)
+export {
+  loadEnv,
+  type LoadEnvOptions,
+  type InferSchema,
+  type IntersectExtension,
+  type ErrorMessage,
+  type CreateEnvOptions,
+  createEnv,
+  safeCreateEnv,
+  createEnvWithPresets,
+} from "./env/index.js";
