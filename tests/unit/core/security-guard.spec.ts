@@ -17,7 +17,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import http from 'http';
 import https from 'https';
 import { SecurityGuard } from '../../../src/core/security-guard.js';
-import type { AuditResult } from '../../../src/core/types.js';
 
 // Mock HTTP/HTTPS modules
 vi.mock('http');
@@ -690,7 +689,7 @@ describe('SecurityGuard', () => {
     it('should handle request errors gracefully', async () => {
       const guard = new SecurityGuard({ targetUrl: 'https://example.com' });
 
-      vi.mocked(https.request).mockImplementation((url, options, callback) => {
+      vi.mocked(https.request).mockImplementation((_url, _options, _callback) => {
         // Trigger error callback asynchronously
         setTimeout(() => {
           if (requestCallbacks['error']) {
@@ -712,7 +711,7 @@ describe('SecurityGuard', () => {
     it('should handle request timeout', async () => {
       const guard = new SecurityGuard({ targetUrl: 'https://example.com' });
 
-      vi.mocked(https.request).mockImplementation((url, options, callback) => {
+      vi.mocked(https.request).mockImplementation((_url, _options, _callback) => {
         setTimeout(() => {
           if (requestCallbacks['timeout']) {
             requestCallbacks['timeout']();
