@@ -77,6 +77,12 @@ export * from "./rules/cache-guard.js";
 /** Dead code detection and removal recommendations */
 export * from "./rules/dead-code-guard.js";
 
+// Dependency Vulnerability Scanning
+/** OSV API client for querying known vulnerabilities */
+export * from "./scanners/dependency/osv-client.js";
+/** Dependency vulnerability scanner using OSV database */
+export * from "./scanners/dependency/osv-engine.js";
+
 // AI-Powered Integration
 /** Sensitive data detection (API keys, passwords, tokens) */
 export * from "./ai/secret-detector.js";
