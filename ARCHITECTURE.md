@@ -540,3 +540,27 @@ Each guard has unit tests covering:
 - [README.md](README.md) - User guide and quick start
 - [API.md](API.md) - Complete API reference
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
+
+---
+
+## Merged Architecture (Aya + Jenan)
+
+Muraqib Core has two cooperating layers plus a bridge:
+
+| Layer | Origin | Location | Output model |
+|---|---|---|---|
+| Guard layer | Aya (`Muraqib`) | `src/core/*-guard.ts`, `src/rules`, `src/core/performance`, `src/orchestrator/audit.ts`, `src/env` | `AuditResult` / `AuditIssue` |
+| Scan layer | Jenan (`pre-muraqib` `develop`) | `src/scan/**` | `Finding` (deterministic, evidence-based) |
+| Bridge | Core | `src/scan/bridge.ts` | `Finding` → `AuditIssue` |
+
+### Entry points
+- `muraqib audit [-p dir] [-f json|text|html|csv] [-m modules]` — guard layer via `AuditOrchestrator`.
+- `muraqib audit --osv --docker --ai-advisory` — additionally runs the scan layer (`AuditRunner`) as module `scan`.
+- `muraqib audit --skip-* --url … --upgrade …` — the 13-module workflow (`runAuditWorkflow`, Aya).
+- `muraqib resolve | image | runtime` — scan CLI (`src/scan/cli.ts`): dependency resolution with approval boundary + rollback, Trivy image scan, runtime inspection.
+- Library: `runAudit()` (workflow), `runGuardAudit()` (orchestrator), `scan.*` namespace, `createEnv/safeCreateEnv/loadEnv/createEnvWithPresets`, `runMuraqibUpgradeOrchestrator`.
+
+### Where duplicates were resolved
+- `DockerGuard` is an adapter over `DockerScanner`; `CompatibilityGuard` adds the scan `CompatibilityEngine` rules to its node/deprecation checks.
+- AI: `src/ai` is the single implementation (`GEMINI_API_KEY`, `GOOGLE_API_KEY` legacy alias, secret redaction before every call).
+- Upgrade orchestrator lives in `src/core/upgrade-orchestrator.ts` (separate from `AuditOrchestrator`).
