@@ -134,7 +134,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
         });
         reports.push("⚠️ Implicit any types allowed in TypeScript");
       }
-    } catch (e) {
+    } catch {
       // Already caught in JSON validation
     }
   }
@@ -194,7 +194,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
       } else {
         reports.push(`✅ Test script found: ${pkg.scripts.test}`);
       }
-    } catch (e) {
+    } catch {
       // Already caught in JSON validation
     }
   }

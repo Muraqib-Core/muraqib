@@ -21,7 +21,7 @@ export function isWithinSchedule(scheduleString?: string): boolean {
       return true;
     }
     return false;
-  } catch (_error) {
+  } catch {
     console.warn(`⚠️  [Muraqib Schedule]: Invalid cron expression [${scheduleString}]. Defaulting to run immediately.`);
     return true;
   }
