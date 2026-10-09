@@ -211,3 +211,6 @@ export {
 // Full audit pipeline (13-module workflow)
 export { runAuditWorkflow } from "./cli/workflow.js";
 export type { AuditOptions } from "./orchestrator/audit.js";
+
+// Scan layer (OSV, Docker, compatibility, resolution, audit runner) - namespaced to avoid name clashes
+export * as scan from "./scan/index.js";

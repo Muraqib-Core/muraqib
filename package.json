@@ -16,12 +16,14 @@
     "dev": "tsx watch src/index.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:scan",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "audit": "tsx src/index.ts",
     "audit:demo": "tsx src/index.ts --path ./examples/sample-project",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:scan": "node --import tsx --test tests/scan/*.test.ts",
+    "scan": "tsx src/scan/cli.ts"
   },
   "keywords": [
     "audit",
