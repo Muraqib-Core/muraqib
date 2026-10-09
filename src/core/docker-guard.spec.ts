@@ -1,101 +1,44 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { performDockerAudit } from "./docker-guard.js";
+import { DockerGuard } from "./docker-guard.js";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
+import { tmpdir } from "os";
 
-describe("Docker Guard", () => {
-  let tempDir: string;
+describe("DockerGuard (adapter over DockerScanner)", () => {
+  let dir: string;
 
   beforeEach(() => {
-    tempDir = join(process.cwd(), `.temp-docker-test-${Date.now()}`);
-    mkdirSync(tempDir, { recursive: true });
+    dir = join(tmpdir(), `muraqib-docker-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", version: "1.0.0" }));
   });
 
-  afterEach(() => {
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // ignore cleanup errors
-    }
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  const run = () => new DockerGuard({ projectRoot: dir }).run();
+
+  it("skips cleanly when there are no Docker files", async () => {
+    const result = await run();
+    expect(result.status).toBe("ok");
+    expect(result.module).toBe("docker-guard");
   });
 
-  it("detects missing Dockerfile", () => {
-    const result = performDockerAudit(tempDir);
-    expect(result.isSecure).toBe(false);
-    expect(result.reports.some((r) => r.includes("No Dockerfile"))).toBe(true);
+  it("flags an unpinned base image", async () => {
+    writeFileSync(join(dir, "Dockerfile"), "FROM node:latest\nWORKDIR /app\nCOPY . .\nCMD [\"node\",\"a.js\"]\n");
+    const result = await run();
+    expect(result.issues.some((i) => i.code === "IM-01")).toBe(true);
   });
 
-  it("detects unpinned base image version", () => {
-    const dockerfile = `FROM node:latest
-WORKDIR /app
-COPY . .
-RUN npm ci
-CMD ["node", "index.js"]`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(result.reports.some((r) => r.includes("latest"))).toBe(true);
+  it("flags secrets baked into ENV", async () => {
+    writeFileSync(join(dir, "Dockerfile"), "FROM node:22.4.0\nENV API_TOKEN=abc123secret\nCMD [\"node\",\"a.js\"]\n");
+    const result = await run();
+    expect(result.issues.some((i) => i.code === "SE-01" && i.severity === "error")).toBe(true);
   });
 
-  it("accepts pinned base image", () => {
-    const dockerfile = `FROM node:18-alpine
-WORKDIR /app
-COPY . .
-RUN npm ci
-CMD ["node", "index.js"]`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(result.dockerfileIssues).toHaveLength(0);
-  });
-
-  it("detects root user execution", () => {
-    const dockerfile = `FROM node:18
-USER root
-WORKDIR /app`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(
-      result.reports.some((r) => r.includes("root user"))
-    ).toBe(true);
-  });
-
-  it("detects hardcoded secrets", () => {
-    const dockerfile = `FROM node:18
-ENV DATABASE_URL=postgres://user:password@localhost:5432/db
-RUN echo "api_key=sk_live_1234567890"`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(
-      result.reports.some((r) => r.includes("Hardcoded secrets"))
-    ).toBe(true);
-  });
-
-  it("warns about missing HEALTHCHECK", () => {
-    const dockerfile = `FROM node:18
-WORKDIR /app
-COPY . .
-RUN npm ci`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(result.reports.some((r) => r.includes("HEALTHCHECK"))).toBe(true);
-  });
-
-  it("validates dockerignore presence", () => {
-    const dockerfile = `FROM node:18
-WORKDIR /app`;
-
-    writeFileSync(join(tempDir, "Dockerfile"), dockerfile);
-    const result = performDockerAudit(tempDir);
-
-    expect(result.reports.some((r) => r.includes("dockerignore"))).toBe(true);
+  it("maps findings to AuditIssue with scanner tags", async () => {
+    writeFileSync(join(dir, "Dockerfile"), "FROM node:latest\n");
+    const result = await run();
+    expect(result.issues[0]?.tags.length).toBeGreaterThan(0);
+    expect(result.status).not.toBe("ok");
   });
 });
