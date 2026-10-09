@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { createAuditReport, runCli } from "../../../src/cli/index.js";
 import { buildAuditContext } from "../../../src/core/audit-context.js";
-import { runAudit } from "../../../src/index.js";
+import { runGuardAudit } from "../../../src/index.js";
 
 function tmpProject() {
   const dir = mkdtempSync(join(tmpdir(), "muraqib-cli-"));
@@ -41,8 +41,8 @@ describe("CLI wiring", () => {
     expect(Object.keys(report.modules)).toEqual(["memory-guard"]);
   });
 
-  it("runAudit returns a unified result", async () => {
-    const result = await runAudit({ projectRoot: tmpProject() });
+  it("runGuardAudit returns a unified result", async () => {
+    const result = await runGuardAudit({ projectRoot: tmpProject() });
     expect(result.success).toBe(true);
     expect(result.results.length).toBeGreaterThan(0);
   });
