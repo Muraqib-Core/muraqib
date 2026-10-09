@@ -267,6 +267,12 @@ export async function createAuditReport(
 
 const SCAN_COMMANDS = new Set(["resolve", "image", "runtime"]);
 
+// Flags belonging to the 13-module workflow (--skip-*, --url, --upgrade, ...)
+const WORKFLOW_FLAGS = new Set(["--url", "--path", "--upgrade", "--safe", "--presets", "--schedule", "--silent"]);
+function usesWorkflowFlags(args: string[]): boolean {
+  return args.some((a) => a.startsWith("--skip-") || WORKFLOW_FLAGS.has(a));
+}
+
 export async function runCli(args: string[]): Promise<number> {
   try {
     // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
@@ -274,6 +280,13 @@ export async function runCli(args: string[]): Promise<number> {
       const { main: runScanCli } = await import("../scan/cli.js");
       process.exitCode = undefined;
       await runScanCli(args);
+      return typeof process.exitCode === "number" ? process.exitCode : 0;
+    }
+
+    // Workflow-style audit (13 modules, --skip-*, --url, --upgrade ...) is served by the workflow runner
+    if (usesWorkflowFlags(args) && !args.some((a) => SCAN_COMMANDS.has(a))) {
+      const { run: runWorkflowCli } = await import("./audit-cli.js");
+      await runWorkflowCli();
       return typeof process.exitCode === "number" ? process.exitCode : 0;
     }
 

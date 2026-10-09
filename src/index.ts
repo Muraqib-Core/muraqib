@@ -37,6 +37,8 @@ export { BaseGuard } from "./core/base-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
 import { AuditOrchestrator } from "./core/orchestrator.js";
 import { buildAuditContext } from "./core/audit-context.js";
+import { runAuditWorkflow } from "./cli/workflow.js";
+import type { AuditOptions, AuditResult as WorkflowAuditResult } from "./orchestrator/audit.js";
 export { AuditOrchestrator, buildAuditContext };
 
 // Core Guards - Each guard specializes in a specific audit category
@@ -149,11 +151,24 @@ export * from "./core/findings/finding-collector.js";
  *
  * @example
  * ```typescript
- * const result = await runAudit();
- * // { success, results, findings, summary }
+ * const result = await runAudit({ targetPath: process.cwd(), skipNetwork: true });
+ * // { env, images, bundle, network, memory, security, deadCode, ... }
  * ```
  */
-export async function runAudit(options: { projectRoot?: string; securityUrl?: string } = {}) {
+export async function runAudit(options: AuditOptions = {}): Promise<WorkflowAuditResult> {
+  return runAuditWorkflow(options);
+}
+
+/**
+ * Run the unified guard orchestrator (class-based guards) and return the aggregated result.
+ *
+ * @example
+ * ```typescript
+ * const result = await runGuardAudit({ projectRoot: process.cwd() });
+ * console.log(result.summary);
+ * ```
+ */
+export async function runGuardAudit(options: { projectRoot?: string; securityUrl?: string } = {}) {
   const root = options.projectRoot ?? process.cwd();
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
     projectRoot: root,
@@ -189,8 +204,8 @@ export {
 } from "./core/upgrade-orchestrator.js";
 
 // Full audit pipeline (13-module workflow)
-export { runAuditWorkflow } from "./cli/workflow.js";
-export type { AuditOptions } from "./orchestrator/audit.js";
+export { runAuditWorkflow };
+export type { AuditOptions, AuditResult as WorkflowAuditResult, ModuleResult } from "./orchestrator/audit.js";
 
 // Scan layer (OSV, Docker, compatibility, resolution, audit runner) - namespaced to avoid name clashes
 export * as scan from "./scan/index.js";

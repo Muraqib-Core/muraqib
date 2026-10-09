@@ -1,0 +1,29 @@
+{
+  "name": "muraqib-express-prisma-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "express": "^5.2.1",
+    "helmet": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.7.5",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.2",
+    "prisma": "^5.22.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
