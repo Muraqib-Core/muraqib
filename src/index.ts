@@ -185,3 +185,10 @@ export {
   safeCreateEnv,
   createEnvWithPresets,
 } from "./env/index.js";
+
+// Package Upgrade Orchestrator (schema migrations + build verification)
+export {
+  runMuraqibUpgradeOrchestrator,
+  SCHEMA_MIGRATIONS_REGISTRY,
+  type OrchestratorConfig,
+} from "./core/upgrade-orchestrator.js";
