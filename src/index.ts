@@ -83,6 +83,12 @@ export * from "./scanners/dependency/osv-client.js";
 /** Dependency vulnerability scanner using OSV database */
 export * from "./scanners/dependency/osv-engine.js";
 
+// Docker Security & Discovery
+/** Docker security and performance scanner engine */
+export * from "./scanners/docker/docker-engine.js";
+/** Docker configuration discovery and detection */
+export * from "./core/context/docker-discovery.js";
+
 // AI-Powered Integration
 /** Sensitive data detection (API keys, passwords, tokens) */
 export * from "./ai/secret-detector.js";
