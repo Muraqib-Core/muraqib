@@ -1,5 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface DockerAuditResult {
   isSecure: boolean;
@@ -7,7 +9,11 @@ export interface DockerAuditResult {
   dockerfileIssues: string[];
 }
 
-export function performDockerAudit(projectRoot?: string): DockerAuditResult {
+interface DockerAuditOptions {
+  projectRoot?: string;
+}
+
+function performDockerAuditInternal(projectRoot?: string): DockerAuditResult {
   const root = projectRoot || process.cwd();
   const dockerfilePath = join(root, "Dockerfile");
   const dockerignorePath = join(root, ".dockerignore");
@@ -94,4 +100,52 @@ export function performDockerAudit(projectRoot?: string): DockerAuditResult {
   }
 
   return { isSecure, reports, dockerfileIssues };
+}
+
+export class DockerGuard extends BaseGuard {
+  private options: DockerAuditOptions;
+
+  constructor(options: DockerAuditOptions = {}, context?: AuditContext) {
+    super("docker-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performDockerAuditInternal(this.options.projectRoot);
+
+    const issues: AuditIssue[] = [];
+
+    for (const report of result.reports) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (report.includes("CRITICAL") || report.includes("root user") || report.includes("hardcoded secrets")) {
+        severity = "critical";
+      } else if (report.includes("❌")) {
+        severity = "error";
+      }
+
+      issues.push(
+        this.createIssue(
+          `DOCKER_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
+          severity,
+          "Docker Configuration Issue",
+          report,
+          { file: "Dockerfile" },
+          "Review and fix the Docker configuration"
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok("Dockerfile configuration is secure and well-optimized");
+    }
+
+    return this.issues(issues, `Found ${issues.length} Docker issue(s)`);
+  }
+}
+
+/**
+ * @deprecated Use DockerGuard class instead
+ */
+export function performDockerAudit(projectRoot?: string): DockerAuditResult {
+  return performDockerAuditInternal(projectRoot);
 }
