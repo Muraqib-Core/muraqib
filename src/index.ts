@@ -6,6 +6,7 @@
 export * from "./core/types.js";
 export { BaseGuard } from "./core/base-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
+export { AuditOrchestrator } from "./core/orchestrator.js";
 
 // Core Guards
 export * from "./core/memory-guard.js";
