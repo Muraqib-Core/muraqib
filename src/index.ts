@@ -99,6 +99,42 @@ export * from "./core/resolution/resolution-plan.js";
 /** Resolution application and modification suggestions */
 export * from "./core/resolution/resolution-applier.js";
 
+// Advanced Validation Engines
+/** Zod schema validation engine with structured error reporting */
+export {
+  ZodEngine,
+  createZodEngine,
+  batchValidateZod,
+  composeZodSchemas,
+  type ZodValidationResult,
+} from "./guard/engines/zod-engine.js";
+/** Valibot schema validation engine with structured error reporting */
+export {
+  ValibotEngine,
+  createValibotEngine,
+  batchValidateValibot,
+  type ValibotValidationResult,
+} from "./guard/engines/valibot-engine.js";
+/** ArkType schema validation engine with structured error reporting */
+export {
+  ArktypeEngine,
+  createArktypeEngine,
+  batchValidateArktype,
+  type ArktypeValidationResult,
+} from "./guard/engines/arktype-engine.js";
+/** Custom validation engine for user-defined validation logic */
+export {
+  CustomEngine,
+  createCustomEngine,
+  batchValidateCustom,
+  commonValidators,
+  type ValidationFn,
+  type CustomSchema,
+  type CustomValidationResult,
+} from "./guard/engines/custom-engine.js";
+
+// Unified validation types (re-export from Zod engine for consistency)
+export type { ValidationIssue } from "./guard/engines/zod-engine.js";
 // AI-Powered Integration
 /** Sensitive data detection (API keys, passwords, tokens) */
 export * from "./ai/secret-detector.js";
@@ -112,6 +148,12 @@ export * from "./cli/index.js";
 export * from "./cli/formatters.js";
 /** CLI type definitions */
 export * from "./cli/types.js";
+
+// Finding Management & Aggregation
+/** Unified Finding interface and types for audit results */
+export * from "./core/findings/finding.js";
+/** Finding collector system for aggregation and reporting */
+export * from "./core/findings/finding-collector.js";
 
 /**
  * Initialize Muraqib Core and run the default audit

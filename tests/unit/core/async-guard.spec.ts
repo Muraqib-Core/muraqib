@@ -15,7 +15,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AsyncGuard } from '../../../src/core/async-guard.js';
 import * as fileScanner from '../../../src/utils/file-scanner.js';
-import type { AuditResult } from '../../../src/core/types.js';
 
 vi.mock('../../../src/utils/file-scanner.js', () => ({
   scanProjectFiles: vi.fn(),

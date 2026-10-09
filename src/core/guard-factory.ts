@@ -9,7 +9,7 @@ import { CompatibilityGuard } from "./compatibility-guard.js";
 import { ConfigGuard } from "./config-guard.js";
 import { DependencyGuard } from "./dependency-guard.js";
 import { DockerGuard } from "./docker-guard.js";
-import { MemoryGuard } from "./memory-guard.js";
+import { MemoryGuard, type MemoryAuditOptions } from "./memory-guard.js";
 import { SecurityGuard } from "./security-guard.js";
 import { ImageGuard } from "./performance/image-guard.js";
 import { DeadCodeGuard } from "../rules/dead-code-guard.js";
@@ -58,7 +58,7 @@ export class GuardFactory {
   }
 
   createMemoryGuard(options?: Record<string, unknown>) {
-    return new MemoryGuard(options as any, this.context);
+    return new MemoryGuard(options as unknown as MemoryAuditOptions, this.context);
   }
 
   createSecurityGuard(targetUrl: string) {

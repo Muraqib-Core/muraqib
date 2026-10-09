@@ -252,7 +252,7 @@ describe('DependencyGraph', () => {
     });
 
     it('should return true when all nodes are resolved', () => {
-      const node = graph.addDependency('lodash', '4.17.21');
+      const _node = graph.addDependency('lodash', '4.17.21');
       graph.markResolved('lodash', '4.17.21');
 
       expect(graph.isResolved()).toBe(true);
