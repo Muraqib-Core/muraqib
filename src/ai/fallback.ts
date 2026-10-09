@@ -8,6 +8,9 @@
 
 import type { AuditIssue } from "../core/types.js";
 import type { AdvisorySuggestion } from "./advisor.js";
+import { resolveApiKey } from "./advisor.js";
+import { extractSafeMetadata } from "./safe-metadata.js";
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Rule-based suggestion for a specific issue type
@@ -269,4 +272,55 @@ export function shouldUseAI(
   // Use AI for complex scenarios (many issues or high severity)
   // Use fallback for simple cases or when AI unavailable
   return isAIAvailable && issueCount > 2;
+}
+
+/**
+ * Ask the AI to review unknown env variables. Only redacted structural metadata is sent;
+ * values never leave the process. Fails closed (returns []) on any error.
+ */
+export async function analyzeUnknownVariablesWithAi(
+  unknownKeys: string[],
+  runtimeEnv: Record<string, string>
+): Promise<{ path: string[]; message: string }[]> {
+  const apiKey = resolveApiKey();
+  if (!apiKey || unknownKeys.length === 0) return [];
+
+  const safeMetadata = unknownKeys.map((key) => extractSafeMetadata(key, runtimeEnv[key] ?? ""));
+  const prompt = `You are an expert DevSecOps Security Auditor.
+Environment variables not covered by presets were detected. Analyze ONLY the structural metadata below for configuration risks or naming mistakes. Do not assume a variable is vulnerable because it is custom.
+
+Safe Variable Metadata (values are not included):
+${JSON.stringify(safeMetadata, null, 2)}
+
+Only flag clear configuration errors. If everything looks normal return [].
+Respond with ONLY a raw JSON array: [{"path": ["VARIABLE_NAME"], "message": "explanation"}]`;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+    const text = response.text?.trim();
+    if (!text) return [];
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) return [];
+    const out: { path: string[]; message: string }[] = [];
+    for (const item of parsed) {
+      if (
+        typeof item === "object" && item !== null &&
+        Array.isArray((item as { path?: unknown }).path) &&
+        typeof (item as { message?: unknown }).message === "string"
+      ) {
+        out.push({
+          path: (item as { path: unknown[] }).path.map(String),
+          message: (item as { message: string }).message,
+        });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }

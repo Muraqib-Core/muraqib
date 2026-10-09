@@ -142,6 +142,8 @@ export type { ValidationIssue } from "./guard/engines/zod-engine.js";
 export * from "./ai/secret-detector.js";
 /** AI-powered recommendations and issue advisory */
 export * from "./ai/advisor.js";
+export * from "./ai/safe-metadata.js";
+export { analyzeUnknownVariablesWithAi } from "./ai/fallback.js";
 
 // CLI and Output Formatting
 /** Command-line interface and audit runner */
