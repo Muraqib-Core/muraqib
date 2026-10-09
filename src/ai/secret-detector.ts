@@ -86,7 +86,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
     description: "AWS access key ID",
   },
   {
-    regex: /Bearer\s+[A-Za-z0-9\-._~+\/]+=*(?=\s|$)/g,
+    regex: /Bearer\s+[A-Za-z0-9\-._~+/]+=*(?=\s|$)/g,
     type: "bearer_token",
     confidence: 0.75,
     description: "Bearer authentication token",
