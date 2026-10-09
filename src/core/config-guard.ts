@@ -3,6 +3,8 @@
  */
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface ConfigIssue {
   type:
@@ -29,6 +31,10 @@ export interface ConfigAuditResult {
   };
 }
 
+interface ConfigAuditOptions {
+  projectRoot?: string;
+}
+
 const criticalConfigs = [
   "tsconfig.json",
   "package.json",
@@ -43,7 +49,7 @@ const optionalConfigs = [
   "vite.config.ts",
 ];
 
-export function performConfigAudit(projectRoot?: string): ConfigAuditResult {
+function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   const root = projectRoot || process.cwd();
   const issues: ConfigIssue[] = [];
   const reports: string[] = [];
@@ -128,7 +134,7 @@ export function performConfigAudit(projectRoot?: string): ConfigAuditResult {
         });
         reports.push("⚠️ Implicit any types allowed in TypeScript");
       }
-    } catch (e) {
+    } catch {
       // Already caught in JSON validation
     }
   }
@@ -188,7 +194,7 @@ export function performConfigAudit(projectRoot?: string): ConfigAuditResult {
       } else {
         reports.push(`✅ Test script found: ${pkg.scripts.test}`);
       }
-    } catch (e) {
+    } catch {
       // Already caught in JSON validation
     }
   }
@@ -202,4 +208,51 @@ export function performConfigAudit(projectRoot?: string): ConfigAuditResult {
   }
 
   return { isHealthy, reports, issues, configFiles };
+}
+
+export class ConfigGuard extends BaseGuard {
+  private options: ConfigAuditOptions;
+
+  constructor(options: ConfigAuditOptions = {}, context?: AuditContext) {
+    super("config-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performConfigAuditInternal(this.options.projectRoot);
+
+    const issues: AuditIssue[] = [];
+
+    for (const configIssue of result.issues) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (configIssue.severity === "critical") severity = "critical";
+      else if (configIssue.severity === "high") severity = "error";
+      else if (configIssue.severity === "medium") severity = "warning";
+
+      issues.push(
+        this.createIssue(
+          `CONFIG_${configIssue.type.toUpperCase()}`,
+          severity,
+          `Configuration Issue: ${configIssue.file}`,
+          configIssue.message,
+          { file: configIssue.file },
+          configIssue.suggestion,
+          configIssue.setting ? [configIssue.setting] : []
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok("Configuration is healthy and valid");
+    }
+
+    return this.issues(issues, `Found ${issues.length} configuration issue(s)`);
+  }
+}
+
+/**
+ * @deprecated Use ConfigGuard class instead
+ */
+export function performConfigAudit(projectRoot?: string): ConfigAuditResult {
+  return performConfigAuditInternal(projectRoot);
 }
