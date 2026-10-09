@@ -192,3 +192,7 @@ export {
   SCHEMA_MIGRATIONS_REGISTRY,
   type OrchestratorConfig,
 } from "./core/upgrade-orchestrator.js";
+
+// Full audit pipeline (13-module workflow)
+export { runAuditWorkflow } from "./cli/workflow.js";
+export type { AuditOptions } from "./orchestrator/audit.js";
