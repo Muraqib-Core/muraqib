@@ -9,6 +9,7 @@ import { pathToFileURL } from "url";
 import { formatReport } from "./formatters.js";
 import { AuditOrchestrator } from "../core/orchestrator.js";
 import { buildAuditContext } from "../core/audit-context.js";
+import { runScanAudit } from "../scan/bridge.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -215,7 +216,7 @@ For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
 }
 
 export async function createAuditReport(
-  options: CliOptions & { securityUrl?: string }
+  options: CliOptions & { securityUrl?: string; scan?: boolean; aiAdvisory?: boolean; dockerNative?: boolean }
 ): Promise<AuditReport> {
   const root = options.projectRoot;
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
@@ -235,11 +236,20 @@ export async function createAuditReport(
     ? unified.results.filter((r) => wanted.some((w) => r.module.toLowerCase().includes(w)))
     : unified.results;
 
-  const issues = selected.flatMap((r) => r.issues);
+  const scanned = [...selected];
+  let aiText: string | null = null;
+  if (options.scan) {
+    const outcome = await runScanAudit(root, { enableAi: options.aiAdvisory ?? false, dockerNative: options.dockerNative ?? false });
+    scanned.push(outcome.result);
+    aiText = outcome.report.aiAdvisory;
+  }
+
+  const issues = scanned.flatMap((r) => r.issues);
   const count = (sev: string) => issues.filter((i) => i.severity === sev).length;
 
   const modules: Record<string, unknown> = {};
-  for (const r of selected) modules[r.module] = r;
+  for (const r of scanned) modules[r.module] = r;
+  if (aiText) modules["ai-advisory"] = { advisory: aiText };
 
   return {
     timestamp: Date.now(),
@@ -255,57 +265,35 @@ export async function createAuditReport(
   };
 }
 
+const SCAN_COMMANDS = new Set(["resolve", "image", "runtime"]);
+
 export async function runCli(args: string[]): Promise<number> {
   try {
+    // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
+    if (args[0] && SCAN_COMMANDS.has(args[0])) {
+      const { main: runScanCli } = await import("../scan/cli.js");
+      process.exitCode = undefined;
+      await runScanCli(args);
+      return typeof process.exitCode === "number" ? process.exitCode : 0;
+    }
+
     const options = parseArgs(args);
     const command = options.command || "audit";
 
     if (command === "resolve") {
-      if (options.verbose) {
-        console.log("🔧 Starting Muraqib Resolve...");
-        console.log(`📁 Project root: ${options.projectRoot}`);
-        if (options.osv) console.log("🛡️  OSV scanning enabled");
-        if (options.docker) console.log("🐳 Docker discovery enabled");
-        if (options.aiAdvisory) console.log("🤖 AI advisory enabled");
-      }
-
-      const resolveReport = {
-        timestamp: Date.now(),
-        projectRoot: options.projectRoot,
-        command: "resolve",
-        filters: {
-          osv: options.osv || false,
-          docker: options.docker || false,
-          aiAdvisory: options.aiAdvisory || false,
-        },
-        results: {
-          conflicts: [] as unknown[],
-          vulnerabilities: [] as unknown[],
-          dockerFindings: [] as unknown[],
-          recommendations: [] as unknown[],
-        },
-      };
-
-      const formatted = JSON.stringify(resolveReport, null, 2);
-
-      if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        writeFileSync(outputPath, formatted);
-        if (options.verbose) {
-          console.log(`✅ Report saved to: ${outputPath}`);
-        }
-      } else {
-        console.log(formatted);
-      }
-
-      if (options.verbose) {
-        console.log("✅ Resolution completed successfully");
-      }
-
-      return 0;
+      // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
+      if (options.projectRoot) process.chdir(options.projectRoot);
+      const { main: runScanCli } = await import("../scan/cli.js");
+      process.exitCode = undefined;
+      await runScanCli(["resolve"]);
+      return typeof process.exitCode === "number" ? process.exitCode : 0;
     } else {
       // Default audit command
-      const auditOptions = options as CliOptions & { securityUrl?: string };
+      const auditOptions = {
+        ...(options as CliOptions & { securityUrl?: string }),
+        scan: Boolean(options.osv || options.docker || options.aiAdvisory),
+        aiAdvisory: options.aiAdvisory ?? false,
+      };
 
       if (options.verbose) {
         console.log("🚀 Starting Muraqib Core audit...");
