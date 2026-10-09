@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+# package-lock.json is committed for reproducible CI/CD builds
 pnpm-lock.yaml
 yarn.lock
 
