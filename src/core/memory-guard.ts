@@ -5,6 +5,8 @@
  * والكشف المبكر عن أي ارتفاع غير طبيعي في الذاكرة.
  */
 import v8 from "v8";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface MemoryAuditResult {
   isOptimized: boolean;
@@ -33,7 +35,7 @@ const DEFAULT_OPTIONS: Required<MemoryAuditOptions> = {
   heapRatioWarn: 0.85,
 };
 
-export function performMemoryAudit(options: MemoryAuditOptions = {}): MemoryAuditResult {
+function performMemoryAuditInternal(options: MemoryAuditOptions = {}): MemoryAuditResult {
   const config = { ...DEFAULT_OPTIONS, ...options };
   const mem = process.memoryUsage();
   const heapStats = v8.getHeapStatistics();
@@ -80,4 +82,49 @@ export function performMemoryAudit(options: MemoryAuditOptions = {}): MemoryAudi
     arrayBuffersMb,
     leakRisk,
   };
+}
+
+export class MemoryGuard extends BaseGuard {
+  private options: MemoryAuditOptions;
+
+  constructor(options: MemoryAuditOptions = {}, context?: AuditContext) {
+    super("memory-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performMemoryAuditInternal(this.options);
+
+    const issues: AuditIssue[] = [];
+
+    for (const report of result.reports) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (report.includes("Critical")) severity = "critical";
+      else if (report.includes("High")) severity = "error";
+
+      issues.push(
+        this.createIssue(
+          `MEMORY_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
+          severity,
+          "Memory Usage Issue",
+          report,
+          undefined,
+          "Monitor and optimize memory consumption"
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok(`Memory usage optimal: Heap ${result.heapUsedMb}MB / RSS ${result.rssMb}MB`);
+    }
+
+    return this.issues(issues, `Found ${issues.length} memory issue(s)`);
+  }
+}
+
+/**
+ * @deprecated Use MemoryGuard class instead
+ */
+export function performMemoryAudit(options: MemoryAuditOptions = {}): MemoryAuditResult {
+  return performMemoryAuditInternal(options);
 }

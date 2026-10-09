@@ -1,6 +1,8 @@
 import https from "https";
 import http from "http";
 import { URL } from "url";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 /**
  * Result of a security audit on an HTTP endpoint
@@ -11,6 +13,10 @@ export interface SecurityAuditResult { // muraqib-ignore-dead: auto-suppressed b
   reports: string[];
   headers: Record<string, string | string[] | undefined>;
   score: number; // 0-100
+}
+
+interface SecurityAuditOptions {
+  targetUrl: string;
 }
 
 const REQUIRED_HEADERS = [
@@ -27,18 +33,7 @@ const RECOMMENDED_HEADERS = [
   "cross-origin-opener-policy",
 ];
 
-/**
- * Performs a comprehensive security audit on an HTTP/HTTPS endpoint.
- * Checks for required and recommended security headers, validates header values,
- * and provides a security score (0-100). Fails open with isSecure=false on errors.
- *
- * @param targetUrl - The URL to audit (http:// or https://)
- * @returns Promise resolving to a SecurityAuditResult with headers, reports, and score
- * @example
- * const result = await performSecurityAudit("https://example.com");
- * if (!result.isSecure) console.log(result.reports);
- */
-export async function performSecurityAudit(targetUrl: string): Promise<SecurityAuditResult> {
+async function performSecurityAuditInternal(targetUrl: string): Promise<SecurityAuditResult> {
   const reports: string[] = [];
   const url = new URL(targetUrl);
   const hostname = url.hostname;
@@ -159,4 +154,52 @@ export async function performSecurityAudit(targetUrl: string): Promise<SecurityA
 
     req.end();
   });
+}
+
+export class SecurityGuard extends BaseGuard {
+  private options: SecurityAuditOptions;
+
+  constructor(options: SecurityAuditOptions, context?: AuditContext) {
+    super("security-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = await performSecurityAuditInternal(this.options.targetUrl);
+
+    const issues: AuditIssue[] = [];
+
+    for (const report of result.reports) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (report.includes("not HTTPS") || report.includes("failed") || report.includes("timed out")) {
+        severity = "critical";
+      } else if (report.includes("Missing security header")) {
+        severity = "error";
+      }
+
+      issues.push(
+        this.createIssue(
+          `SECURITY_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
+          severity,
+          "Security Header Issue",
+          report,
+          undefined,
+          "Configure the security header as recommended"
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok(`Security headers audit passed with score ${result.score}/100`);
+    }
+
+    return this.issues(issues, `Found ${issues.length} security issue(s) (score: ${result.score}/100)`);
+  }
+}
+
+/**
+ * @deprecated Use SecurityGuard class instead
+ */
+export async function performSecurityAudit(targetUrl: string): Promise<SecurityAuditResult> {
+  return performSecurityAuditInternal(targetUrl);
 }

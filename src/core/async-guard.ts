@@ -3,6 +3,8 @@
  * تعتمد على الـ file-scanner المشترك لضمان معمارية نظيفة وخالية من التكرار.
  */
 import { scanProjectFiles } from "../utils/file-scanner.js";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface AsyncAuditResult { // muraqib-ignore-dead: auto-suppressed by script for AsyncAuditResult
   isClean: boolean;
@@ -13,7 +15,11 @@ export interface AsyncAuditResult { // muraqib-ignore-dead: auto-suppressed by s
   floatingPromises: string[];
 }
 
-export function performAsyncAudit(targetPath: string): AsyncAuditResult {
+interface AsyncAuditOptions {
+  targetPath: string;
+}
+
+function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   const reports: string[] = [];
   const unhandledPromises: string[] = [];
   const missingAwait: string[] = [];
@@ -79,4 +85,50 @@ export function performAsyncAudit(targetPath: string): AsyncAuditResult {
     callbackHell,
     floatingPromises,
   };
+}
+
+export class AsyncGuard extends BaseGuard {
+  private options: AsyncAuditOptions;
+
+  constructor(options: AsyncAuditOptions, context?: AuditContext) {
+    super("async-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performAsyncAuditInternal(this.options.targetPath);
+
+    const issues: AuditIssue[] = [];
+
+    for (const report of result.reports) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (report.includes("Unhandled Promise") || report.includes("Floating Promise")) {
+        severity = "error";
+      }
+
+      issues.push(
+        this.createIssue(
+          `ASYNC_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
+          severity,
+          "Async Pattern Issue",
+          report,
+          undefined,
+          "Use async/await and proper error handling"
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok("No async/await issues detected");
+    }
+
+    return this.issues(issues, `Found ${issues.length} async issue(s)`);
+  }
+}
+
+/**
+ * @deprecated Use AsyncGuard class instead
+ */
+export function performAsyncAudit(targetPath: string): AsyncAuditResult {
+  return performAsyncAuditInternal(targetPath);
 }

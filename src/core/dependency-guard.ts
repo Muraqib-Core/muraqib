@@ -11,6 +11,8 @@ An advanced auditing utility designed to analyze project source code dependencie
 import fs from "fs";
 import path from "path";
 import { scanProjectFiles } from "../utils/file-scanner.js";
+import { BaseGuard } from "./base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export interface DependencyAuditResult { // muraqib-ignore-dead: auto-suppressed by script for DependencyAuditResult
   isClean: boolean;
@@ -19,6 +21,10 @@ export interface DependencyAuditResult { // muraqib-ignore-dead: auto-suppressed
   outdatedPackages: string[];
   duplicatePackages: string[];
   deprecatedImports: string[];
+}
+
+interface DependencyAuditOptions {
+  targetPath: string;
 }
 
 const DEPRECATED_PATTERNS: Array<{ pattern: RegExp; suggestion: string }> = [
@@ -33,7 +39,7 @@ const DEPRECATED_PATTERNS: Array<{ pattern: RegExp; suggestion: string }> = [
   { pattern: /\brequire\s*\(/, suggestion: "Use dynamic import() instead (ESM)" },
 ];
 
-export function performDependencyAudit(targetPath: string): DependencyAuditResult {
+function performDependencyAuditInternal(targetPath: string): DependencyAuditResult {
   const reports: string[] = [];
   const circularDependencies: string[][] = [];
   const outdatedPackages: string[] = [];
@@ -87,7 +93,6 @@ export function performDependencyAudit(targetPath: string): DependencyAuditResul
     for (const dp of DEPRECATED_PATTERNS) {
       if (dp.pattern.test(content)) {
         const isAllowedPattern = /require\s*\(/.test(dp.pattern.source) && /(?:src\/index|scripts|config|tests)/i.test(relativePath);
-// muraqib-unreachable: flagged by automated triage. Review before removal.
         if (isAllowedPattern) {
           continue;
         }
@@ -188,4 +193,54 @@ export function performDependencyAudit(targetPath: string): DependencyAuditResul
     duplicatePackages,
     deprecatedImports,
   };
+}
+
+export class DependencyGuard extends BaseGuard {
+  private options: DependencyAuditOptions;
+
+  constructor(options: DependencyAuditOptions, context?: AuditContext) {
+    super("dependency-guard", context);
+    this.options = options;
+  }
+
+  async execute(): Promise<AuditResult> {
+    const result = performDependencyAuditInternal(this.options.targetPath);
+
+    const issues: AuditIssue[] = [];
+
+    for (const report of result.reports) {
+      let severity: AuditIssue["severity"] = "warning";
+      if (report.includes("Circular dependency")) {
+        severity = "error";
+      } else if (report.includes("Deprecated API")) {
+        severity = "warning";
+      } else if (report.includes("outdated") || report.includes("v0.x")) {
+        severity = "warning";
+      }
+
+      issues.push(
+        this.createIssue(
+          `DEPENDENCY_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
+          severity,
+          "Dependency Issue",
+          report,
+          undefined,
+          "Review and update the dependency"
+        )
+      );
+    }
+
+    if (issues.length === 0) {
+      return this.ok("No dependency issues detected");
+    }
+
+    return this.issues(issues, `Found ${issues.length} dependency issue(s)`);
+  }
+}
+
+/**
+ * @deprecated Use DependencyGuard class instead
+ */
+export function performDependencyAudit(targetPath: string): DependencyAuditResult {
+  return performDependencyAuditInternal(targetPath);
 }
