@@ -11,6 +11,7 @@ import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import { getSystemContext } from "../agent/system-context.js";
 import { AGENT_TOOL_DEFINITIONS } from "../agent/tool-definitions.js";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
+import { shouldUseInteractive } from "./interactive-policy.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -19,6 +20,7 @@ interface ExtendedCliOptions extends Partial<CliOptions> {
   command?: "audit" | "resolve" | "agent" | "context" | "tool-schema";
   dockerNative?: boolean;
   maxIssues?: number;
+  interactive?: boolean;
   osv?: boolean;
   docker?: boolean;
   aiAdvisory?: boolean;
@@ -56,6 +58,14 @@ function parseArgs(args: string[]): ExtendedCliOptions {
 
     if (arg === "--json") {
       options.format = "json";
+    }
+
+    if (arg === "--interactive" || arg === "-i") {
+      options.interactive = true;
+    }
+
+    if (arg === "--no-interactive") {
+      options.interactive = false;
     }
 
     if (arg === "--docker-native") {
@@ -200,6 +210,8 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
+  -i, --interactive          Ask which optional scans to run (TTY only)
+      --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
   -h, --help                 Show this help message
       --version              Show version information
@@ -327,6 +339,31 @@ export async function runCli(args: string[]): Promise<number> {
       return typeof process.exitCode === "number" ? process.exitCode : 0;
     } else {
       // Default audit command
+      const interactive = shouldUseInteractive({
+        flag: options.interactive,
+        format: options.format ?? "text",
+        hasOutputFile: Boolean(options.output),
+        stdoutIsTTY: Boolean(process.stdout.isTTY),
+        stdinIsTTY: Boolean(process.stdin.isTTY),
+        env: process.env,
+      });
+      // Loaded on demand so importing the library never pulls in @clack/prompts
+      const ui = interactive ? await import("./interactive.js") : null;
+      if (ui) {
+        ui.showIntro(options.projectRoot ?? process.cwd());
+        const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
+        if (options.interactive === true && noScanFlags) {
+          const choices = await ui.promptScanChoices();
+          if (!choices) {
+            ui.showCancelled();
+            return 130;
+          }
+          options.osv = choices.osv;
+          options.docker = choices.docker;
+          options.aiAdvisory = choices.aiAdvisory;
+        }
+      }
+
       const auditOptions = {
         ...(options as CliOptions & { securityUrl?: string }),
         scan: Boolean(options.osv || options.docker || options.aiAdvisory),
@@ -340,7 +377,9 @@ export async function runCli(args: string[]): Promise<number> {
         console.log(`📊 Format: ${auditOptions.format}`);
       }
 
-      const report = await createAuditReport(auditOptions);
+      const report = ui
+        ? await ui.withSpinner("Running audit modules...", () => createAuditReport(auditOptions))
+        : await createAuditReport(auditOptions);
 
       const formatted = formatReport(report, auditOptions.format);
 
@@ -354,6 +393,7 @@ export async function runCli(args: string[]): Promise<number> {
         console.log(formatted);
       }
 
+      if (ui) ui.showOutro(report);
       if (options.verbose) {
         console.log("✅ Audit completed successfully");
       }

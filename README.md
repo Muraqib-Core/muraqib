@@ -127,6 +127,8 @@ muraqib audit --fail-on-warning            # exit 1 on warnings too
 | `-o, --output <path>` | Write the report to a file instead of stdout |
 | `-m, --modules <list>` | Comma-separated module name filter |
 | `--fail-on-warning` | Treat warnings as failures |
+| `-i`, `--interactive` | Ask which optional scans (OSV / Docker / AI) to run |
+| `--no-interactive` | Disable the spinner and prompts in a terminal |
 | `-v, --verbose` | Verbose logging |
 
 Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
@@ -173,6 +175,10 @@ await executeAgentTool("muraqib_audit", { projectRoot: "/app" }); // tool-call d
 
 `runAuditForAgent` never throws or prints: if the audit cannot run it returns `{ ok: false, error }`. The engine has no dependency on the CLI renderers, so a VS Code extension can call the same API.
 
+### Interactive mode
+
+In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Add `-i` to choose the optional scans from a menu. Interactive output is turned off automatically for `--json`/`--format`, `--output`, piped output and CI (`CI=true`), so machine-readable output is never polluted. Use `--no-interactive` to force it off.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -180,6 +186,7 @@ await executeAgentTool("muraqib_audit", { projectRoot: "/app" }); // tool-call d
 | `0` | No blocking findings |
 | `1` | Blocking findings (critical/high; warnings too with `--fail-on-warning`) |
 | `3` | A scanner failed, so the result is not reliable |
+| `130` | Interactive prompt cancelled by the user |
 
 ---
 

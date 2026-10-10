@@ -19,6 +19,17 @@ vi.mock("../../../src/core/audit-context.js", () => ({ buildAuditContext: vi.fn(
 vi.mock("../../../src/scan/bridge.js", () => ({ runScanAudit }));
 vi.mock("../../../src/scan/cli.js", () => ({ main: scanMain }));
 vi.mock("../../../src/cli/audit-cli.js", () => ({ run: workflowRun }));
+const ui = vi.hoisted(() => ({
+  promptScanChoices: vi.fn(),
+  showIntro: vi.fn(),
+  showOutro: vi.fn(),
+  showCancelled: vi.fn(),
+}));
+vi.mock("../../../src/cli/interactive.js", async (orig) => ({
+  ...(await orig<typeof import("../../../src/cli/interactive.js")>()),
+  ...ui,
+  withSpinner: <T>(_l: string, task: () => Promise<T>): Promise<T> => task(),
+}));
 
 import { createAuditReport, runCli } from "../../../src/cli/index.js";
 
@@ -214,6 +225,56 @@ describe("CLI entry (runCli)", () => {
     execute.mockRejectedValue("string failure");
     expect(await runCli(["-p", dir])).toBe(1);
   });
+
+  describe("interactive mode (TTY)", () => {
+    const setTty = (v: boolean): void => {
+      Object.defineProperty(process.stdout, "isTTY", { value: v, configurable: true });
+      Object.defineProperty(process.stdin, "isTTY", { value: v, configurable: true });
+    };
+    let savedCi: string | undefined;
+
+    beforeEach(() => {
+      savedCi = process.env["CI"];
+      delete process.env["CI"];
+      Object.values(ui).forEach((f) => f.mockReset());
+      setTty(true);
+    });
+    afterEach(() => {
+      setTty(false);
+      if (savedCi === undefined) delete process.env["CI"];
+      else process.env["CI"] = savedCi;
+    });
+
+    test("shows intro/outro around a normal run without prompting", async () => {
+      expect(await runCli(["-p", dir])).toBe(0);
+      expect(ui.showIntro).toHaveBeenCalled();
+      expect(ui.showOutro).toHaveBeenCalled();
+      expect(ui.promptScanChoices).not.toHaveBeenCalled();
+    });
+
+    test("-i prompts for scans and enables the scan layer", async () => {
+      ui.promptScanChoices.mockResolvedValue({ osv: true, docker: false, aiAdvisory: false });
+      runScanAudit.mockResolvedValue({
+        result: { module: "scan", status: "ok", issues: [], message: "", timestamp: 0, duration: 0 },
+        report: { aiAdvisory: null },
+      });
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(ui.promptScanChoices).toHaveBeenCalled();
+      expect(runScanAudit).toHaveBeenCalled();
+    });
+
+    test("cancelling the prompt exits with 130", async () => {
+      ui.promptScanChoices.mockResolvedValue(null);
+      expect(await runCli(["-p", dir, "--interactive"])).toBe(130);
+      expect(ui.showCancelled).toHaveBeenCalled();
+    });
+
+    test("--no-interactive and --json skip the UI", async () => {
+      await runCli(["-p", dir, "--no-interactive"]);
+      await runCli(["-p", dir, "--json"]);
+      expect(ui.showIntro).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe("createAuditReport", () => {
@@ -230,4 +291,5 @@ describe("createAuditReport", () => {
     expect(report.summary).toEqual({ total: 5, critical: 1, high: 1, medium: 1, low: 2 });
     expect(Object.keys(report.modules)).toEqual(["a"]);
   });
+
 });
