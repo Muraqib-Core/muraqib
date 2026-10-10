@@ -3,11 +3,11 @@ import { ArktypeEngine, createArktypeEngine, batchValidateArktype } from '../../
 import type { Type } from 'arktype';
 
 // Mock ArkType schema
-const createMockArktypeSchema = (): Type<any> => ({
-  __is: (value: unknown): value is any => {
+const createMockArktypeSchema = (): Type<unknown> => ({
+  __is: (value: unknown): value is unknown => {
     return typeof value === 'object' && value !== null;
   },
-} as unknown as Type<any>);
+} as unknown as Type<unknown>);
 
 describe('ArktypeEngine', () => {
   describe('constructor', () => {
@@ -18,7 +18,7 @@ describe('ArktypeEngine', () => {
     });
 
     it('should throw if schema is null', () => {
-      expect(() => new ArktypeEngine(null as unknown as Type<any>)).toThrow(
+      expect(() => new ArktypeEngine(null as unknown as Type<unknown>)).toThrow(
         'Schema is required'
       );
     });
@@ -42,7 +42,7 @@ describe('ArktypeEngine', () => {
     });
 
     it('should handle validation errors', () => {
-      const schema = { __is: (_value: unknown): _value is any => false } as unknown as Type<any>;
+      const schema = { __is: (_value: unknown): _value is unknown => false } as unknown as Type<unknown>;
       const engine = new ArktypeEngine(schema);
       const result = engine.validate({ test: 'data' });
 
@@ -50,7 +50,7 @@ describe('ArktypeEngine', () => {
     });
 
     it('should handle exceptions gracefully', () => {
-      const schema = { __is: () => { throw new Error('Validation error'); } } as unknown as Type<any>;
+      const schema = { __is: () => { throw new Error('Validation error'); } } as unknown as Type<unknown>;
       const engine = new ArktypeEngine(schema);
       const result = engine.validate({ test: 'data' });
 
@@ -75,8 +75,8 @@ describe('ArktypeEngine', () => {
 
     it('should throw for invalid input when appropriate', () => {
       const schema = {
-        __is: (_value: unknown): _value is any => false,
-      } as unknown as Type<any>;
+        __is: (_value: unknown): _value is unknown => false,
+      } as unknown as Type<unknown>;
       const engine = new ArktypeEngine(schema);
 
       try {

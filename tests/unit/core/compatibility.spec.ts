@@ -109,7 +109,6 @@ describe('Compatibility Guard', () => {
 
     it('should validate peer dependency ranges', () => {
       const installed = '18.2.0';
-      const _required = '^16.8.0 || ^17.0.0 || ^18.0.0';
 
       const major = parseInt(installed.split('.')[0]);
       const isCompatible = [16, 17, 18].includes(major);

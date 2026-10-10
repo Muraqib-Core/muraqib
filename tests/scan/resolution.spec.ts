@@ -277,8 +277,12 @@ test("APPROVAL BOUNDARY: Approved YES mutates package.json with exact planned ch
   };
 
   // Mock runPackageManagerInstall & verification to isolate unit test
-  (applier as any).runPackageManagerInstall = () => {};
-  (applier as any).runVerification = async () => [
+  const stubbed = applier as unknown as {
+    runPackageManagerInstall: () => void;
+    runVerification: () => Promise<unknown[]>;
+  };
+  stubbed.runPackageManagerInstall = () => {};
+  stubbed.runVerification = async () => [
     { step: "dependencies", passed: true },
     { step: "securityScan", passed: true },
     { step: "compatibilityScan", passed: true },

@@ -15,6 +15,18 @@ export interface PackageMetadata {
   engines?: Record<string, string> | undefined;
 }
 
+/** The parts of a package.json that the resolution engine reads. */
+export interface PackageManifest {
+  name?: string;
+  version?: string;
+  packageManager?: string;
+  engines?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+}
+
 export type PackageManagerName = "pnpm" | "npm" | "yarn" | "bun";
 
 export class DependencyGraph {
@@ -31,7 +43,7 @@ export class DependencyGraph {
       throw new Error(`No package.json found at ${projectPath}`);
     }
 
-    let rootPkg: any = {};
+    let rootPkg: PackageManifest = {};
     try {
       rootPkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     } catch {
@@ -99,7 +111,7 @@ export class DependencyGraph {
     return this.declaredPackages.get(name);
   }
 
-  public getInstalledMeta(packageName: string): any | null {
+  public getInstalledMeta(packageName: string): PackageManifest | null {
     const pkgPath = path.join(this.projectPath, "node_modules", packageName, "package.json");
     if (!fs.existsSync(pkgPath)) return null;
     try {

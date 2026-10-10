@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
+import type { ZodSchema } from 'zod';
 import {
   ZodEngine,
   createZodEngine,
@@ -16,7 +17,7 @@ describe('ZodEngine', () => {
     });
 
     it('should throw if schema is null', () => {
-      expect(() => new ZodEngine(null as any)).toThrow('Schema is required');
+      expect(() => new ZodEngine(null as unknown as ZodSchema)).toThrow('Schema is required');
     });
 
     it('should set strict mode', () => {

@@ -30,10 +30,10 @@ export interface ArktypeValidationResult {
  * ArkType Validation Engine - Unified validation interface for ArkType schemas
  */
 export class ArktypeEngine {
-  private schema: Type<any>;
+  private schema: Type<unknown>;
   private strict: boolean;
 
-  constructor(schema: Type<any>, strict = false) {
+  constructor(schema: Type<unknown>, strict = false) {
     if (!schema) {
       throw new Error('Schema is required');
     }
@@ -121,7 +121,7 @@ export class ArktypeEngine {
     const type = this.schema.constructor.name;
     return {
       type,
-      description: (this.schema as any).description,
+      description: (this.schema as { description?: string }).description,
     };
   }
 
@@ -132,7 +132,7 @@ export class ArktypeEngine {
     const transformed = {
       ...this.schema,
       _transform: fn,
-    } as any as Type<any>;
+    } as unknown as Type<unknown>;
     return new ArktypeEngine(transformed, this.strict);
   }
 
@@ -143,7 +143,7 @@ export class ArktypeEngine {
     const optional = {
       ...this.schema,
       _optional: true,
-    } as any as Type<any>;
+    } as unknown as Type<unknown>;
     return new ArktypeEngine(optional, this.strict);
   }
 
@@ -154,7 +154,7 @@ export class ArktypeEngine {
     const nullable = {
       ...this.schema,
       _nullable: true,
-    } as any as Type<any>;
+    } as unknown as Type<unknown>;
     return new ArktypeEngine(nullable, this.strict);
   }
 
@@ -182,7 +182,7 @@ export class ArktypeEngine {
   /**
    * Get raw ArkType schema
    */
-  getSchema(): Type<any> {
+  getSchema(): Type<unknown> {
     return this.schema;
   }
 }
@@ -190,7 +190,7 @@ export class ArktypeEngine {
 /**
  * Create an ArkType validation engine from a schema
  */
-export function createArktypeEngine(schema: Type<any>, strict = false): ArktypeEngine {
+export function createArktypeEngine(schema: Type<unknown>, strict = false): ArktypeEngine {
   return new ArktypeEngine(schema, strict);
 }
 
@@ -198,7 +198,7 @@ export function createArktypeEngine(schema: Type<any>, strict = false): ArktypeE
  * Batch validate multiple data items
  */
 export function batchValidateArktype(
-  schema: Type<any>,
+  schema: Type<unknown>,
   items: unknown[]
 ): Array<{ item: unknown; valid: boolean; errors: ValidationIssue[] }> {
   const engine = new ArktypeEngine(schema);

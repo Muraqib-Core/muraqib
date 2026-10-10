@@ -13,6 +13,13 @@
 import { z, ZodError } from 'zod';
 import type { ZodSchema } from 'zod';
 
+/** Minimal shape of a Zod issue that this engine reads. */
+interface ZodIssueLike {
+  path?: ReadonlyArray<string | number | symbol>;
+  message: string;
+  code: string;
+}
+
 export interface ValidationIssue {
   field: string;
   message: string;
@@ -161,7 +168,7 @@ export class ZodEngine {
    */
   merge(other: ZodSchema): ZodEngine {
     if (this.schema instanceof z.ZodObject && other instanceof z.ZodObject) {
-      const merged = (this.schema as z.ZodObject<any>).merge(other as z.ZodObject<any>);
+      const merged = (this.schema as z.ZodObject).merge(other as z.ZodObject);
       return new ZodEngine(merged, this.strict);
     }
     throw new Error('Can only merge ZodObject schemas');
@@ -187,12 +194,12 @@ export class ZodEngine {
    * Parse and transform Zod errors into unified format
    */
   private parseZodError(error: ZodError): ValidationIssue[] {
-    const issues = (error as any).issues || (error as any).errors || [];
-    return issues.map((err: any) => ({
-      field: (err.path || []).join('.') || 'root',
+    const issues: ReadonlyArray<ZodIssueLike> = error.issues ?? [];
+    return issues.map((err) => ({
+      field: (err.path ?? []).map(String).join('.') || 'root',
       message: err.message,
       code: err.code,
-      path: err.path || [],
+      path: (err.path ?? []).filter((k): k is string | number => typeof k !== 'symbol'),
     }));
   }
 
@@ -241,7 +248,7 @@ export function composeZodSchemas(...schemas: ZodSchema[]): ZodEngine {
   for (let i = 1; i < schemas.length; i++) {
     const schema = schemas[i];
     if (schema && composed instanceof z.ZodObject && schema instanceof z.ZodObject) {
-      composed = (composed as z.ZodObject<any>).merge(schema as z.ZodObject<any>);
+      composed = (composed as z.ZodObject).merge(schema as z.ZodObject);
     }
   }
 

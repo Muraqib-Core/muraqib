@@ -13,6 +13,13 @@
 import type { BaseSchema, BaseIssue } from 'valibot';
 import { safeParse } from 'valibot';
 
+/** Loose view of a Valibot issue / nested input used to walk the error path. */
+interface PathNode {
+  key?: string | number;
+  index?: number;
+  input?: unknown;
+}
+
 export interface ValidationIssue {
   field: string;
   message: string;
@@ -130,7 +137,7 @@ export class ValibotEngine {
     const type = this.schema.constructor.name;
     return {
       type,
-      description: (this.schema as any).description,
+      description: (this.schema as { description?: string }).description,
     };
   }
 
@@ -174,7 +181,7 @@ export class ValibotEngine {
     return issues.map(issue => ({
       field: this.getFieldPath(issue),
       message: issue.message || 'Validation error',
-      code: (issue as any).type || 'VALIDATION_ERROR',
+      code: (issue as { type?: string }).type || 'VALIDATION_ERROR',
       path: this.extractPath(issue),
     }));
   }
@@ -192,7 +199,7 @@ export class ValibotEngine {
    */
   private extractPath(issue: BaseIssue<unknown>): (string | number)[] {
     const pathArray: (string | number)[] = [];
-    let current: any = issue;
+    let current: PathNode | undefined = issue as unknown as PathNode;
 
     while (current) {
       if (current.key) {
@@ -200,7 +207,8 @@ export class ValibotEngine {
       } else if (current.index !== undefined) {
         pathArray.unshift(current.index);
       }
-      current = (current as any).input;
+      const next: unknown = current.input;
+      current = typeof next === 'object' && next !== null ? (next as PathNode) : undefined;
     }
 
     return pathArray;
