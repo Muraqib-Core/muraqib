@@ -5,6 +5,11 @@
 
 import { z } from "zod";
 import type { Finding } from "./findings/finding.js";
+import type {
+  DependencyProblemData,
+  FindingConfidence,
+  ImageProblemData,
+} from "../scan/core/findings/finding.js";
 
 export type { Finding };
 
@@ -50,6 +55,12 @@ export interface AuditIssue {
   };
   recommendation?: string;
   tags: string[];
+  /** Scan-layer detail carried through so an issue loses nothing a Finding held. */
+  confidence?: FindingConfidence;
+  evidence?: string;
+  key?: string;
+  dependencyProblem?: DependencyProblemData;
+  imageProblem?: ImageProblemData;
 }
 
 export interface AuditResult {
