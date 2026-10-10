@@ -11,14 +11,7 @@ import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import { getSystemContext } from "../agent/system-context.js";
 import { AGENT_TOOL_DEFINITIONS } from "../agent/tool-definitions.js";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
-import {
-  promptScanChoices,
-  shouldUseInteractive,
-  showCancelled,
-  showIntro,
-  showOutro,
-  withSpinner,
-} from "./interactive.js";
+import { shouldUseInteractive } from "./interactive-policy.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -354,13 +347,15 @@ export async function runCli(args: string[]): Promise<number> {
         stdinIsTTY: Boolean(process.stdin.isTTY),
         env: process.env,
       });
-      if (interactive) {
-        showIntro(options.projectRoot ?? process.cwd());
+      // Loaded on demand so importing the library never pulls in @clack/prompts
+      const ui = interactive ? await import("./interactive.js") : null;
+      if (ui) {
+        ui.showIntro(options.projectRoot ?? process.cwd());
         const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
         if (options.interactive === true && noScanFlags) {
-          const choices = await promptScanChoices();
+          const choices = await ui.promptScanChoices();
           if (!choices) {
-            showCancelled();
+            ui.showCancelled();
             return 130;
           }
           options.osv = choices.osv;
@@ -382,8 +377,8 @@ export async function runCli(args: string[]): Promise<number> {
         console.log(`📊 Format: ${auditOptions.format}`);
       }
 
-      const report = interactive
-        ? await withSpinner("Running audit modules...", () => createAuditReport(auditOptions))
+      const report = ui
+        ? await ui.withSpinner("Running audit modules...", () => createAuditReport(auditOptions))
         : await createAuditReport(auditOptions);
 
       const formatted = formatReport(report, auditOptions.format);
@@ -398,7 +393,7 @@ export async function runCli(args: string[]): Promise<number> {
         console.log(formatted);
       }
 
-      if (interactive) showOutro(report);
+      if (ui) ui.showOutro(report);
       if (options.verbose) {
         console.log("✅ Audit completed successfully");
       }
