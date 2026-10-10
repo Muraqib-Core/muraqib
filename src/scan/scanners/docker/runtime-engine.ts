@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { Finding } from "../../core/findings/finding.js";
+import { createScanIssue, type ScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 import type { ScanResult } from "../../core/contracts/scanner-engine.js";
 import type { CommandRunner } from "./image-engine.js";
 
@@ -19,23 +19,23 @@ interface ContainerInspect {
   Mounts?: Array<{ Source?: string; Destination?: string }>;
   NetworkSettings?: { Ports?: Record<string, Array<{ HostIp?: string; HostPort?: string }> | null> };
 }
-function finding(id: string, title: string, message: string, severity: Finding["severity"], container: string): Finding {
+function finding(id: string, title: string, message: string, severity: ScanIssueInput["severity"], container: string): ScanIssueInput {
   return { id, title, message, severity, category: "security", source: "docker-runtime", confidence: "confirmed", file: container };
 }
 
-export function analyzeContainer(input: unknown): Finding[] {
+export function analyzeContainer(input: unknown): ScanIssue[] {
   const container = input as ContainerInspect;
   if (!container || typeof container.Id !== "string" || !container.HostConfig) throw new Error("Invalid container inspect result");
   const id = container.Id.slice(0, 12);
   const host = container.HostConfig;
-  const findings: Finding[] = [];
+  const findings: ScanIssueInput[] = [];
   if (host.Privileged) findings.push(finding("RT-PRIVILEGED", "Privileged container", "The running container has privileged mode enabled.", "high", id));
   if (container.Mounts?.some(m => m.Source === "/var/run/docker.sock" || m.Source === "/run/docker.sock"))
     findings.push(finding("RT-DOCKER-SOCKET", "Docker socket mounted", "The running container mounts the Docker daemon socket.", "critical", id));
   if (host.CapAdd?.some(c => c === "ALL" || c === "SYS_ADMIN")) findings.push(finding("RT-CAPABILITY", "Broad capability added", "The running container has a broad Linux capability.", "high", id));
   if ([host.NetworkMode, host.PidMode, host.IpcMode].includes("host")) findings.push(finding("RT-HOST-NAMESPACE", "Host namespace shared", "The running container shares a host namespace.", "medium", id));
   if (container.Config?.User === "0" || container.Config?.User === "root") findings.push(finding("RT-ROOT", "Container configured as root", "The container image configuration selects the root user; inspect process overrides separately.", "medium", id));
-  return findings;
+  return findings.map(createScanIssue);
 }
 
 export class DockerRuntimeScanner {

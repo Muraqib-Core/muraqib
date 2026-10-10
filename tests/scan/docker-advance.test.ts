@@ -11,7 +11,7 @@ const imageId = `sha256:${"a".repeat(64)}`;
 
 test("image scanner normalizes installed package advisories without returning raw data", async () => {
   const data = { Results: [{ Target: "debian:12", Type: "debian", Vulnerabilities: [{ VulnerabilityID: "CVE-2099-1234", PkgName: "libdemo", InstalledVersion: "1.0", FixedVersion: "1.1", Severity: "HIGH", SeveritySource: "debian" }] }] };
-  assert.equal(parseTrivyReport(data, imageId)[0]?.severity, "high");
+  assert.equal(parseTrivyReport(data, imageId)[0]?.level, "high");
   const calls: string[] = [];
   const scanner = new DockerImageScanner(async (command, args) => {
     calls.push(`${command} ${args.join(" ")}`);
@@ -19,7 +19,7 @@ test("image scanner normalizes installed package advisories without returning ra
   });
   const result = await scanner.scan("local:demo");
   assert.equal(result.status, "success");
-  assert.equal(result.findings[0]?.id, "CVE-2099-1234");
+  assert.equal(result.findings[0]?.code, "CVE-2099-1234");
   assert.deepEqual(result.scannedInputs, [imageId]);
   assert.ok(calls.some(c => c.includes("--image-src docker")));
   assert.ok(calls.every(c => !c.includes("pull")));
@@ -40,7 +40,7 @@ test("runtime scanner reports observed privileges without changing a container",
   const result = await new DockerRuntimeScanner(async (_command, args) => { calls.push(args); return JSON.stringify([observed]); }).scan("demo");
   assert.equal(result.status, "success");
   assert.deepEqual(calls, [["inspect", "--type", "container", "demo"]]);
-  assert.ok(result.findings.some(f => f.id === "RT-DOCKER-SOCKET"));
+  assert.ok(result.findings.some(f => f.code === "RT-DOCKER-SOCKET"));
   const unavailable = await new DockerRuntimeScanner(async () => { throw new Error("secret daemon URL"); }).scan("demo");
   assert.equal(unavailable.status, "unavailable");
   assert.doesNotMatch(JSON.stringify(unavailable), /secret daemon URL/);
@@ -92,14 +92,14 @@ test("Compose overrides are resolved together only with native opt in", async ()
     const context = { projectPath: dir, files: [], composeFiles: ["compose.yaml", "compose.override.yaml"] };
     const offline = await new DockerScanner(async () => { throw new Error("should not run"); }).scan(context);
     assert.equal(offline.status, "partial");
-    assert.ok(!offline.findings.some(f => f.id === "PR-02"));
+    assert.ok(!offline.findings.some(f => f.code === "PR-02"));
     const calls: string[][] = [];
     const online = await new DockerScanner(async args => {
       calls.push(args);
       return args[0] === "--version" ? "Docker" : JSON.stringify({ services: { app: { privileged: true } } });
     }, true).scan(context);
     assert.equal(online.status, "success");
-    assert.equal(online.findings.filter(f => f.id === "PR-02").length, 1);
+    assert.equal(online.findings.filter(f => f.code === "PR-02").length, 1);
     assert.ok(calls.some(args => args.filter(a => a === "-f").length === 2));
   } finally { await fs.rm(dir, { recursive: true, force: true }); }
 });

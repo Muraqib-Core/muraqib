@@ -1,4 +1,4 @@
-import type { Finding } from "../findings/finding.js";
+import type { ScanIssue } from "../findings/finding.js";
 
 export type ApprovalDecision = "approved" | "rejected";
 export type ResolutionDirection =
@@ -23,7 +23,7 @@ export interface ResolutionPlan {
   planName: string;
   reason: string;
   changes: PackageChange[];
-  findingsResolved: Finding[];
+  findingsResolved: ScanIssue[];
   securityImpact: string;
   compatibility: CompatibilityStatus;
   risk: RiskLevel;

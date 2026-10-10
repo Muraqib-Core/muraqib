@@ -1,4 +1,4 @@
-import type { Finding } from "../findings/finding.js";
+import type { ScanIssue } from "../findings/finding.js";
 
 export interface ScanContext {
   projectPath: string;
@@ -16,7 +16,7 @@ export type ScanStatus = "success" | "partial" | "failed" | "unavailable";
 export interface ScanResult {
   scanner: string;
   status: ScanStatus;
-  findings: Finding[];
+  findings: ScanIssue[];
   error?: string;
   diagnostics?: string[];
   scannedInputs?: string[];

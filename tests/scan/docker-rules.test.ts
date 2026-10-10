@@ -8,7 +8,7 @@ import { DockerScanner } from "../../src/scan/scanners/docker/docker-engine.js";
 async function scanDockerfile(dir: string, name: string, content: string): Promise<string[]> {
   await fs.writeFile(path.join(dir, name), content);
   const result = await new DockerScanner().scan({ projectPath: dir, files: [], dockerfiles: [name] });
-  return result.findings.map((f) => f.id);
+  return result.findings.map((f) => f.code);
 }
 
 test("Docker IM-02 end-of-life base image and IM-03 root user", async (t) => {

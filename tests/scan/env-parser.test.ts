@@ -35,7 +35,7 @@ test("EnvParser: flags missing equals sign as validation error", () => {
   try {
     const result = parseEnvFile(tmpFile);
     assert.ok(result.issues.some((i) => i.message.includes("Missing equals sign")));
-    assert.ok(result.findings.some((f) => f.category === "validation" && f.severity === "high"));
+    assert.ok(result.findings.some((f) => f.category === "validation" && f.level === "high"));
   } finally {
     fs.unlinkSync(tmpFile);
   }
@@ -73,7 +73,7 @@ test("EnvParser: flags duplicate keys with configuration category and low severi
     const result = parseEnvFile(tmpFile);
     const dupFinding = result.findings.find((f) => f.key === "DUP_KEY" && f.category === "configuration");
     assert.ok(dupFinding, "Duplicate key finding not found");
-    assert.equal(dupFinding.severity, "low");
+    assert.equal(dupFinding.level, "low");
   } finally {
     fs.unlinkSync(tmpFile);
   }

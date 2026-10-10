@@ -5,7 +5,7 @@ import path from "node:path";
 import yaml from "yaml";
 import ignore from "ignore";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
-import type { Finding } from "../../core/findings/finding.js";
+import { createScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 
 const execFileAsync = promisify(execFile);
 const TIMEOUT = 10_000;
@@ -111,7 +111,7 @@ export class DockerScanner implements ScannerEngine {
   }
 
   async scan(context: ScanContext): Promise<ScanResult> {
-    const findings: Finding[] = [];
+    const findings: ScanIssueInput[] = [];
     const diagnostics: string[] = [];
     const scannedInputs: string[] = [];
     const skippedInputs: string[] = [];
@@ -198,10 +198,10 @@ export class DockerScanner implements ScannerEngine {
       }
     }
 
-    return { scanner: this.name, status: partial ? "partial" : "success", findings, scannedInputs, skippedInputs, diagnostics };
+    return { scanner: this.name, status: partial ? "partial" : "success", findings: findings.map(createScanIssue), scannedInputs, skippedInputs, diagnostics };
   }
 
-  private analyzeDockerfile(content: string, file: string, findings: Finding[]): void {
+  private analyzeDockerfile(content: string, file: string, findings: ScanIssueInput[]): void {
     const aliases = new Set<string>();
     const args = new Map<string, string>();
     // Effective USER per named stage, so a final stage built FROM an earlier stage inherits it.
@@ -247,7 +247,7 @@ export class DockerScanner implements ScannerEngine {
     }
   }
 
-  private analyzeCompose(doc: ComposeDocument, file: string, findings: Finding[], confidence: "confirmed" | "inferred" = "confirmed"): void {
+  private analyzeCompose(doc: ComposeDocument, file: string, findings: ScanIssueInput[], confidence: "confirmed" | "inferred" = "confirmed"): void {
     for (const [name, service] of Object.entries(doc.services ?? {})) {
       if (!service || typeof service !== "object") continue;
       const key = safeName(name);
@@ -261,7 +261,7 @@ export class DockerScanner implements ScannerEngine {
     }
   }
 
-  private async analyzeContexts(doc: ComposeDocument, file: string, root: string, findings: Finding[], diagnostics: string[]): Promise<boolean> {
+  private async analyzeContexts(doc: ComposeDocument, file: string, root: string, findings: ScanIssueInput[], diagnostics: string[]): Promise<boolean> {
     let incomplete = false;
     for (const [name, service] of Object.entries(doc.services ?? {})) {
       const build = service?.build;

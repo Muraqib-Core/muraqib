@@ -1,4 +1,4 @@
-import type { Finding } from "../findings/finding.js";
+import type { ScanIssue } from "../findings/finding.js";
 import type {
   ResolutionPlan,
   PackageChange,
@@ -18,7 +18,7 @@ export class ResolutionEngine {
   /**
    * Generates deterministically ranked resolution plans for detected dependency findings.
    */
-  public generatePlans(findings: Finding[]): ResolutionPlan[] {
+  public generatePlans(findings: ScanIssue[]): ResolutionPlan[] {
     const plans: ResolutionPlan[] = [];
     const dependencyFindings = findings.filter(
       (f) => f.dependencyProblem !== undefined

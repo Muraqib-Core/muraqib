@@ -20,7 +20,7 @@ test("CompatibilityEngine: detects ecosystem conflict between React 19 and Next.
     (f) => f.category === "compatibility" && f.title.includes("react")
   );
   assert.ok(conflict, "Expected compatibility conflict between react 19 and next 13");
-  assert.equal(conflict.severity, "medium");
+  assert.equal(conflict.level, "medium");
 });
 
 test("CompatibilityEngine: passes when dependencies are compatible", async () => {

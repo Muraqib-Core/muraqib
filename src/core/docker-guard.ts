@@ -2,7 +2,7 @@ import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditContext } from "./types.js";
 import { createProjectContext } from "../scan/core/context/project-context.js";
 import { DockerScanner } from "../scan/scanners/docker/docker-engine.js";
-import { findingToAuditIssue } from "../scan/bridge.js";
+import { enrichIssue } from "../scan/bridge.js";
 
 interface DockerAuditOptions {
   projectRoot?: string;
@@ -47,7 +47,7 @@ export class DockerGuard extends BaseGuard {
       );
     }
 
-    const issues = result.findings.map(findingToAuditIssue);
+    const issues = result.findings.map(enrichIssue);
     if (issues.length === 0) return this.ok("Docker configuration passed all checks");
     return this.issues(issues, `Found ${issues.length} Docker issue(s)`);
   }
