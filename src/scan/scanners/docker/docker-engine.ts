@@ -49,6 +49,35 @@ function instructions(content: string): Array<{ text: string; line: number }> {
   return result;
 }
 
+/**
+ * Oldest release of an official image that still receives upstream security fixes, as [major, minor].
+ * Review this table when upstream support windows change.
+ */
+const MIN_SUPPORTED: Record<string, readonly [number, number]> = {
+  node: [22, 0],
+  python: [3, 10],
+  ubuntu: [22, 4],
+  debian: [12, 0],
+};
+
+/** Returns "name:version" when the image is an official, end-of-life release; otherwise null. */
+function endOfLifeRelease(image: string): string | null {
+  const match = /^(?:docker\.io\/)?(?:library\/)?(node|python|ubuntu|debian):(\d+)(?:\.(\d+))?(?:[.\-@]|$)/i.exec(image);
+  const name = match?.[1]?.toLowerCase();
+  const minimum = name ? MIN_SUPPORTED[name] : undefined;
+  if (!name || !minimum || !match?.[2]) return null;
+  const major = Number(match[2]);
+  const minor = Number(match[3] ?? 0);
+  const eol = major < minimum[0] || (major === minimum[0] && minor < minimum[1]);
+  return eol ? `${name}:${match[2]}${match[3] !== undefined ? `.${match[3]}` : ""}` : null;
+}
+
+function runsAsRoot(user: string | undefined): boolean {
+  if (user === undefined) return true;
+  const name = (user.split(":")[0] ?? "").toLowerCase();
+  return name === "root" || name === "0";
+}
+
 function copySources(text: string): string[] | null {
   const body = text.replace(/^(COPY|ADD)\s+/i, "").replace(/^(--[\w-]+(?:=\S+)?\s+)*/i, "").trim();
   if (/^\[/.test(body)) {
@@ -175,21 +204,46 @@ export class DockerScanner implements ScannerEngine {
   private analyzeDockerfile(content: string, file: string, findings: Finding[]): void {
     const aliases = new Set<string>();
     const args = new Map<string, string>();
+    // Effective USER per named stage, so a final stage built FROM an earlier stage inherits it.
+    const stageUsers = new Map<string, string | undefined>();
+    let stage: { alias?: string; line: number; user: string | undefined; scratch: boolean } | null = null;
+    const finishStage = (): void => {
+      if (stage?.alias) stageUsers.set(stage.alias, stage.user);
+    };
     for (const { text, line } of instructions(content)) {
       const arg = /^ARG\s+([\w]+)(?:=(\S+))?/i.exec(text);
       if (arg?.[1] && arg[2]) args.set(arg[1], arg[2]);
       const from = /^FROM\s+(?:--platform=\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?/i.exec(text);
       if (from?.[1]) {
+        finishStage();
         const image = from[1].replace(/^\$\{?(\w+)\}?$/, (_, key: string) => args.get(key) ?? "unknown");
+        const parent = image.toLowerCase();
+        stage = {
+          ...(from[2] ? { alias: from[2].toLowerCase() } : {}),
+          line,
+          user: aliases.has(parent) ? stageUsers.get(parent) : undefined,
+          scratch: parent === "scratch",
+        };
         if (image !== "unknown" && image.toLowerCase() !== "scratch" && !aliases.has(image.toLowerCase()) &&
             (image.endsWith(":latest") || (!image.includes(":") && !image.includes("@")))) {
           findings.push({ id: "IM-01", title: "Mutable base image tag", message: `Base image reference ${safeName(image)} uses an implicit or explicit latest tag.`, severity: "medium", category: "reliability", source: this.name, confidence: "inferred", file, line, remediation: "Use an immutable digest for reproducible builds." });
         }
+        const eol = aliases.has(parent) ? null : endOfLifeRelease(image);
+        if (eol) {
+          findings.push({ id: "IM-02", title: "End-of-life base image", message: `Base image ${safeName(eol)} is no longer supported upstream and receives no security fixes.`, severity: "medium", category: "security", source: this.name, confidence: "inferred", file, line, remediation: "Move to a currently supported release of the base image." });
+        }
         if (from[2]) aliases.add(from[2].toLowerCase());
       }
+      const user = /^USER\s+(\S+)/i.exec(text);
+      if (user?.[1] && stage) stage.user = user[1].includes("$") ? "variable" : user[1];
       if (/^(ARG|ENV)\s/i.test(text) && /password|secret|token|key|cred/i.test(text)) {
         findings.push({ id: "SE-01", title: "Potential secret in build instruction", message: "A potentially sensitive name is used in ARG or ENV.", severity: "high", category: "security", source: this.name, confidence: "inferred", file, line, remediation: "Use a build secret mount instead of ARG or ENV for secrets." });
       }
+    }
+    // Only the final stage produces the runtime image.
+    const last = stage as { line: number; user: string | undefined; scratch: boolean } | null;
+    if (last && !last.scratch && runsAsRoot(last.user)) {
+      findings.push({ id: "IM-03", title: "Container runs as root", message: "The final image stage has no non-root USER, so the container runs as root.", severity: "medium", category: "security", source: this.name, confidence: "inferred", file, line: last.line, remediation: "Add a USER instruction with a non-root user before the final CMD or ENTRYPOINT." });
     }
   }
 
