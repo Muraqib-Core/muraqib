@@ -31,8 +31,7 @@
  * ```
  */
 
-import type { AuditResult, AuditIssue, AuditContext, Finding } from "./types.js";
-import { createFinding } from "./findings/finding.js";
+import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 
 export abstract class BaseGuard {
   protected module: string;
@@ -168,44 +167,6 @@ export abstract class BaseGuard {
       recommendation,
       tags: tags ?? [],
     };
-  }
-
-  /**
-   * Convert audit result issues to Finding objects
-   * @param result - AuditResult to convert
-   * @returns Array of Finding objects
-   */
-  protected toFindings(result: AuditResult): Finding[] {
-    const severityMap = {
-      critical: 'critical' as const,
-      error: 'high' as const,
-      warning: 'medium' as const,
-      info: 'info' as const,
-    };
-
-    return result.issues.map(issue =>
-      createFinding(
-        issue.title,
-        issue.message,
-        'other',
-        severityMap[issue.severity],
-        {
-          module: this.module,
-          version: this.context?.npmVersion,
-          environment: this.context?.environment === 'production' ? 'production' : 'development',
-        },
-        {
-          recommendation: issue.recommendation,
-          metadata: {
-            tags: [this.module, issue.code, ...issue.tags],
-            affectedFiles: issue.location?.file ? [issue.location.file] : [],
-            customData: {
-              location: issue.location,
-            },
-          },
-        }
-      )
-    );
   }
 
   /**

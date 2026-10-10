@@ -10,7 +10,7 @@ vi.mock("@google/genai", () => ({
 import { resolveApiKey, generateFindingsAdvisory, generateAdvisory } from "../../../src/ai/advisor";
 import { analyzeUnknownVariablesWithAi } from "../../../src/ai/fallback";
 import { redactSecretsInText, extractSafeMetadata } from "../../../src/ai/safe-metadata";
-import type { Finding } from "../../../src/core/findings/finding";
+import type { AuditIssue } from "../../../src/core/types";
 
 beforeEach(() => {
   generateContent.mockReset();
@@ -56,14 +56,14 @@ describe("prompts never leak secrets", () => {
 
   it("generateFindingsAdvisory returns null without key / findings", async () => {
     expect(await generateFindingsAdvisory([])).toBeNull();
-    const f = { source: "osv", title: "t", description: "d", recommendation: "r" } as unknown as Finding;
+    const f = { code: "X", severity: "error", source: "osv", title: "t", message: "d", recommendation: "r", tags: [] } satisfies AuditIssue;
     expect(await generateFindingsAdvisory([f])).toBeNull();
   });
 
   it("generateFindingsAdvisory sends redacted text and returns trimmed output", async () => {
     process.env.GEMINI_API_KEY = "k";
     generateContent.mockResolvedValue({ text: "  advice \n" });
-    const f = { source: "osv", title: "t", description: "password=hunter2", recommendation: "r" } as unknown as Finding;
+    const f = { code: "X", severity: "error", source: "osv", title: "t", message: "password=hunter2", recommendation: "r", tags: [] } satisfies AuditIssue;
     expect(await generateFindingsAdvisory([f])).toBe("advice");
     expect(generateContent.mock.calls[0][0].contents).not.toContain("hunter2");
   });
