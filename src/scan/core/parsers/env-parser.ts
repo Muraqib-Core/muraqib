@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import type { parsedLine, syntaxIssue } from "../../types/interface.js";
-import type { Finding } from "../findings/finding.js";
+import { createScanIssue, type ScanIssue, type ScanIssueInput } from "../findings/finding.js";
 
 export interface ParseEnvResult {
   parsedLines: parsedLine[];
   issues: syntaxIssue[];
   parsedData: Record<string, string>;
-  findings: Finding[];
+  findings: ScanIssue[];
 }
 
 function stripInlineComment(value: string): string {
@@ -42,7 +42,7 @@ function stripInlineComment(value: string): string {
 export function parseEnvFile(filePath: string): ParseEnvResult {
   const parsedLines: parsedLine[] = [];
   const issues: syntaxIssue[] = [];
-  const findings: Finding[] = [];
+  const findings: ScanIssueInput[] = [];
   const seenKeys = new Set<string>();
   const parsedData: Record<string, string> = {};
 
@@ -217,5 +217,5 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
     parsedData[key] = finalValue;
   });
 
-  return { parsedLines, issues, parsedData, findings };
+  return { parsedLines, issues, parsedData, findings: findings.map(createScanIssue) };
 }

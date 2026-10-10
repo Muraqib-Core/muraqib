@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { ProjectContext } from "../context/project-context.js";
 import { FindingCollector } from "../findings/finding-collector.js";
-import type { Finding } from "../findings/finding.js";
+import { createScanIssue, type ScanIssue } from "../findings/finding.js";
 import { parseEnvFile } from "../parsers/env-parser.js";
 import { createEnv } from "../../guard/env-validator.js";
 import { EnvValidationError } from "../../guard/errors/env-validation-error.js";
@@ -29,7 +29,7 @@ export interface AuditOptions {
 }
 
 export interface AuditReport {
-  findings: Finding[];
+  findings: ScanIssue[];
   totalParsedLines: number;
   engine: string;
   mode: "build" | "prod";
@@ -92,7 +92,7 @@ export class AuditRunner {
             const field = valErr.path[0] ?? "UNKNOWN";
             const meta = envMetaDataRegistry[field] ?? { fileName: ".env", line: 0 };
 
-            collector.add({
+            collector.add(createScanIssue({
               id: `preset-violation-${field}`,
               title: `Preset Violation: ${field}`,
               message: valErr.message,
@@ -102,7 +102,7 @@ export class AuditRunner {
               file: meta.fileName,
               line: meta.line,
               key: field,
-            });
+            }));
           }
         } else {
           const msg = err instanceof Error ? err.message : String(err);
@@ -118,7 +118,7 @@ export class AuditRunner {
       for (const err of aiErrors) {
         const field = err.path[0] ?? "UNKNOWN";
         const meta = envMetaDataRegistry[field] ?? { fileName: ".env", line: 0 };
-        collector.add({
+        collector.add(createScanIssue({
           id: `ai-finding-${field}`,
           title: `AI Configuration Finding: ${field}`,
           message: err.message,
@@ -129,7 +129,7 @@ export class AuditRunner {
           file: meta.fileName,
           line: meta.line,
           key: field,
-        });
+        }));
       }
     }
 
@@ -156,7 +156,7 @@ export class AuditRunner {
         diagnostics: osvResult.diagnostics ?? [],
       });
       if (osvResult.status === "failed") {
-        collector.add({
+        collector.add(createScanIssue({
           id: "scanner-osv-failed",
           title: "OSV scan failed",
           message: osvResult.error ?? "OSV scan failed.",
@@ -165,11 +165,11 @@ export class AuditRunner {
           source: "osv",
           confidence: "confirmed",
           evidence: (osvResult.diagnostics ?? []).join(" "),
-        });
+        }));
       } else {
         collector.addMany(osvResult.findings);
         if (osvResult.status === "partial") {
-          collector.add({
+          collector.add(createScanIssue({
             id: "scanner-osv-partial",
             title: "OSV scan completed partially",
             message: osvResult.error ?? "Some dependencies were not verified by OSV.",
@@ -178,7 +178,7 @@ export class AuditRunner {
             source: "osv",
             confidence: "confirmed",
             evidence: (osvResult.diagnostics ?? []).join(" "),
-          });
+          }));
         }
       }
     }
@@ -194,7 +194,7 @@ export class AuditRunner {
         diagnostics: compatResult.diagnostics ?? [],
       });
       if (compatResult.status === "failed") {
-        collector.add({
+        collector.add(createScanIssue({
           id: "scanner-compat-failed",
           title: "Compatibility scanner failed",
           message: compatResult.error ?? "Compatibility scanner failed.",
@@ -203,7 +203,7 @@ export class AuditRunner {
           source: compatScanner.name,
           confidence: "confirmed",
           evidence: (compatResult.diagnostics ?? []).join(" "),
-        });
+        }));
       } else {
         collector.addMany(compatResult.findings);
       }
@@ -220,7 +220,7 @@ export class AuditRunner {
         diagnostics: dockerResult.diagnostics ?? [],
       });
       if (dockerResult.status === "failed") {
-        collector.add({
+        collector.add(createScanIssue({
           id: "scanner-docker-failed",
           title: "Docker scanner failed",
           message: dockerResult.error ?? "Docker scanner failed.",
@@ -229,11 +229,11 @@ export class AuditRunner {
           source: dockerScanner.name,
           confidence: "confirmed",
           evidence: (dockerResult.diagnostics ?? []).join(" "),
-        });
+        }));
       } else {
         collector.addMany(dockerResult.findings);
         if (dockerResult.status === "partial") {
-          collector.add({
+          collector.add(createScanIssue({
             id: "scanner-docker-partial",
             title: "Docker scan completed partially",
             message: dockerResult.error ?? "Some Docker files were not verified.",
@@ -242,7 +242,7 @@ export class AuditRunner {
             source: dockerScanner.name,
             confidence: "confirmed",
             evidence: (dockerResult.diagnostics ?? []).join(" "),
-          });
+          }));
         }
       }
     }

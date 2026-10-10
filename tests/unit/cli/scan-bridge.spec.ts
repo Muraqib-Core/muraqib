@@ -2,18 +2,20 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { findingToAuditIssue, runScanAudit } from "../../../src/scan/bridge.js";
+import { enrichIssue, runScanAudit } from "../../../src/scan/bridge.js";
 import { createAuditReport } from "../../../src/cli/index.js";
-import type { Finding } from "../../../src/scan/core/findings/finding.js";
+import { createScanIssue, type ScanIssueInput } from "../../../src/scan/core/findings/finding.js";
 
-const base: Finding = { id: "x", title: "t", message: "m", severity: "high", category: "security", source: "osv" };
+const base: ScanIssueInput = { id: "x", title: "t", message: "m", severity: "high", category: "security", source: "osv" };
+
+const toIssue = (input: ScanIssueInput) => enrichIssue(createScanIssue(input));
 
 describe("scan bridge", () => {
   it("maps severities and metadata", () => {
-    expect(findingToAuditIssue({ ...base, severity: "high" }).severity).toBe("error");
-    expect(findingToAuditIssue({ ...base, severity: "medium" }).severity).toBe("warning");
-    expect(findingToAuditIssue({ ...base, severity: "low" }).severity).toBe("info");
-    const i = findingToAuditIssue({ ...base, file: ".env", line: 3, remediation: "fix", confidence: "confirmed" });
+    expect(toIssue({ ...base, severity: "high" }).severity).toBe("error");
+    expect(toIssue({ ...base, severity: "medium" }).severity).toBe("warning");
+    expect(toIssue({ ...base, severity: "low" }).severity).toBe("info");
+    const i = toIssue({ ...base, file: ".env", line: 3, remediation: "fix", confidence: "confirmed" });
     expect(i.location).toEqual({ file: ".env", line: 3 });
     expect(i.recommendation).toBe("fix");
     expect(i.tags).toContain("confirmed");
@@ -21,11 +23,15 @@ describe("scan bridge", () => {
 
   it("carries scan detail through to the issue", () => {
     const image = { imageId: "i", target: "t", ecosystem: "npm", package: "p", installedVersion: "1", advisoryId: "A", scannedAt: "now" };
-    const i = findingToAuditIssue({ ...base, key: "PORT", evidence: "PORT=x", imageProblem: image });
+    const i = toIssue({ ...base, key: "PORT", evidence: "PORT=x", imageProblem: image });
     expect(i.key).toBe("PORT");
     expect(i.evidence).toBe("PORT=x");
     expect(i.imageProblem).toEqual(image);
     expect(i.confidence).toBeUndefined();
+    expect(i.code).toBe("x");
+    expect(i.level).toBe("high");
+    expect(i.category).toBe("security");
+    expect(i.source).toBe("osv");
   });
 
   it("adds advisory ids and an upgrade recommendation for OSV dependency problems", () => {
@@ -42,7 +48,7 @@ describe("scan bridge", () => {
       affectedRanges: [],
       fixedVersions: ["4.17.12", "4.17.21"],
     };
-    const i = findingToAuditIssue({ ...base, message: "has 5 known vulnerabilities.", dependencyProblem: problem });
+    const i = toIssue({ ...base, message: "has 5 known vulnerabilities.", dependencyProblem: problem });
     expect(i.message).toContain("GHSA-a, GHSA-b, GHSA-c (+2 more)");
     expect(i.recommendation).toBe("Upgrade lodash to >= 4.17.21");
     // fixes on other major lines must not inflate the target
@@ -59,8 +65,8 @@ describe("scan bridge", () => {
       ],
       fixedVersions: ["4.17.21", "5.2.0"],
     };
-    expect(findingToAuditIssue({ ...base, dependencyProblem: otherLine }).recommendation).toBe("Upgrade lodash to >= 4.17.21");
-    const noFix = findingToAuditIssue({ ...base, dependencyProblem: { ...problem, advisories: [{ id: "GHSA-n" }], fixedVersions: [] } });
+    expect(toIssue({ ...base, dependencyProblem: otherLine }).recommendation).toBe("Upgrade lodash to >= 4.17.21");
+    const noFix = toIssue({ ...base, dependencyProblem: { ...problem, advisories: [{ id: "GHSA-n" }], fixedVersions: [] } });
     expect(noFix.recommendation).toBeUndefined();
   });
 

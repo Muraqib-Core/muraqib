@@ -36,7 +36,7 @@ COPY . /app
         dockerignoreFiles: []
       });
 
-      const copyFinding = result.findings.find(f => f.id === "IM-05");
+      const copyFinding = result.findings.find(f => f.code === "IM-05");
       assert.ok(copyFinding, "Should find IM-05");
       assert.match(copyFinding.message, /copies unignored sensitive file "\.env"/);
     });
@@ -69,7 +69,7 @@ COPY . /app
         dockerignoreFiles: [".dockerignore"]
       });
 
-      const copyFinding = result.findings.find(f => f.id === "IM-05");
+      const copyFinding = result.findings.find(f => f.code === "IM-05");
       assert.ok(!copyFinding, "Should not find IM-05 because .env is ignored");
     });
 
@@ -106,7 +106,7 @@ COPY . /app
         dockerignoreFiles: [".dockerignore", "dev.Dockerfile.dockerignore"]
       });
 
-      const copyFinding = result.findings.find(f => f.id === "IM-05");
+      const copyFinding = result.findings.find(f => f.code === "IM-05");
       assert.ok(copyFinding, "Should find IM-05 because dev.Dockerfile.dockerignore negates the ignore");
     });
 
@@ -139,7 +139,7 @@ COPY --from=builder /src/.env /app/.env
         dockerignoreFiles: []
       });
 
-      const copyFinding = result.findings.find(f => f.id === "IM-05");
+      const copyFinding = result.findings.find(f => f.code === "IM-05");
       assert.ok(!copyFinding, "Should not find IM-05 because local .env was not copied by local COPY");
     });
 

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
-import type { DependencyType, Finding } from "../../core/findings/finding.js";
+import { createScanIssue, type DependencyType, type ScanIssueInput } from "../../core/findings/finding.js";
 import { queryOsv, type OsvVulnerability } from "./osv-client.js";
 
 interface PackageToScan {
@@ -111,7 +111,7 @@ export class OsvScanner implements ScannerEngine {
       }
     );
 
-    const findings: Finding[] = [];
+    const findings: ScanIssueInput[] = [];
     let hasNetworkErrors = false;
     let hasTimeouts = false;
     let successfulQueries = 0;
@@ -192,7 +192,7 @@ export class OsvScanner implements ScannerEngine {
       return {
         scanner: this.name,
         status: successfulQueries > 0 ? "partial" : "failed",
-        findings: findings.sort((a, b) => a.id.localeCompare(b.id)),
+        findings: findings.sort((a, b) => a.id.localeCompare(b.id)).map(createScanIssue),
         error: "One or more dependencies could not be verified by OSV.",
         diagnostics: diagnostics.sort(),
       };
@@ -201,7 +201,7 @@ export class OsvScanner implements ScannerEngine {
     return {
       scanner: this.name,
       status: "success",
-      findings: findings.sort((a, b) => a.id.localeCompare(b.id)),
+      findings: findings.sort((a, b) => a.id.localeCompare(b.id)).map(createScanIssue),
     };
   }
 

@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { ResolutionApplier } from "../../src/scan/core/resolution/resolution-applier.js";
 import { ResolutionEngine } from "../../src/scan/core/resolution/resolution-engine.js";
 import { DependencyGraph } from "../../src/scan/core/resolution/dependency-graph.js";
-import type { Finding, DependencyProblemData } from "../../src/scan/core/findings/finding.js";
+import { createScanIssue, type DependencyProblemData } from "../../src/scan/core/findings/finding.js";
 import type { ResolutionPlan } from "../../src/scan/core/resolution/resolution-plan.js";
 
 // Helper to create an isolated test project fixture
@@ -39,7 +39,7 @@ test("Resolution: 24 OSV advisories roll up into ONE package-level finding with 
     resolutionMetadata: { ecosystem: "npm", source: "osv" },
   };
 
-  const finding: Finding = {
+  const finding = createScanIssue({
     id: "osv-axios",
     title: "Dependency Problem: axios",
     message: "Package 'axios' (0.21.1) has 24 known vulnerabilities.",
@@ -52,12 +52,12 @@ test("Resolution: 24 OSV advisories roll up into ONE package-level finding with 
     // OSV does not invent a pre-cooked remediation string
     remediation: undefined,
     dependencyProblem: problemData,
-  };
+  });
 
   // Assert: Exactly one finding represents the package problem
-  assert.equal(finding.id, "osv-axios");
+  assert.equal(finding.code, "osv-axios");
   assert.equal(finding.title, "Dependency Problem: axios");
-  assert.equal(finding.remediation, undefined, "OSV must not produce a pre-cooked remediation string");
+  assert.equal(finding.recommendation, undefined, "OSV must not produce a pre-cooked remediation string");
 
   // Assert: All 24 advisories and metadata are preserved internally
   assert.equal(finding.dependencyProblem?.advisoryCount, 24);
@@ -74,7 +74,7 @@ test("ResolutionEngine: generates real ResolutionPlan with candidate analysis an
     dependencies: { axios: "^0.21.1" },
   });
 
-  const finding: Finding = {
+  const finding = createScanIssue({
     id: "osv-axios",
     title: "Dependency Problem: axios",
     message: "Package 'axios' (0.21.1) has 24 known vulnerabilities.",
@@ -91,7 +91,7 @@ test("ResolutionEngine: generates real ResolutionPlan with candidate analysis an
       affectedRanges: [">= 0.19.0 < 1.8.2"],
       fixedVersions: ["0.21.4", "1.8.2"],
     },
-  };
+  });
 
   const engine = new ResolutionEngine(graph);
   const plans = engine.generatePlans([finding]);
@@ -119,7 +119,7 @@ test("ResolutionEngine: generates Coordinated Upgrade plan when related packages
     },
   });
 
-  const finding: Finding = {
+  const finding = createScanIssue({
     id: "osv-prisma",
     title: "Dependency Problem: prisma",
     message: "Package 'prisma' (6.1.0) has 1 known vulnerability.",
@@ -136,7 +136,7 @@ test("ResolutionEngine: generates Coordinated Upgrade plan when related packages
       affectedRanges: ["< 6.4.0"],
       fixedVersions: ["6.4.0"],
     },
-  };
+  });
 
   const engine = new ResolutionEngine(graph);
   const plans = engine.generatePlans([finding]);

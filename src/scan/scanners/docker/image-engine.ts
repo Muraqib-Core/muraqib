@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { Finding, FindingSeverity } from "../../core/findings/finding.js";
+import { createScanIssue, type FindingSeverity, type ScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 import type { ScanResult } from "../../core/contracts/scanner-engine.js";
 
 const execFileAsync = promisify(execFile);
@@ -31,10 +31,10 @@ function label(value: unknown): string {
 }
 
 /** Normalize only advisory/package metadata. Trivy's raw JSON can contain secrets; never return it. */
-export function parseTrivyReport(input: unknown, imageId: string, scannedAt: string = new Date().toISOString()): Finding[] {
+export function parseTrivyReport(input: unknown, imageId: string, scannedAt: string = new Date().toISOString()): ScanIssue[] {
   const report = input as TrivyReport;
   if (!report || !Array.isArray(report.Results) || report.Results.length === 0) throw new Error("Missing package inventory in Trivy result");
-  const findings: Finding[] = [];
+  const findings: ScanIssueInput[] = [];
   const seen = new Set<string>();
   for (const result of report.Results) {
     if (!result || !Array.isArray(result.Vulnerabilities)) continue;
@@ -59,7 +59,7 @@ export function parseTrivyReport(input: unknown, imageId: string, scannedAt: str
       });
     }
   }
-  return findings;
+  return findings.map(createScanIssue);
 }
 
 export class DockerImageScanner {

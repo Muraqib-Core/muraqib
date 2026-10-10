@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
-import type { Finding } from "../../core/findings/finding.js";
+import { createScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 
 interface KnownRule {
   packageA: string;
@@ -49,7 +49,7 @@ export class CompatibilityEngine implements ScannerEngine {
       return { scanner: this.name, status: "success", findings: [] };
     }
 
-    const findings: Finding[] = [];
+    const findings: ScanIssueInput[] = [];
     let packageJson: {
       engines?: Record<string, string>;
       dependencies?: Record<string, string>;
@@ -128,7 +128,7 @@ export class CompatibilityEngine implements ScannerEngine {
     return {
       scanner: this.name,
       status: "success",
-      findings,
+      findings: findings.map(createScanIssue),
     };
   }
 }

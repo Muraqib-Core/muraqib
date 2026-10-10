@@ -7,7 +7,9 @@ import { z } from "zod";
 import type { Finding } from "./findings/finding.js";
 import type {
   DependencyProblemData,
+  FindingCategory as ScanCategory,
   FindingConfidence,
+  FindingSeverity as ScanLevel,
   ImageProblemData,
 } from "../scan/core/findings/finding.js";
 
@@ -55,6 +57,10 @@ export interface AuditIssue {
   };
   recommendation?: string;
   tags: string[];
+  /** Five-level severity from the scan layer; `severity` is its guard-level view. */
+  level?: ScanLevel;
+  category?: ScanCategory;
+  source?: string;
   /** Scan-layer detail carried through so an issue loses nothing a Finding held. */
   confidence?: FindingConfidence;
   evidence?: string;

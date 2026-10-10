@@ -1,20 +1,12 @@
 /**
- * Bridge between the scan layer (Jenan's Finding model / AuditRunner) and the guard layer
- * (Aya's AuditIssue / AuditResult), so both feed one unified report.
+ * Runs the scan layer (AuditRunner) and maps its issues into an AuditResult so both layers
+ * feed one unified report. Both layers share the AuditIssue model.
  */
 import type { AuditIssue, AuditResult } from "../core/types.js";
 import semver from "semver";
-import type { DependencyProblemData, Finding, OsvAdvisoryData } from "./core/findings/finding.js";
+import type { DependencyProblemData, OsvAdvisoryData } from "./core/findings/finding.js";
 import { createProjectContext } from "./core/context/project-context.js";
 import { AuditRunner, type AuditReport as ScanReport } from "./core/runner/audit-runner.js";
-
-const SEVERITY_MAP: Record<Finding["severity"], AuditIssue["severity"]> = {
-  critical: "critical",
-  high: "error",
-  medium: "warning",
-  low: "info",
-  info: "info",
-};
 
 const MAX_LISTED_ADVISORIES = 3;
 
@@ -59,31 +51,18 @@ function describeDependencyProblem(problem: DependencyProblemData): { ids: strin
   return description;
 }
 
-export function findingToAuditIssue(f: Finding): AuditIssue {
-  let message = f.message;
-  let recommendation = f.remediation;
-  if (f.dependencyProblem) {
-    const { ids, upgrade } = describeDependencyProblem(f.dependencyProblem);
-    if (ids) message = `${message} Advisories: ${ids}.`;
-    recommendation = recommendation ?? upgrade;
-  }
-  const issue: AuditIssue = {
-    code: f.id,
-    severity: SEVERITY_MAP[f.severity],
-    title: f.title,
-    message,
-    tags: [f.source, f.category, ...(f.confidence ? [f.confidence] : [])],
-  };
-  if (recommendation) issue.recommendation = recommendation;
-  if (f.confidence) issue.confidence = f.confidence;
-  if (f.evidence) issue.evidence = f.evidence;
-  if (f.key) issue.key = f.key;
-  if (f.dependencyProblem) issue.dependencyProblem = f.dependencyProblem;
-  if (f.imageProblem) issue.imageProblem = f.imageProblem;
-  if (f.file) {
-    issue.location = { file: f.file, ...(f.line !== undefined ? { line: f.line } : {}) };
-  }
-  return issue;
+/**
+ * Report-time enrichment for OSV dependency problems: lists the advisory ids in the message and
+ * recommends the lowest fixing version. Other issues pass through untouched.
+ */
+export function enrichIssue(issue: AuditIssue): AuditIssue {
+  if (!issue.dependencyProblem) return issue;
+  const { ids, upgrade } = describeDependencyProblem(issue.dependencyProblem);
+  const enriched: AuditIssue = { ...issue };
+  if (ids) enriched.message = `${issue.message} Advisories: ${ids}.`;
+  const recommendation = issue.recommendation ?? upgrade;
+  if (recommendation) enriched.recommendation = recommendation;
+  return enriched;
 }
 
 export interface ScanAuditOptions {
@@ -106,7 +85,7 @@ export async function runScanAudit(projectRoot: string, options: ScanAuditOption
     enableAi: options.enableAi ?? false,
     dockerNative: options.dockerNative ?? false,
   });
-  const issues = report.findings.map(findingToAuditIssue);
+  const issues = report.findings.map(enrichIssue);
   const failed = report.exitCode === 3;
   const result: AuditResult = {
     status: failed ? "error" : issues.length === 0 ? "ok" : issues.some((i) => i.severity === "critical" || i.severity === "error") ? "issues" : "warning",

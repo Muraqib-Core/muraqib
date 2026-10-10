@@ -1,26 +1,26 @@
-import type { Finding } from "./finding.js";
+import type { ScanIssue } from "./finding.js";
 
 export class FindingCollector {
-  private findings: Finding[] = [];
+  private findings: ScanIssue[] = [];
 
-  add(finding: Finding): void {
+  add(finding: ScanIssue): void {
     this.findings.push(finding);
   }
 
-  addMany(findings: Finding[]): void {
+  addMany(findings: ScanIssue[]): void {
     this.findings.push(...findings);
   }
 
-  getAll(): Finding[] {
+  getAll(): ScanIssue[] {
     return [...this.findings];
   }
 
-  getByCategory(category: Finding["category"]): Finding[] {
+  getByCategory(category: ScanIssue["category"]): ScanIssue[] {
     return this.findings.filter((f) => f.category === category);
   }
 
-  getBySeverity(severity: Finding["severity"]): Finding[] {
-    return this.findings.filter((f) => f.severity === severity);
+  getBySeverity(severity: ScanIssue["level"]): ScanIssue[] {
+    return this.findings.filter((f) => f.level === severity);
   }
 
   hasBlockingIssues(minimumSeverity: "high" | "medium" = "high"): boolean {
@@ -30,7 +30,7 @@ export class FindingCollector {
       : new Set(["critical", "high"]);
 
   return this.findings.some((finding) =>
-    blocking.has(finding.severity)
+    blocking.has(finding.level)
   );
 }
 

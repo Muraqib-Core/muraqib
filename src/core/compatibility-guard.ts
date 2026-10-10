@@ -3,7 +3,7 @@ import { join } from "path";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 import { CompatibilityEngine } from "../scan/scanners/compatibility/compatibility-engine.js";
-import { findingToAuditIssue } from "../scan/bridge.js";
+import { enrichIssue } from "../scan/bridge.js";
 
 export interface CompatibilityAuditResult {
   isCompatible: boolean;
@@ -147,7 +147,7 @@ export class CompatibilityGuard extends BaseGuard {
     const scanContext = { projectPath: root, files: [] as string[] };
     if (engine.supports(scanContext)) {
       const scan = await engine.scan(scanContext);
-      auditIssues.push(...scan.findings.map(findingToAuditIssue));
+      auditIssues.push(...scan.findings.map(enrichIssue));
     }
 
     const total = auditIssues.length;

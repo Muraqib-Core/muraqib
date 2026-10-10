@@ -14,9 +14,9 @@ import { DockerRuntimeScanner } from "./scanners/docker/runtime-engine.js";
 import type { ScanResult } from "./core/contracts/scanner-engine.js";
 
 function renderTargetScan(result: ScanResult, json: boolean): number {
-  const exitCode = result.status === "success" ? (result.findings.some(f => f.severity === "high" || f.severity === "critical") ? 1 : 0) : 3;
+  const exitCode = result.status === "success" ? (result.findings.some(f => f.level === "high" || f.level === "critical") ? 1 : 0) : 3;
   if (json) {
-    console.log(JSON.stringify({ schemaVersion: "1.2", status: exitCode === 3 ? "error" : exitCode === 1 ? "failed" : "passed", exitCode, scannerCoverage: [{ scanner: result.scanner, status: result.status, scannedInputs: result.scannedInputs ?? [], skippedInputs: result.skippedInputs ?? [], diagnostics: result.diagnostics ?? [] }], findings: result.findings }, null, 2));
+    console.log(JSON.stringify({ schemaVersion: "2.0", status: exitCode === 3 ? "error" : exitCode === 1 ? "failed" : "passed", exitCode, scannerCoverage: [{ scanner: result.scanner, status: result.status, scannedInputs: result.scannedInputs ?? [], skippedInputs: result.skippedInputs ?? [], diagnostics: result.diagnostics ?? [] }], findings: result.findings }, null, 2));
   } else {
     renderFindings(result.findings);
     console.log(`${result.scanner}: ${result.status}`);
@@ -174,7 +174,7 @@ Options:
       console.log(
         JSON.stringify(
           {
-            schemaVersion: "1.0",
+            schemaVersion: "2.0",
             status: "error",
             exitCode: 3,
             error: { code: "AUDIT_EXECUTION_FAILED", message: msg },

@@ -2,7 +2,7 @@ import type { AuditReport } from "../../core/runner/audit-runner.js";
 
 export function renderJsonReport(report: AuditReport): void {
   const output = {
-    schemaVersion: "1.1",
+    schemaVersion: "2.0",
     timestamp: new Date().toISOString(),
     status: report.exitCode === 0 ? "passed" : "failed",
     exitCode: report.exitCode,

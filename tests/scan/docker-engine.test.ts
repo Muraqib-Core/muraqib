@@ -37,11 +37,11 @@ test("DockerScanner", async (t) => {
 
     const result = await scanner.scan(ctx);
     
-    const im01 = result.findings.find(f => f.id === "IM-01");
+    const im01 = result.findings.find(f => f.code === "IM-01");
     assert.ok(im01, "Should find mutable latest tag (IM-01)");
-    assert.strictEqual(im01.file, "Dockerfile.trigger");
+    assert.strictEqual(im01.location?.file, "Dockerfile.trigger");
 
-    const se01 = result.findings.filter(f => f.id === "SE-01");
+    const se01 = result.findings.filter(f => f.code === "SE-01");
     assert.strictEqual(se01.length, 2, "Should find sensitive ENV and ARG (SE-01)");
   });
 
@@ -60,10 +60,10 @@ test("DockerScanner", async (t) => {
 
     const result = await scanner.scan(ctx);
     
-    const im01 = result.findings.find(f => f.id === "IM-01");
+    const im01 = result.findings.find(f => f.code === "IM-01");
     assert.ok(!im01, "Should not flag pinned digest");
 
-    const se01 = result.findings.find(f => f.id === "SE-01");
+    const se01 = result.findings.find(f => f.code === "SE-01");
     assert.ok(!se01, "Should not flag safe ENV");
   });
 
@@ -86,10 +86,10 @@ test("DockerScanner", async (t) => {
 
     const result = await scanner.scan(ctx);
     
-    const pr02 = result.findings.find(f => f.id === "PR-02");
+    const pr02 = result.findings.find(f => f.code === "PR-02");
     assert.ok(pr02, "Should find privileged mode (PR-02)");
 
-    const pr05 = result.findings.find(f => f.id === "PR-05");
+    const pr05 = result.findings.find(f => f.code === "PR-05");
     assert.ok(pr05, "Should find docker.sock mount (PR-05)");
   });
 
@@ -121,7 +121,7 @@ test("DockerScanner", async (t) => {
     };
 
     const result = await scanner.scan(ctx);
-    const co01 = result.findings.find(f => f.id === "CO-01");
+    const co01 = result.findings.find(f => f.code === "CO-01");
     assert.ok(co01, "Should emit finding for invalid YAML");
     assert.strictEqual(result.skippedInputs?.length, 1); // skipped further analysis
   });
