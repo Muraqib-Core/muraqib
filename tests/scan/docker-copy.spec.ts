@@ -1,16 +1,21 @@
-import { test } from "node:test";
+import { describe, test, beforeAll, afterAll } from "vitest";
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { DockerScanner } from "../../src/scan/scanners/docker/docker-engine.js";
 
-test("DockerScanner COPY analysis", async (t) => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "muraqib-docker-copy-test-"));
+describe("DockerScanner COPY analysis", () => {
+  let tmpDir = "";
+  beforeAll(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "muraqib-docker-copy-test-"));
+  });
+  afterAll(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
 
-  try {
     // Scenario 1: COPY . /app with .env present and not ignored
-    await t.test("Broad copy includes unignored .env", async () => {
+    test("Broad copy includes unignored .env", async () => {
       const projPath = path.join(tmpDir, "scen1");
       await fs.mkdir(projPath);
       await fs.writeFile(path.join(projPath, "docker-compose.yml"), `
@@ -42,7 +47,7 @@ COPY . /app
     });
 
     // Scenario 2: .dockerignore excludes .env
-    await t.test(".dockerignore excludes .env", async () => {
+    test(".dockerignore excludes .env", async () => {
       const projPath = path.join(tmpDir, "scen2");
       await fs.mkdir(projPath);
       await fs.writeFile(path.join(projPath, "docker-compose.yml"), `
@@ -74,7 +79,7 @@ COPY . /app
     });
 
     // Scenario 3: Dockerfile-specific ignore file takes precedence
-    await t.test("Dockerfile-specific ignore file takes precedence", async () => {
+    test("Dockerfile-specific ignore file takes precedence", async () => {
       const projPath = path.join(tmpDir, "scen3");
       await fs.mkdir(projPath);
       await fs.writeFile(path.join(projPath, "docker-compose.yml"), `
@@ -111,7 +116,7 @@ COPY . /app
     });
 
     // Scenario 4: COPY --from=builder ...
-    await t.test("COPY --from is ignored for local context analysis", async () => {
+    test("COPY --from is ignored for local context analysis", async () => {
       const projPath = path.join(tmpDir, "scen4");
       await fs.mkdir(projPath);
       await fs.writeFile(path.join(projPath, "docker-compose.yml"), `
@@ -143,7 +148,4 @@ COPY --from=builder /src/.env /app/.env
       assert.ok(!copyFinding, "Should not find IM-05 because local .env was not copied by local COPY");
     });
 
-  } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  }
 });

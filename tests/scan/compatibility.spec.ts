@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { CompatibilityEngine } from "../../src/scan/scanners/compatibility/compatibility-engine.js";
 
