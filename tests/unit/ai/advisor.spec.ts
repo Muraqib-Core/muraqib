@@ -171,6 +171,7 @@ describe("advisor", () => {
       title: "Dep problem",
       message: "vulnerable",
       source: "osv",
+      tags: [],
       recommendation: "upgrade",
     } as never;
 
@@ -188,16 +189,14 @@ describe("advisor", () => {
       expect(sent).toContain('"lodash": "4.0.0"');
     });
 
-    test("supports core Finding objects with a structured source and description", async () => {
+    test("falls back to the first tag, then 'unknown', when an issue has no source", async () => {
       generateContent.mockResolvedValue({ text: "ok" });
-      const finding = {
-        title: "T",
-        description: "desc",
-        source: { module: "security-guard" },
-      } as never;
-      await generateFindingsAdvisory([finding], {}, { apiKey: "k" });
+      const tagged = { code: "A", severity: "error", title: "T", message: "m", tags: ["security-guard"] } as never;
+      const bare = { code: "B", severity: "error", title: "U", message: "n", tags: [] } as never;
+      await generateFindingsAdvisory([tagged, bare], {}, { apiKey: "k" });
       const sent = String(generateContent.mock.calls[0]?.[0]?.contents);
-      expect(sent).toContain("[security-guard] T: desc (Remediation: N/A)");
+      expect(sent).toContain("[security-guard] T: m (Remediation: N/A)");
+      expect(sent).toContain("[unknown] U: n (Remediation: N/A)");
     });
 
     test("returns null when the response has no text or the call fails", async () => {

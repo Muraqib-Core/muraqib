@@ -9,8 +9,6 @@
 import { GoogleGenAI } from "@google/genai";
 import os from "node:os";
 import type { AuditResult, AuditIssue } from "../core/types.js";
-import type { Finding } from "../core/findings/finding.js";
-import type { ScanIssue } from "../scan/core/findings/finding.js";
 import { redactSecretsInText } from "./safe-metadata.js";
 
 /**
@@ -343,7 +341,7 @@ export async function generateAuditAdvisory(
  * (the advisor is optional and must never break the audit).
  */
 export async function generateFindingsAdvisory(
-  findings: ReadonlyArray<Finding | ScanIssue>,
+  findings: ReadonlyArray<AuditIssue>,
   dependencies: Record<string, string> = {},
   config: AIAdvisorConfig = {}
 ): Promise<string | null> {
@@ -354,9 +352,8 @@ export async function generateFindingsAdvisory(
     const ai = new GoogleGenAI({ apiKey });
     const context = findings
       .map((f, i) => {
-        const source = typeof f.source === "string" ? f.source : f.source.module;
-        const text = "description" in f ? f.description : f.message;
-        return `${i + 1}. [${source}] ${redactSecretsInText(f.title)}: ${redactSecretsInText(text)} (Remediation: ${redactSecretsInText(f.recommendation ?? "N/A")})`;
+        const source = f.source ?? f.tags[0] ?? "unknown";
+        return `${i + 1}. [${source}] ${redactSecretsInText(f.title)}: ${redactSecretsInText(f.message)} (Remediation: ${redactSecretsInText(f.recommendation ?? "N/A")})`;
       })
       .join("\n");
 

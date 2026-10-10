@@ -47,7 +47,7 @@ describe('AuditOrchestrator', () => {
 
       expect(result).toHaveProperty('success');
       expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('findings');
+      expect(result).toHaveProperty('issues');
       expect(result).toHaveProperty('summary');
     });
 
@@ -90,21 +90,19 @@ describe('AuditOrchestrator', () => {
       // Should have at least memory guard result
       expect(result.results.length).toBeGreaterThan(0);
 
-      // All findings should reference issues
-      for (const finding of result.findings) {
-        expect(finding).toHaveProperty('id');
-        expect(finding).toHaveProperty('type');
-        expect(finding).toHaveProperty('severity');
+      // Every aggregated issue carries the unified AuditIssue fields
+      for (const issue of result.issues) {
+        expect(issue).toHaveProperty('code');
+        expect(issue).toHaveProperty('severity');
+        expect(issue).toHaveProperty('title');
       }
     });
 
-    it('should include orchestrated tag in findings', async () => {
+    it('should report a summary that matches the aggregated issues', async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
 
-      for (const finding of result.findings) {
-        expect(finding.tags).toContain('orchestrated');
-      }
+      expect(result.summary.totalIssues).toBe(result.issues.length);
     });
   });
 
@@ -116,7 +114,7 @@ describe('AuditOrchestrator', () => {
       });
 
       const result = await orchestrator.execute();
-      const issues = result.findings;
+      const issues = result.issues;
 
       // Verify sort order: critical, error, warning, info
       const severities = issues.map((i) => i.severity);
@@ -135,7 +133,7 @@ describe('AuditOrchestrator', () => {
       });
 
       const result = await orchestrator.execute();
-      const issues = result.findings;
+      const issues = result.issues;
 
       // Verify reverse sort order
       const severities = issues.map((i) => i.severity);
@@ -154,7 +152,7 @@ describe('AuditOrchestrator', () => {
       });
 
       const result = await orchestrator.execute();
-      const issues = result.findings;
+      const issues = result.issues;
 
       // Verify alphabetical sort
       const modules = issues.map((i) => i.tags?.[0] ?? '');
@@ -168,18 +166,18 @@ describe('AuditOrchestrator', () => {
     it('should filter issues by severity', async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
-      const allIssues = result.findings;
+      const allIssues = result.issues;
 
       const critical = orchestrator.getIssuesBySeverity(
-        allIssues as any,
+        allIssues,
         'critical'
       );
       const errors = orchestrator.getIssuesBySeverity(
-        allIssues as any,
+        allIssues,
         'error'
       );
       const warnings = orchestrator.getIssuesBySeverity(
-        allIssues as any,
+        allIssues,
         'warning'
       );
 
@@ -191,10 +189,10 @@ describe('AuditOrchestrator', () => {
     it('should group issues by module', async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
-      const allIssues = result.findings;
+      const allIssues = result.issues;
 
       const byModule = orchestrator.getIssuesByModule(
-        allIssues as any
+        allIssues
       );
 
       expect(byModule).toBeInstanceOf(Map);
@@ -320,18 +318,18 @@ describe('AuditOrchestrator', () => {
       // Verify full pipeline execution
       expect(result.success).toBe(true);
       expect(result.results.length).toBeGreaterThan(0);
-      expect(Array.isArray(result.findings)).toBe(true);
+      expect(Array.isArray(result.issues)).toBe(true);
       expect(result.summary.totalIssues).toBeGreaterThanOrEqual(0);
       expect(result.summary.duration).toBeGreaterThanOrEqual(0);
 
       // Verify issues are properly aggregated
-      const criticalCount = result.findings.filter(
+      const criticalCount = result.issues.filter(
         (f) => f.severity === 'critical'
       ).length;
-      const errorCount = result.findings.filter(
+      const errorCount = result.issues.filter(
         (f) => f.severity === 'error'
       ).length;
-      const warningCount = result.findings.filter(
+      const warningCount = result.issues.filter(
         (f) => f.severity === 'warning'
       ).length;
 

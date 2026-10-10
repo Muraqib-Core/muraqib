@@ -72,12 +72,12 @@ describe("AuditOrchestrator guard failures", () => {
       throw new Error("factory broke");
     });
     const result = await new AuditOrchestrator(context).execute();
-    expect(result).toMatchObject({ success: false, results: [], findings: [] });
+    expect(result).toMatchObject({ success: false, results: [], issues: [] });
     expect(result.summary.errors).toBe(1);
     expect(result.summary.timestamp).toBe(123);
   });
 
-  test("converts issues to findings with module, severity and file", async () => {
+  test("returns the aggregated issues with their original fields", async () => {
     createAllGuards.mockReturnValue([
       new MemoryGuard(async () =>
         okResult([
@@ -88,9 +88,8 @@ describe("AuditOrchestrator guard failures", () => {
       ),
     ]);
     const result = await new AuditOrchestrator(context).execute();
-    expect(result.findings).toHaveLength(3);
-    const modules = result.findings.map((f) => (typeof f.source === "string" ? f.source : f.source.module));
-    expect(modules).toEqual(expect.arrayContaining(["sec", "unknown", "perf"]));
+    expect(result.issues.map((i) => i.code)).toEqual(["A", "B", "C"]);
+    expect(result.issues[0]?.location?.file).toBe("a.ts");
   });
 
   test("keeps the original order when sorting by time", async () => {
@@ -98,7 +97,7 @@ describe("AuditOrchestrator guard failures", () => {
       new MemoryGuard(async () => okResult([issue("late", "info"), issue("early", "critical")])),
     ]);
     const result = await new AuditOrchestrator(context, { sortBy: "time" }).execute();
-    expect(result.findings.map((f) => f.title)).toEqual(["late", "early"]);
+    expect(result.issues.map((i) => i.title)).toEqual(["late", "early"]);
   });
 
   test("sorts by module descending", async () => {
@@ -108,13 +107,13 @@ describe("AuditOrchestrator guard failures", () => {
       ),
     ]);
     const result = await new AuditOrchestrator(context, { sortBy: "module", sortOrder: "desc" }).execute();
-    expect(result.findings.map((f) => f.title)).toEqual(["z", "a", "n"]);
+    expect(result.issues.map((i) => i.title)).toEqual(["z", "a", "n"]);
   });
 
   test("prints a summary with the duration in ms or seconds", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const orchestrator = new AuditOrchestrator(context);
-    const base = { success: true, results: [], findings: [] };
+    const base = { success: true, results: [], issues: [] };
     orchestrator.printSummary({
       ...base,
       summary: { totalIssues: 0, critical: 0, errors: 0, warnings: 0, duration: 250, timestamp: 0 },

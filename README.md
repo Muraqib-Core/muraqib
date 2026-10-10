@@ -339,7 +339,6 @@ protected error(message: string): void
 protected parseJSON<T>(json: string, fallback: T): T
 protected formatDuration(ms: number): string
 protected formatBytes(bytes: number): string
-protected toFindings(result: AuditResult): Finding[]
 ```
 
 ### AuditContext

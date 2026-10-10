@@ -310,7 +310,7 @@ While not currently implemented in the codebase, the architecture supports futur
 │  {                                                       │
 │    success: boolean,                                     │
 │    results: AuditResult[],                               │
-│    findings: Finding[],                                  │
+│    issues: AuditIssue[],                                  │
 │    summary: {                                            │
 │      totalIssues: number,                                │
 │      critical: number,                                   │
@@ -455,23 +455,13 @@ describe('MyGuard', () => {
 
 ### Custom Result Formatters
 
-```typescript
-// Format results for consumption
-interface Finding {
-  id: string;
-  type: string;
-  severity: string;
-  title: string;
-  description: string;
-  file?: string;
-  line?: number;
-  resolution?: string;
-  tags?: string[];
-  createdAt: number;
-}
+Every module reports `AuditIssue`s; there is no separate finding model.
+`UnifiedAuditResult.issues` holds all of them, sorted, and the formatters in
+`src/cli/formatters.ts` render an `AuditReport` built from them.
 
-// Use BaseGuard.toFindings() to convert
-const findings = guard.toFindings(result);
+```typescript
+const result = await orchestrator.execute();
+const critical = orchestrator.getIssuesBySeverity(result.issues, "critical");
 ```
 
 ---
@@ -550,8 +540,8 @@ Muraqib Core has two cooperating layers plus a bridge:
 | Layer | Origin | Location | Output model |
 |---|---|---|---|
 | Guard layer | Aya (`Muraqib`) | `src/core/*-guard.ts`, `src/rules`, `src/core/performance`, `src/orchestrator/audit.ts`, `src/env` | `AuditResult` / `AuditIssue` |
-| Scan layer | Jenan (`pre-muraqib` `develop`) | `src/scan/**` | `Finding` (deterministic, evidence-based) |
-| Bridge | Core | `src/scan/bridge.ts` | `Finding` → `AuditIssue` |
+| Scan layer | Jenan (`pre-muraqib` `develop`) | `src/scan/**` | `ScanIssue` (an `AuditIssue` with `level`, `category`, `source`; deterministic, evidence-based) |
+| Bridge | Core | `src/scan/bridge.ts` | `ScanIssue` → module result |
 
 ### Entry points
 - `muraqib audit [-p dir] [-f json|text|html|csv] [-m modules]` — guard layer via `AuditOrchestrator`.

@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import type { Finding } from "./findings/finding.js";
 import type {
   DependencyProblemData,
   FindingCategory as ScanCategory,
@@ -13,7 +12,6 @@ import type {
   ImageProblemData,
 } from "../scan/core/findings/finding.js";
 
-export type { Finding };
 
 /**
  * StandardSchemaV1 - Universal schema compatibility
@@ -61,7 +59,7 @@ export interface AuditIssue {
   level?: ScanLevel;
   category?: ScanCategory;
   source?: string;
-  /** Scan-layer detail carried through so an issue loses nothing a Finding held. */
+  /** Scan-layer detail carried through so an issue keeps the full scanner report. */
   confidence?: FindingConfidence;
   evidence?: string;
   key?: string;
@@ -110,7 +108,8 @@ export interface SecretDetectionResult {
 export interface UnifiedAuditResult {
   success: boolean;
   results: AuditResult[];
-  findings: Finding[];
+  /** Every guard issue, sorted per the orchestrator configuration. */
+  issues: AuditIssue[];
   aiInsights?: AIInsight[];
   secretsFound?: SecretDetectionResult;
   summary: {

@@ -4,9 +4,8 @@
  */
 
 import { GuardFactory } from './guard-factory.js';
-import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult, Finding } from './types.js';
+import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult } from './types.js';
 import type { GuardConfig } from './guard-factory.js';
-import { createFinding } from './findings/finding.js';
 
 export interface OrchestratorConfig extends GuardConfig {
   parallel?: boolean;
@@ -49,14 +48,13 @@ export class AuditOrchestrator {
 
       const aggregated = this.aggregateResults(results);
       const sorted = this.sortIssues(aggregated.auditIssues);
-      const findings = this.convertToFindings(sorted);
 
       const duration = Date.now() - startTime;
 
       return {
         success: true,
         results,
-        findings,
+        issues: sorted,
         summary: {
           totalIssues: sorted.length,
           critical: sorted.filter((i) => i.severity === 'critical').length,
@@ -72,7 +70,7 @@ export class AuditOrchestrator {
       return {
         success: false,
         results: [],
-        findings: [],
+        issues: [],
         summary: {
           totalIssues: 0,
           critical: 0,
@@ -167,44 +165,6 @@ export class AuditOrchestrator {
     }
 
     return sorted;
-  }
-
-  /**
-   * Convert audit issues to findings format
-   */
-  private convertToFindings(issues: AuditIssue[]): Finding[] {
-    const severityMap = {
-      critical: 'critical' as const,
-      error: 'high' as const,
-      warning: 'medium' as const,
-      info: 'info' as const,
-    };
-
-    return issues.map(issue => {
-      const module = issue.tags?.[0] ?? 'unknown';
-
-      return createFinding(
-        issue.title,
-        issue.message,
-        'other',
-        severityMap[issue.severity],
-        {
-          module,
-          version: this.context.npmVersion,
-          environment: this.context.environment === 'production' ? 'production' : 'development',
-        },
-        {
-          recommendation: issue.recommendation,
-          metadata: {
-            tags: [...(issue.tags ?? []), 'orchestrated', issue.code],
-            affectedFiles: issue.location?.file ? [issue.location.file] : [],
-            customData: {
-              location: issue.location,
-            },
-          },
-        }
-      );
-    });
   }
 
   /**

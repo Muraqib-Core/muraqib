@@ -135,12 +135,6 @@ export * from "./cli/formatters.js";
 /** CLI type definitions */
 export * from "./cli/types.js";
 
-// Finding Management & Aggregation
-/** Unified Finding interface and types for audit results */
-export * from "./core/findings/finding.js";
-/** Finding collector system for aggregation and reporting */
-export * from "./core/findings/finding-collector.js";
-
 /**
  * Initialize Muraqib Core and run the default audit
  *

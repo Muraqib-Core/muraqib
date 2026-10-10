@@ -170,24 +170,6 @@ describe('BaseGuard', () => {
     });
   });
 
-  describe('toFindings()', () => {
-    it('should convert AuditResult issues to findings', async () => {
-      const guard = new IssuesGuard('issues-guard');
-      const auditResult = await guard.run();
-      const findings = guard['toFindings'](auditResult);
-
-      expect(findings).toHaveLength(2);
-      expect(findings[0]).toHaveProperty('id');
-      expect(findings[0]).toHaveProperty('severity');
-      expect(findings[0]).toHaveProperty('category');
-      expect(findings[0]).toHaveProperty('title');
-      expect(findings[0]).toHaveProperty('description');
-      expect(findings[0]).toHaveProperty('status');
-      expect(findings[0]).toHaveProperty('source');
-      expect(findings[0].metadata?.tags).toContain('issues-guard');
-    });
-  });
-
   describe('logging methods', () => {
     it('should call console methods appropriately', () => {
       const guard = new TestGuard('log-guard');
