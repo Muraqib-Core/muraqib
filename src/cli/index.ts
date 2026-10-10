@@ -132,33 +132,19 @@ function printHelp(command: "audit" | "resolve" = "audit"): void {
 ╚═══════════════════════════════════════════════════════════════╝
 
 USAGE:
-  muraqib resolve [options]
+  muraqib [-p <path>] resolve
 
 DESCRIPTION:
-  Resolve dependency conflicts, detect issues, and generate solutions.
-  Integrates with OSV for vulnerability checking and Docker discovery.
+  Build an evidence-based dependency resolution plan from OSV data, ask for
+  approval, apply it, verify the result and roll back on failure.
 
 OPTIONS:
-  -p, --project <path>       Project root directory (default: cwd)
-  -f, --format <format>      Output format: json|text|html|csv (default: text)
-  -o, --output <path>        Output file path (default: stdout)
-  --package <name>           Package name to resolve
-  --version <version>        Package version to check
-  -v, --verbose              Enable verbose logging
-  --osv                      Enable OSV vulnerability scanning
-  --docker                   Enable Docker configuration detection
-  --ai-advisory              Enable AI-powered advisory suggestions
+  -p, --project <path>       Project root directory (default: cwd); place it before "resolve"
   -h, --help                 Show this help message
 
 EXAMPLES:
-  # Resolve with OSV scanning
-  muraqib resolve --osv
-
-  # Check specific package
-  muraqib resolve --package lodash --version 4.17.21
-
-  # Full analysis with all features
-  muraqib resolve --osv --docker --ai-advisory
+  muraqib resolve
+  muraqib -p ./my-app resolve
 
 For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
 `);
@@ -174,6 +160,8 @@ USAGE:
 COMMANDS:
   audit                      Run full audit (default)
   resolve                    Resolve dependency conflicts
+  image --image <name>       Trivy scan of a local Docker image
+  runtime --container <name> Read-only inspection of a running container
 
 OPTIONS:
   -p, --project <path>       Project root directory (default: cwd)
@@ -201,8 +189,8 @@ EXAMPLES:
   # Run specific modules
   muraqib audit --modules memory-guard,security-guard
 
-  # Resolve dependencies with OSV
-  muraqib resolve --osv
+  # Add OSV vulnerability scanning to the audit
+  muraqib audit --osv
 
 FORMATS:
   text   - Human-readable terminal output (default)
