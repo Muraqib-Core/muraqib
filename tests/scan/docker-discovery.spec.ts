@@ -1,18 +1,21 @@
-import test from "node:test";
+import { describe, test, beforeAll, afterAll } from "vitest";
 import assert from "node:assert";
 import { discoverDockerFiles } from "../../src/scan/core/context/docker-discovery.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-test("discoverDockerFiles", async (t) => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "docker-discovery-test-"));
+describe("discoverDockerFiles", () => {
+  let tmpDir = "";
+  beforeAll(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "docker-discovery-test-"));
+  });
 
-  t.after(async () => {
+  afterAll(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  await t.test("separates .dockerignore from dockerfiles", async () => {
+  test("separates .dockerignore from dockerfiles", async () => {
     await fs.writeFile(path.join(tmpDir, "Dockerfile"), "FROM ubuntu");
     await fs.writeFile(path.join(tmpDir, ".dockerignore"), "node_modules");
 
@@ -21,7 +24,7 @@ test("discoverDockerFiles", async (t) => {
     assert.deepStrictEqual(result.dockerignoreFiles, [".dockerignore"]);
   });
 
-  await t.test("handles symlink loops without hanging", async () => {
+  test("handles symlink loops without hanging", async () => {
     const loopDir = path.join(tmpDir, "loop");
     await fs.mkdir(loopDir);
     

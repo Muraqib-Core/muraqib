@@ -1,4 +1,4 @@
-import test from "node:test";
+import { describe, test, beforeAll, afterAll } from "vitest";
 import assert from "node:assert";
 import { DockerScanner } from "../../src/scan/scanners/docker/docker-engine.js";
 import type { ScanContext } from "../../src/scan/core/contracts/scanner-engine.js";
@@ -6,22 +6,25 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-test("DockerScanner", async (t) => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "docker-test-"));
+describe("DockerScanner", () => {
+  let tmpDir = "";
+  beforeAll(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "docker-test-"));
+  });
 
-  t.after(async () => {
+  afterAll(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
   const scanner = new DockerScanner();
 
-  await t.test("supports() identifies Docker and Compose files", () => {
+  test("supports() identifies Docker and Compose files", () => {
     assert.strictEqual(scanner.supports({ projectPath: tmpDir, files: [] }), false);
     assert.strictEqual(scanner.supports({ projectPath: tmpDir, files: [], dockerfiles: ["Dockerfile"] }), true);
     assert.strictEqual(scanner.supports({ projectPath: tmpDir, files: [], composeFiles: ["compose.yaml"] }), true);
   });
 
-  await t.test("Triggering case: Dockerfile with latest tag and sensitive ENV", async () => {
+  test("Triggering case: Dockerfile with latest tag and sensitive ENV", async () => {
     const dfPath = path.join(tmpDir, "Dockerfile.trigger");
     await fs.writeFile(dfPath, `
       FROM ubuntu:latest
@@ -45,7 +48,7 @@ test("DockerScanner", async (t) => {
     assert.strictEqual(se01.length, 2, "Should find sensitive ENV and ARG (SE-01)");
   });
 
-  await t.test("Safe case: Dockerfile with pinned digest and safe ENVs", async () => {
+  test("Safe case: Dockerfile with pinned digest and safe ENVs", async () => {
     const dfPath = path.join(tmpDir, "Dockerfile.safe");
     await fs.writeFile(dfPath, `
       FROM ubuntu@sha256:1234567890abcdef
@@ -67,7 +70,7 @@ test("DockerScanner", async (t) => {
     assert.ok(!se01, "Should not flag safe ENV");
   });
 
-  await t.test("Triggering case: Compose with privileged and docker.sock", async () => {
+  test("Triggering case: Compose with privileged and docker.sock", async () => {
     const composePath = path.join(tmpDir, "compose.trigger.yaml");
     await fs.writeFile(composePath, `
       services:
@@ -93,7 +96,7 @@ test("DockerScanner", async (t) => {
     assert.ok(pr05, "Should find docker.sock mount (PR-05)");
   });
 
-  await t.test("Read/Tool failure: Missing file reports partial and diagnostic", async () => {
+  test("Read/Tool failure: Missing file reports partial and diagnostic", async () => {
     const ctx: ScanContext = {
       projectPath: tmpDir,
       files: [],
@@ -106,7 +109,7 @@ test("DockerScanner", async (t) => {
     assert.ok(result.diagnostics?.some(d => d.includes("Failed to read")));
   });
 
-  await t.test("Syntax failure: Invalid YAML is a finding", async () => {
+  test("Syntax failure: Invalid YAML is a finding", async () => {
     const composePath = path.join(tmpDir, "compose.invalid.yaml");
     await fs.writeFile(composePath, `
       services:
@@ -126,7 +129,7 @@ test("DockerScanner", async (t) => {
     assert.strictEqual(result.skippedInputs?.length, 1); // skipped further analysis
   });
 
-  await t.test("No shell injection with unusual filenames", async () => {
+  test("No shell injection with unusual filenames", async () => {
     const maliciousName = "Dockerfile; echo injected";
     const maliciousPath = path.join(tmpDir, maliciousName);
     await fs.writeFile(maliciousPath, `
