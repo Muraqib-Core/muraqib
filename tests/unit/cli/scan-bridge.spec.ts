@@ -26,14 +26,32 @@ describe("scan bridge", () => {
       declaredVersion: "4.17.15",
       dependencyType: "dependencies" as const,
       advisoryCount: 5,
-      advisories: ["GHSA-a", "GHSA-b", "GHSA-c", "GHSA-d", "GHSA-e"].map((id) => ({ id })),
+      advisories: ["GHSA-a", "GHSA-b", "GHSA-c", "GHSA-d", "GHSA-e"].map((id) => ({
+        id,
+        ranges: [{ type: "SEMVER", events: [{ introduced: "0" }, { fixed: id === "GHSA-e" ? "4.17.21" : "4.17.12" }] }],
+      })),
       affectedRanges: [],
       fixedVersions: ["4.17.12", "4.17.21"],
     };
     const i = findingToAuditIssue({ ...base, message: "has 5 known vulnerabilities.", dependencyProblem: problem });
     expect(i.message).toContain("GHSA-a, GHSA-b, GHSA-c (+2 more)");
     expect(i.recommendation).toBe("Upgrade lodash to >= 4.17.21");
-    const noFix = findingToAuditIssue({ ...base, dependencyProblem: { ...problem, fixedVersions: [] } });
+    // fixes on other major lines must not inflate the target
+    const otherLine = {
+      ...problem,
+      advisories: [
+        {
+          id: "GHSA-x",
+          ranges: [
+            { type: "SEMVER", events: [{ introduced: "0" }, { fixed: "4.17.21" }] },
+            { type: "SEMVER", events: [{ introduced: "5.0.0" }, { fixed: "5.2.0" }] },
+          ],
+        },
+      ],
+      fixedVersions: ["4.17.21", "5.2.0"],
+    };
+    expect(findingToAuditIssue({ ...base, dependencyProblem: otherLine }).recommendation).toBe("Upgrade lodash to >= 4.17.21");
+    const noFix = findingToAuditIssue({ ...base, dependencyProblem: { ...problem, advisories: [{ id: "GHSA-n" }], fixedVersions: [] } });
     expect(noFix.recommendation).toBeUndefined();
   });
 

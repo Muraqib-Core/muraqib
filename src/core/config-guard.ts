@@ -233,7 +233,7 @@ export class ConfigGuard extends BaseGuard {
         this.createIssue(
           `CONFIG_${configIssue.type.toUpperCase()}`,
           severity,
-          `Configuration Issue: ${configIssue.file}`,
+          `Configuration Issue: ${configIssue.file}${configIssue.setting ? ` › ${configIssue.setting}` : ""}`,
           configIssue.message,
           { file: configIssue.file },
           configIssue.suggestion,
