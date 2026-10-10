@@ -50,11 +50,11 @@ export const runComprehensiveBundleAudit = (targetPath?: string): BundleAuditRes
     const projectRoot = targetPath || process.cwd();
     const violations: BundleViolation[] = [];
 
-    console.log(`🔍 [Muraqib Engine]: Scanning workspace source files against the ${BUNDLE_LIMIT_KB}KB budget...`);
+    log(`🔍 [Muraqib Engine]: Scanning workspace source files against the ${BUNDLE_LIMIT_KB}KB budget...`);
     const files = collectSourceFiles(projectRoot);
 
     if (files.length === 0) {
-        console.warn(`⚠️ [Muraqib]: No JS/TS/Svelte/Vue source files found — bundle audit could not run.`);
+        warn(`⚠️ [Muraqib]: No JS/TS/Svelte/Vue source files found — bundle audit could not run.`);
         return { scannedFiles: 0, skipped: true, violations, projectIssues: [] };
     }
 
