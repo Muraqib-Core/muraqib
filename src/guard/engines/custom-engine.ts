@@ -2,6 +2,13 @@
  * Custom Validation Engine
  * Flexible validation engine supporting user-defined validation logic
  */
+/**
+ * NOTE: these are the PUBLIC schema wrappers (exported from src/index.ts).
+ * Each wraps a schema supplied by the caller and reports structured issues.
+ * They are intentionally separate from src/scan/guard/engines, which build
+ * schemas from preset rules and implement the scan-layer ValidationEngine
+ * contract. The two sets share no logic, so they are not merged.
+ */
 
 export interface ValidationIssue {
   field: string;

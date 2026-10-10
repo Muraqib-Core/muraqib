@@ -1,3 +1,6 @@
+// NOTE: scan-layer ValidationEngine implementations. They build the schema
+// themselves from preset rules and validate the runtime env. They are distinct
+// from the public caller-schema wrappers in src/guard/engines (not duplicates).
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
