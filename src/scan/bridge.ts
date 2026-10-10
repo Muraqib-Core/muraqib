@@ -3,7 +3,7 @@
  * (Aya's AuditIssue / AuditResult), so both feed one unified report.
  */
 import type { AuditIssue, AuditResult } from "../core/types.js";
-import type { Finding } from "./core/findings/finding.js";
+import type { DependencyProblemData, Finding } from "./core/findings/finding.js";
 import { createProjectContext } from "./core/context/project-context.js";
 import { AuditRunner, type AuditReport as ScanReport } from "./core/runner/audit-runner.js";
 
@@ -15,15 +15,35 @@ const SEVERITY_MAP: Record<Finding["severity"], AuditIssue["severity"]> = {
   info: "info",
 };
 
+const MAX_LISTED_ADVISORIES = 3;
+
+/** Summarise OSV advisories as "ids (+N more)" and the upgrade target (the highest known fixed version). */
+function describeDependencyProblem(problem: DependencyProblemData): { ids: string; upgrade?: string } {
+  const ids = problem.advisories.map((a) => a.id);
+  const shown = ids.slice(0, MAX_LISTED_ADVISORIES).join(", ");
+  const extra = ids.length - MAX_LISTED_ADVISORIES;
+  const description: { ids: string; upgrade?: string } = { ids: extra > 0 ? `${shown} (+${extra} more)` : shown };
+  const target = problem.fixedVersions[problem.fixedVersions.length - 1];
+  if (target) description.upgrade = `Upgrade ${problem.package} to >= ${target}`;
+  return description;
+}
+
 export function findingToAuditIssue(f: Finding): AuditIssue {
+  let message = f.message;
+  let recommendation = f.remediation;
+  if (f.dependencyProblem) {
+    const { ids, upgrade } = describeDependencyProblem(f.dependencyProblem);
+    if (ids) message = `${message} Advisories: ${ids}.`;
+    recommendation = recommendation ?? upgrade;
+  }
   const issue: AuditIssue = {
     code: f.id,
     severity: SEVERITY_MAP[f.severity],
     title: f.title,
-    message: f.message,
+    message,
     tags: [f.source, f.category, ...(f.confidence ? [f.confidence] : [])],
   };
-  if (f.remediation) issue.recommendation = f.remediation;
+  if (recommendation) issue.recommendation = recommendation;
   if (f.file) {
     issue.location = { file: f.file, ...(f.line !== undefined ? { line: f.line } : {}) };
   }

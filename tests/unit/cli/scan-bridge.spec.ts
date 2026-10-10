@@ -19,6 +19,24 @@ describe("scan bridge", () => {
     expect(i.tags).toContain("confirmed");
   });
 
+  it("adds advisory ids and an upgrade recommendation for OSV dependency problems", () => {
+    const problem = {
+      package: "lodash",
+      installedVersion: "4.17.15",
+      declaredVersion: "4.17.15",
+      dependencyType: "dependencies" as const,
+      advisoryCount: 5,
+      advisories: ["GHSA-a", "GHSA-b", "GHSA-c", "GHSA-d", "GHSA-e"].map((id) => ({ id })),
+      affectedRanges: [],
+      fixedVersions: ["4.17.12", "4.17.21"],
+    };
+    const i = findingToAuditIssue({ ...base, message: "has 5 known vulnerabilities.", dependencyProblem: problem });
+    expect(i.message).toContain("GHSA-a, GHSA-b, GHSA-c (+2 more)");
+    expect(i.recommendation).toBe("Upgrade lodash to >= 4.17.21");
+    const noFix = findingToAuditIssue({ ...base, dependencyProblem: { ...problem, fixedVersions: [] } });
+    expect(noFix.recommendation).toBeUndefined();
+  });
+
   it("runs the real scan runner on a project with a bad .env", async () => {
     const dir = mkdtempSync(join(tmpdir(), "muraqib-scan-"));
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", version: "1.0.0" }));

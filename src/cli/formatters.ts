@@ -7,6 +7,44 @@ export function formatJson(report: AuditReport): string {
   return JSON.stringify(report, null, 2);
 }
 
+interface TextIssue {
+  severity: string;
+  title: string;
+  message: string;
+  recommendation?: string;
+  location?: { file?: string; line?: number };
+}
+
+const SEVERITY_ICONS: Record<string, string> = {
+  critical: "🔴",
+  error: "🟠",
+  warning: "🟡",
+  info: "🔵",
+};
+
+function isTextIssue(value: unknown): value is TextIssue {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v["severity"] === "string" && typeof v["title"] === "string" && typeof v["message"] === "string";
+}
+
+function formatIssueLines(issues: unknown): string[] {
+  if (!Array.isArray(issues)) return [];
+  const out: string[] = [];
+  for (const issue of issues) {
+    if (!isTextIssue(issue)) continue;
+    const icon = SEVERITY_ICONS[issue.severity] ?? "•";
+    const file = issue.location?.file;
+    const line = issue.location?.line;
+    const showFile = file !== undefined && (line !== undefined || !issue.title.includes(file));
+    const where = showFile ? ` (${file}${line !== undefined ? `:${line}` : ""})` : "";
+    out.push(`      ${icon} [${issue.severity}] ${issue.title}${where}`);
+    out.push(`         ${issue.message}`);
+    if (issue.recommendation) out.push(`         → ${issue.recommendation}`);
+  }
+  return out;
+}
+
 export function formatText(report: AuditReport): string {
   const lines: string[] = [];
 
@@ -47,6 +85,7 @@ export function formatText(report: AuditReport): string {
           status = Array.isArray(issuesValue) && issuesValue.length > 0 ? "⚠️" : "✅";
         }
         lines.push(`  ${status} ${moduleName}`);
+        lines.push(...formatIssueLines((moduleData as { issues?: unknown }).issues));
       }
     }
   }
