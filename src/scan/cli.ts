@@ -45,6 +45,8 @@ export async function main(argv: string[] = process.argv.slice(2)) {
       image: { type: "string" },
       container: { type: "string" },
       "docker-native": { type: "boolean" },
+      // Accepted for flag parity with `audit --osv`; resolve always queries OSV.
+      osv: { type: "boolean" },
       help: {
         type: "boolean",
         short: "h",
@@ -62,7 +64,7 @@ export async function main(argv: string[] = process.argv.slice(2)) {
 
 Usage:
   muraqib audit [-e build|prod] [--engine custom|zod|valibot|arktype] [--json] [--ai] [--docker-native]
-  muraqib resolve
+  muraqib resolve [--osv]
   muraqib image --image <local-image> [--json]
   muraqib runtime --container <running-container> [--json]
 
@@ -73,6 +75,7 @@ Options:
       --ai        Enable optional AI advisory output
       --image     Select an existing local Docker image for explicit Trivy analysis
       --container Select a container for read-only runtime inspection
+      --osv       Accepted by resolve for parity with audit (resolve always uses OSV data)
       --docker-native Opt in to Docker CLI build and effective Compose checks
   -h, --help      Show this help`);
     return;

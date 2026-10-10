@@ -164,7 +164,7 @@ function printHelp(command: "audit" | "resolve" = "audit"): void {
 ╚═══════════════════════════════════════════════════════════════╝
 
 USAGE:
-  muraqib [-p <path>] resolve
+  muraqib [-p <path>] resolve [--osv]
 
 DESCRIPTION:
   Build an evidence-based dependency resolution plan from OSV data, ask for
@@ -172,6 +172,7 @@ DESCRIPTION:
 
 OPTIONS:
   -p, --project <path>       Project root directory (default: cwd); place it before "resolve"
+      --osv                  Accepted for parity with audit (resolve always uses OSV data)
   -h, --help                 Show this help message
 
 EXAMPLES:
