@@ -28,9 +28,25 @@ const base = {
 describe("formatText", () => {
   it("lists issue details under modules that have issues", () => {
     const out = formatText(base);
-    expect(out).toContain("Dependency Problem: lodash (package.json)");
+    expect(out).toContain("[error] Dependency Problem: lodash (package.json)");
     expect(out).toContain("6 known vulnerabilities");
     expect(out).toContain("→ Upgrade lodash");
+  });
+
+  it("omits the file when the title already names it", () => {
+    const report = {
+      ...base,
+      modules: {
+        cfg: {
+          status: "issues",
+          issues: [{ severity: "warning", title: "Configuration Issue: tsconfig.json", message: "m", location: { file: "tsconfig.json" } }],
+        },
+      },
+    } as unknown as AuditReport;
+    const out = formatText(report);
+    expect(out).toContain("Configuration Issue: tsconfig.json\n");
+    expect(out).not.toContain("tsconfig.json (tsconfig.json)");
+    expect(out).not.toContain("(tsconfig.json)");
   });
 
   it("prints nothing extra for clean modules", () => {

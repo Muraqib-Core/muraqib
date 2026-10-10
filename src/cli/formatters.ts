@@ -35,8 +35,10 @@ function formatIssueLines(issues: unknown): string[] {
     if (!isTextIssue(issue)) continue;
     const icon = SEVERITY_ICONS[issue.severity] ?? "•";
     const file = issue.location?.file;
-    const where = file ? ` (${file}${issue.location?.line !== undefined ? `:${issue.location.line}` : ""})` : "";
-    out.push(`      ${icon} ${issue.title}${where}`);
+    const line = issue.location?.line;
+    const showFile = file !== undefined && (line !== undefined || !issue.title.includes(file));
+    const where = showFile ? ` (${file}${line !== undefined ? `:${line}` : ""})` : "";
+    out.push(`      ${icon} [${issue.severity}] ${issue.title}${where}`);
     out.push(`         ${issue.message}`);
     if (issue.recommendation) out.push(`         → ${issue.recommendation}`);
   }
