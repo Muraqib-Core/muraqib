@@ -19,6 +19,15 @@ describe("scan bridge", () => {
     expect(i.tags).toContain("confirmed");
   });
 
+  it("carries scan detail through to the issue", () => {
+    const image = { imageId: "i", target: "t", ecosystem: "npm", package: "p", installedVersion: "1", advisoryId: "A", scannedAt: "now" };
+    const i = findingToAuditIssue({ ...base, key: "PORT", evidence: "PORT=x", imageProblem: image });
+    expect(i.key).toBe("PORT");
+    expect(i.evidence).toBe("PORT=x");
+    expect(i.imageProblem).toEqual(image);
+    expect(i.confidence).toBeUndefined();
+  });
+
   it("adds advisory ids and an upgrade recommendation for OSV dependency problems", () => {
     const problem = {
       package: "lodash",

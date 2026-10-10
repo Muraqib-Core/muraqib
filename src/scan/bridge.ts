@@ -75,6 +75,11 @@ export function findingToAuditIssue(f: Finding): AuditIssue {
     tags: [f.source, f.category, ...(f.confidence ? [f.confidence] : [])],
   };
   if (recommendation) issue.recommendation = recommendation;
+  if (f.confidence) issue.confidence = f.confidence;
+  if (f.evidence) issue.evidence = f.evidence;
+  if (f.key) issue.key = f.key;
+  if (f.dependencyProblem) issue.dependencyProblem = f.dependencyProblem;
+  if (f.imageProblem) issue.imageProblem = f.imageProblem;
   if (f.file) {
     issue.location = { file: f.file, ...(f.line !== undefined ? { line: f.line } : {}) };
   }
