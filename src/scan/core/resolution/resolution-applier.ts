@@ -9,6 +9,7 @@ import type {
   PackageChange,
 } from "./resolution-plan.js";
 import { DependencyGraph } from "./dependency-graph.js";
+import type { PackageManifest } from "./dependency-graph.js";
 import { OsvScanner } from "../../scanners/dependency/osv-engine.js";
 import { CompatibilityEngine } from "../../scanners/compatibility/compatibility-engine.js";
 
@@ -121,7 +122,7 @@ export class ResolutionApplier {
       };
     }
 
-    let pkg: any;
+    let pkg: PackageManifest;
     try {
       pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     } catch {
