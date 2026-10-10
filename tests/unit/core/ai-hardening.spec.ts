@@ -68,6 +68,17 @@ describe("prompts never leak secrets", () => {
     expect(generateContent.mock.calls[0][0].contents).not.toContain("hunter2");
   });
 
+  it("generateFindingsAdvisory accepts scan issues and includes the layout rules", async () => {
+    process.env.GEMINI_API_KEY = "k";
+    generateContent.mockResolvedValue({ text: "advice" });
+    const issue = { code: "C", severity: "error", title: "t", message: "password=hunter2", source: "osv", recommendation: "Upgrade x", tags: [] } as unknown as Parameters<typeof generateFindingsAdvisory>[0][number];
+    expect(await generateFindingsAdvisory([issue])).toBe("advice");
+    const contents = generateContent.mock.calls[0][0].contents as string;
+    expect(contents).not.toContain("hunter2");
+    expect(contents).toContain("[osv]");
+    expect(contents).toContain("Actionable Remediation");
+  });
+
   it("analyzeUnknownVariablesWithAi sends metadata only", async () => {
     process.env.GEMINI_API_KEY = "k";
     generateContent.mockResolvedValue({ text: '[{"path":["API_URL"],"message":"bad url"}]' });
