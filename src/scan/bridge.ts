@@ -3,7 +3,8 @@
  * (Aya's AuditIssue / AuditResult), so both feed one unified report.
  */
 import type { AuditIssue, AuditResult } from "../core/types.js";
-import type { DependencyProblemData, Finding } from "./core/findings/finding.js";
+import semver from "semver";
+import type { DependencyProblemData, Finding, OsvAdvisoryData } from "./core/findings/finding.js";
 import { createProjectContext } from "./core/context/project-context.js";
 import { AuditRunner, type AuditReport as ScanReport } from "./core/runner/audit-runner.js";
 
@@ -17,13 +18,43 @@ const SEVERITY_MAP: Record<Finding["severity"], AuditIssue["severity"]> = {
 
 const MAX_LISTED_ADVISORIES = 3;
 
-/** Summarise OSV advisories as "ids (+N more)" and the upgrade target (the highest known fixed version). */
+/**
+ * The lowest version that fixes one advisory for the installed version: the `fixed` event of the
+ * range containing it. Ranges that do not contain the installed version (other major lines) are ignored.
+ */
+function fixedVersionFor(advisory: OsvAdvisoryData, installed: string): string | undefined {
+  let best: string | undefined;
+  for (const range of advisory.ranges ?? []) {
+    let introduced = "0";
+    for (const event of range.events ?? []) {
+      if (event.introduced !== undefined) introduced = event.introduced;
+      if (event.fixed === undefined || !semver.valid(event.fixed)) continue;
+      if (introduced !== "0" && !semver.valid(introduced)) continue;
+      const inRange = (introduced === "0" || semver.gte(installed, introduced)) && semver.lt(installed, event.fixed);
+      if (inRange && (best === undefined || semver.lt(event.fixed, best))) best = event.fixed;
+    }
+  }
+  return best;
+}
+
+/** Highest fix across all advisories = the lowest version that resolves every one of them. */
+function upgradeTarget(problem: DependencyProblemData): string | undefined {
+  if (!semver.valid(problem.installedVersion)) return problem.fixedVersions[problem.fixedVersions.length - 1];
+  let target: string | undefined;
+  for (const advisory of problem.advisories) {
+    const fixed = fixedVersionFor(advisory, problem.installedVersion);
+    if (fixed !== undefined && semver.valid(fixed) && (target === undefined || semver.gt(fixed, target))) target = fixed;
+  }
+  return target;
+}
+
+/** Summarise OSV advisories as "ids (+N more)" and the upgrade target. */
 function describeDependencyProblem(problem: DependencyProblemData): { ids: string; upgrade?: string } {
   const ids = problem.advisories.map((a) => a.id);
   const shown = ids.slice(0, MAX_LISTED_ADVISORIES).join(", ");
   const extra = ids.length - MAX_LISTED_ADVISORIES;
   const description: { ids: string; upgrade?: string } = { ids: extra > 0 ? `${shown} (+${extra} more)` : shown };
-  const target = problem.fixedVersions[problem.fixedVersions.length - 1];
+  const target = upgradeTarget(problem);
   if (target) description.upgrade = `Upgrade ${problem.package} to >= ${target}`;
   return description;
 }
