@@ -111,11 +111,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modular Design**: Independent, composable audit modules
 - **Error Handling**: Structured error reporting
 
+### 🖥️ CLI
+
+- `muraqib audit` with `--osv`, `--docker` and `--ai-advisory` (scan layer merged into the same report)
+- `muraqib resolve` (evidence-based dependency resolution with approval and rollback)
+- `muraqib image --image <name>` (Trivy) and `muraqib runtime --container <name>` (read-only inspection)
+- Exit codes: `0` clean, `1` blocking findings, `3` scanner failure
+
+### 🧩 Unified Result Model
+
+- A single `AuditIssue` model across guards and the scan layer (`ScanIssue` extends it)
+- `UnifiedAuditResult.issues` is the sorted `AuditIssue[]` produced by the orchestrator
+- The legacy `Finding` model (`Finding`, `createFinding`, `FindingCollector`, `BaseGuard.toFindings`, `UnifiedAuditResult.findings`) was removed before this first release
+
 ### 📊 Statistics
 
 - **Total TypeScript Files**: 49
-- **Total Test Cases**: 47
-- **Test Coverage**: Targeting 85%+
+- **Total Test Cases**: 777 (Vitest)
+- **Test Coverage**: 90.7% statements · 85.6% branches · 90.8% functions · 93.3% lines
 - **Audit Modules**: 15+ dedicated auditors
 - **Output Formats**: 4 (text, json, html, csv)
 - **CLI Options**: 10+ command-line arguments
