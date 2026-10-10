@@ -319,54 +319,60 @@ npm test              # Run all tests
 
 ## 📋 Project Structure
 
+The project has two layers that share the unified `AuditIssue` model:
+the **guard layer** (`src/core`, `src/rules`, `src/orchestrator`, ...) runs the
+13-module audit, and the **scan layer** (`src/scan`) provides OSV, Docker,
+dependency resolution and AI advisory scanning.
+
 ```
 src/
-├── index.ts                    # Main entry point & public API
-├── core/
-│   ├── types.ts               # Shared TypeScript interfaces
-│   ├── base-guard.ts          # Abstract base class for all guards
-│   ├── memory-guard.ts        # Memory/heap auditing
-│   ├── security-guard.ts      # Security scanning
-│   ├── dependency-guard.ts    # Circular deps, deprecated APIs
-│   ├── async-guard.ts         # Floating promises, missing await
-│   ├── config-guard.ts        # Configuration validation
-│   ├── docker-guard.ts        # Docker best practices
-│   ├── compatibility-guard.ts # Version/peer dependency checks
-│   └── performance/
-│       ├── auditor.ts         # Cache performance analysis
-│       ├── image-guard.ts     # Image optimization auditing
-│       ├── network-latency-advisor.ts
-│       ├── optimizer-engine.ts # HTTP/2, compression, resources
-│       ├── render-blocking.ts # Render-blocking detection
-│       ├── http-probe.ts      # Network protocol measurement
-│       └── html-scanner.ts    # HTML parsing utilities
-├── rules/
-│   ├── cache-guard.ts         # Cache strategy validation
-│   ├── bundle-budget.ts       # Bundle size enforcement
-│   ├── dead-code-guard.ts     # Dead code detection
-│   └── http1-advisor.ts       # HTTP/1.x protocol hints
-├── ai/
-│   ├── secret-detector.ts     # Sensitive data detection
-│   └── advisor.ts             # AI-powered recommendations
-├── cli/
-│   ├── index.ts               # CLI interface & audit runner
-│   ├── formatters.ts          # Output formatting (JSON, console, markdown)
-│   └── types.ts               # CLI type definitions
-├── env.ts                     # Environment validation engine
-└── utils/                     # Utility functions
-    ├── file-scanner.ts        # File system scanning
-    ├── schedule-validator.ts  # Cron schedule validation
-    └── manager-detector.ts    # Package manager detection
+├── index.ts               # Public API exports
+├── core/                  # Guard layer: BaseGuard + guards
+│   ├── base-guard.ts      # Abstract base class for all guards
+│   ├── types.ts           # Shared types (AuditIssue, AuditResult, ...)
+│   ├── *-guard.ts         # memory, security, dependency, async, config, docker, compatibility
+│   ├── orchestrator.ts    # Runs guards and aggregates results
+│   ├── upgrade-orchestrator.ts  # Package upgrade workflow
+│   ├── helpers/           # Guard helpers
+│   └── performance/       # Cache, images, HTTP probe, render-blocking, optimizer
+├── rules/                 # cache, bundle budget, dead code, HTTP/1 advisor
+├── orchestrator/          # Unified audit pipeline (audit.ts)
+├── guard/engines/         # Schema engines: zod, valibot, arktype, custom
+├── presets/ + config/     # Validation presets
+├── env/ + env.ts          # Environment validation engine
+├── ai/                    # Secret detector and AI advisor (guard layer)
+├── cli/                   # CLI entry (index.ts), audit workflow, formatters
+├── renderers/ + shared/   # Output renderers, logger, progress, constants
+├── utils/                 # File scanner, schedule validator, manager detector
+└── scan/                  # Scan layer
+    ├── cli.ts             # resolve / image / runtime commands (strict arg parsing)
+    ├── cli/               # resolve workflow and renderers
+    ├── bridge.ts          # Merges scan results into the unified audit
+    ├── scanners/
+    │   ├── dependency/    # OSV client, scanner and engine (--osv)
+    │   ├── docker/        # Discovery, rules and engine (--docker)
+    │   └── compatibility/ # Version / peer dependency checks
+    ├── core/
+    │   ├── resolution/    # Dependency graph, conflict resolution, applier
+    │   ├── contracts/     # Scanner and engine contracts
+    │   ├── context/       # Scan context
+    │   ├── findings/      # Issue model and collector
+    │   ├── parsers/       # Env file parser
+    │   └── runner/        # Audit runner
+    ├── ai/                # AI advisor, fallback, secret detector (--ai-advisory)
+    ├── guard/             # Env validation rules and engines for the scan layer
+    ├── config/ + types/   # Scan configuration and types
 
 tests/
-├── unit/
-│   ├── core/                  # Core module tests
-│   └── rules/                 # Rule module tests
-└── fixtures.ts                # Shared test data
+├── unit/                  # Guard-layer tests (core, rules, env, cli, ai, ...)
+├── scan/                  # Scan-layer tests (OSV, Docker, resolution, ...)
+├── validate.spec.ts
+└── fixtures.ts            # Shared test data
 
-.github/
-└── workflows/
-    └── ci.yml                 # GitHub Actions CI/CD pipeline
+.github/workflows/
+├── ci.yml                 # Build, lint, test and coverage
+├── audit.yml              # Runs the audit on push
+└── release.yml            # Creates a GitHub Release on v*.*.* tags
 ```
 
 ---
