@@ -95,6 +95,70 @@ npm run type-check
 
 ---
 
+## 🖥️ CLI Usage
+
+After `npm run build`, the `muraqib` binary (`bin/muraqib.js`) exposes four commands.
+
+| Command | Purpose |
+|---------|---------|
+| `muraqib audit` (default) | Run the guard modules, optionally adding the scan layer (OSV, Docker, AI advisory) |
+| `muraqib resolve` | Interactive, evidence-based dependency resolution with an approval step and rollback |
+| `muraqib image --image <name>` | Scan an existing local Docker image with [Trivy](https://trivy.dev) (must be installed) |
+| `muraqib runtime --container <name>` | Read-only inspection of a running Docker container |
+
+### `audit` options
+
+```bash
+muraqib audit                              # text report of every module
+muraqib audit --format json                # json | text | html | csv
+muraqib audit --format html -o report.html # write the report to a file
+muraqib audit -p ./my-app                  # audit another project root
+muraqib audit -m memory-guard,security-guard  # only matching modules
+muraqib audit --fail-on-warning            # exit 1 on warnings too
+```
+
+| Flag | Effect |
+|------|--------|
+| `--osv` | Add the scan layer: check dependencies against [OSV](https://osv.dev) for known vulnerabilities |
+| `--docker` | Add the scan layer: Docker configuration discovery (Dockerfile / Compose) |
+| `--ai-advisory` | Add the scan layer plus an optional AI advisory (needs `GEMINI_API_KEY`; secrets are redacted before anything is sent) |
+| `-p, --project <path>` | Project root (default: current directory) |
+| `-f, --format <fmt>` | `text`, `json`, `html` or `csv` |
+| `-o, --output <path>` | Write the report to a file instead of stdout |
+| `-m, --modules <list>` | Comma-separated module name filter |
+| `--fail-on-warning` | Treat warnings as failures |
+| `-v, --verbose` | Verbose logging |
+
+Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
+
+### `resolve`
+
+```bash
+muraqib resolve            # run inside the project you want to resolve
+muraqib -p ./my-app resolve
+```
+
+Builds a resolution plan from OSV evidence, shows it for approval, applies it, verifies the result and rolls back on failure. Put `-p` **before** `resolve`; `resolve` itself takes no other flags.
+
+### `image` and `runtime`
+
+```bash
+muraqib image --image my-app:latest [--json]
+muraqib runtime --container my-app [--json]
+```
+
+`image` requires the `trivy` binary and only scans images that already exist locally. `runtime` inspects the container read-only; it never starts, stops or modifies it.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | No blocking findings |
+| `1` | Blocking findings (critical/high; warnings too with `--fail-on-warning`) |
+| `3` | A scanner failed, so the result is not reliable |
+
+---
+
 ## 📚 Architecture Overview
 
 ### Core Components
