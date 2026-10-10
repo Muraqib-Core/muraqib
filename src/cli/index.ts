@@ -7,15 +7,18 @@ import { resolve } from "path";
 import type { CliOptions, AuditReport, OutputFormat } from "./types.js";
 import { pathToFileURL } from "url";
 import { formatReport } from "./formatters.js";
-import { AuditOrchestrator } from "../core/orchestrator.js";
-import { buildAuditContext } from "../core/audit-context.js";
-import { runScanAudit } from "../scan/bridge.js";
+import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
+import { getSystemContext } from "../agent/system-context.js";
+import { AGENT_TOOL_DEFINITIONS } from "../agent/tool-definitions.js";
+import { collectAuditResults } from "../orchestrator/collect-results.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
 
 interface ExtendedCliOptions extends Partial<CliOptions> {
-  command?: "audit" | "resolve";
+  command?: "audit" | "resolve" | "agent" | "context" | "tool-schema";
+  dockerNative?: boolean;
+  maxIssues?: number;
   osv?: boolean;
   docker?: boolean;
   aiAdvisory?: boolean;
@@ -44,6 +47,25 @@ function parseArgs(args: string[]): ExtendedCliOptions {
     if (arg === "audit") {
       options.command = "audit";
       continue;
+    }
+
+    if (arg === "agent" || arg === "context" || arg === "tool-schema") {
+      options.command = arg;
+      continue;
+    }
+
+    if (arg === "--json") {
+      options.format = "json";
+    }
+
+    if (arg === "--docker-native") {
+      options.dockerNative = true;
+    }
+
+    if (arg === "--max-issues") {
+      const n = Number.parseInt(args[i + 1] ?? "", 10);
+      if (Number.isInteger(n) && n >= 0) options.maxIssues = n;
+      i++;
     }
 
     if (arg === "--format" || arg === "-f") {
@@ -107,7 +129,7 @@ function parseArgs(args: string[]): ExtendedCliOptions {
     }
 
     if (arg === "--help" || arg === "-h") {
-      printHelp(options.command);
+      printHelp(options.command === "resolve" ? "resolve" : "audit");
       process.exit(0);
     }
 
@@ -160,6 +182,9 @@ USAGE:
 COMMANDS:
   audit                      Run full audit (default)
   resolve                    Resolve dependency conflicts
+  agent                      Audit and print a deterministic JSON report for AI agents
+  context                    Print Muraqib's capabilities as JSON (agent system context)
+  tool-schema                Print tool definitions (MCP / tool-use compatible) as JSON
   image --image <name>       Trivy scan of a local Docker image
   runtime --container <name> Read-only inspection of a running container
 
@@ -173,6 +198,9 @@ OPTIONS:
       --osv                  Enable OSV vulnerability scanning
       --docker               Enable Docker discovery
       --ai-advisory          Enable AI-powered advisory
+      --docker-native        Use the local Docker daemon for image checks
+      --json                 Shorthand for --format json
+      --max-issues <n>       Cap issues returned by the agent command
   -h, --help                 Show this help message
       --version              Show version information
 
@@ -207,30 +235,14 @@ export async function createAuditReport(
   options: CliOptions & { securityUrl?: string; scan?: boolean; aiAdvisory?: boolean; dockerNative?: boolean }
 ): Promise<AuditReport> {
   const root = options.projectRoot;
-  const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
+  const { results: scanned, aiAdvisory: aiText } = await collectAuditResults({
     projectRoot: root,
-    asyncTargetPath: root,
-    configProjectRoot: root,
-    dependencyTargetPath: root,
-    dockerProjectRoot: root,
-    imageTargetPath: root,
-    deadCodeTargetPath: root,
-    securityTargetUrl: options.securityUrl,
+    modules: options.modules,
+    securityUrl: options.securityUrl,
+    scan: options.scan,
+    aiAdvisory: options.aiAdvisory,
+    dockerNative: options.dockerNative,
   });
-
-  const unified = await orchestrator.execute();
-  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
-  const selected = wanted.length
-    ? unified.results.filter((r) => wanted.some((w) => r.module.toLowerCase().includes(w)))
-    : unified.results;
-
-  const scanned = [...selected];
-  let aiText: string | null = null;
-  if (options.scan) {
-    const outcome = await runScanAudit(root, { enableAi: options.aiAdvisory ?? false, dockerNative: options.dockerNative ?? false });
-    scanned.push(outcome.result);
-    aiText = outcome.report.aiAdvisory;
-  }
 
   const issues = scanned.flatMap((r) => r.issues);
   const count = (sev: string) => issues.filter((i) => i.severity === sev).length;
@@ -281,6 +293,31 @@ export async function runCli(args: string[]): Promise<number> {
     const options = parseArgs(args);
     const command = options.command || "audit";
 
+    if (command === "context") {
+      console.log(JSON.stringify(getSystemContext(), null, 2));
+      return 0;
+    }
+    if (command === "tool-schema") {
+      console.log(JSON.stringify(AGENT_TOOL_DEFINITIONS, null, 2));
+      return 0;
+    }
+    if (command === "agent") {
+      const report = await runAuditForAgent({
+        projectRoot: options.projectRoot,
+        modules: options.modules,
+        securityUrl: options.securityUrl,
+        osv: options.osv,
+        docker: options.docker,
+        aiAdvisory: options.aiAdvisory,
+        failOnWarning: options.failOnWarning,
+        maxIssues: options.maxIssues,
+      });
+      const json = JSON.stringify(report, null, 2);
+      if (options.output) writeFileSync(resolve(process.cwd(), options.output), json);
+      else console.log(json);
+      return report.verdict === "fail" ? 1 : 0;
+    }
+
     if (command === "resolve") {
       // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
       if (options.projectRoot) process.chdir(options.projectRoot);
@@ -294,6 +331,7 @@ export async function runCli(args: string[]): Promise<number> {
         ...(options as CliOptions & { securityUrl?: string }),
         scan: Boolean(options.osv || options.docker || options.aiAdvisory),
         aiAdvisory: options.aiAdvisory ?? false,
+        dockerNative: options.dockerNative ?? false,
       };
 
       if (options.verbose) {

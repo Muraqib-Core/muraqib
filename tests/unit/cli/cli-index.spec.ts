@@ -72,6 +72,38 @@ describe("CLI entry (runCli)", () => {
     expect(out.length).toBeGreaterThan(0);
   });
 
+  test("agent command prints a deterministic JSON report and maps the verdict to the exit code", async () => {
+    execute.mockResolvedValue(unified(moduleResult("m", ["error", "info"])));
+    expect(await runCli(["agent", "-p", dir, "--max-issues", "1"])).toBe(1);
+    const report = JSON.parse(out.join("\n"));
+    expect(report).toMatchObject({ schemaVersion: "1.0", ok: true, verdict: "fail", truncated: 1 });
+    expect(report.issues).toHaveLength(1);
+
+    out = [];
+    execute.mockResolvedValue(unified());
+    expect(await runCli(["agent", "-p", dir])).toBe(0);
+    expect(JSON.parse(out.join("\n")).verdict).toBe("pass");
+  });
+
+  test("agent command can write to --output", async () => {
+    const file = path.join(dir, "agent.json");
+    expect(await runCli(["agent", "-p", dir, "-o", file])).toBe(0);
+    expect(JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion).toBe("1.0");
+  });
+
+  test("context and tool-schema print machine-readable JSON", async () => {
+    expect(await runCli(["context"])).toBe(0);
+    expect(JSON.parse(out.join("\n")).name).toBe("muraqib");
+    out = [];
+    expect(await runCli(["tool-schema"])).toBe(0);
+    expect(JSON.parse(out.join("\n"))[0].name).toBe("muraqib_audit");
+  });
+
+  test("--json is shorthand for --format json", async () => {
+    expect(await runCli(["--json", "-p", dir])).toBe(0);
+    expect(() => JSON.parse(out.join("\n"))).not.toThrow();
+  });
+
   test("returns 1 when critical or error issues exist", async () => {
     execute.mockResolvedValue(unified(moduleResult("m", ["critical"])));
     expect(await runCli(["-p", dir])).toBe(1);

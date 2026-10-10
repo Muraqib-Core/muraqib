@@ -127,6 +127,9 @@ export * from "./ai/advisor.js";
 export * from "./ai/safe-metadata.js";
 export { analyzeUnknownVariablesWithAi } from "./ai/fallback.js";
 
+// Agent API: structured, deterministic audits for LLM agents / MCP clients
+export * from "./agent/index.js";
+
 // CLI and Output Formatting
 /** Command-line interface and audit runner */
 export * from "./cli/index.js";
