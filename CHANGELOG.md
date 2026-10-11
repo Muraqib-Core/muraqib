@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Enable `exactOptionalPropertyTypes` in `tsconfig.json` and add `tsconfig.test.json` for type-checking specs
 - Remove the stale `AUDIT.md` and one-off helper scripts under `scripts/`
-- Unify the duplicated audit CLI in `src/scan/cli.ts` with the primary CLI
+- Unify the duplicated audit CLI: `src/scan/cli.ts` now only serves `resolve`, `image` and `runtime`; `muraqib audit` (with the new `-e/--env` and `--engine` flags) is handled solely by the primary CLI. `npm run scan` now runs `muraqib audit --osv`
 
 ### ✅ Tests
 

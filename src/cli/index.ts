@@ -12,6 +12,7 @@ import { getSystemContext } from "../agent/system-context.js";
 import { AGENT_TOOL_DEFINITIONS } from "../agent/tool-definitions.js";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
 import { shouldUseInteractive } from "./interactive-policy.js";
+import type { ValidationEngineName } from "../scan/guard/core/engine-detector.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -24,9 +25,16 @@ interface ExtendedCliOptions extends Partial<CliOptions> {
   osv?: boolean;
   docker?: boolean;
   aiAdvisory?: boolean;
+  env?: "build" | "prod";
+  engine?: ValidationEngineName;
   packageName?: string | undefined;
   packageVersion?: string | undefined;
   securityUrl?: string | undefined;
+}
+
+const VALIDATION_ENGINES: readonly ValidationEngineName[] = ["custom", "zod", "valibot", "arktype"];
+function isValidationEngine(value: string | undefined): value is ValidationEngineName {
+  return VALIDATION_ENGINES.some((engine) => engine === value);
 }
 
 function parseArgs(args: string[]): ExtendedCliOptions {
@@ -127,6 +135,24 @@ function parseArgs(args: string[]): ExtendedCliOptions {
       options.aiAdvisory = true;
     }
 
+    if (arg === "--env" || arg === "-e") {
+      const value = args[i + 1];
+      if (value !== "build" && value !== "prod") {
+        throw new Error(`Invalid environment mode '${value ?? ""}'. Expected 'build' or 'prod'.`);
+      }
+      options.env = value;
+      i++;
+    }
+
+    if (arg === "--engine") {
+      const value = args[i + 1];
+      if (!isValidationEngine(value)) {
+        throw new Error(`Invalid validation engine '${value ?? ""}'. Expected one of: ${VALIDATION_ENGINES.join(", ")}.`);
+      }
+      options.engine = value;
+      i++;
+    }
+
     // Resolve command options
     if (arg === "--package") {
       options.packageName = args[i + 1];
@@ -207,6 +233,8 @@ OPTIONS:
   -m, --modules <list>       Specific modules to run (comma-separated)
       --fail-on-warning      Exit with code 1 if warnings found
       --osv                  Enable OSV vulnerability scanning
+      -e, --env <build|prod> Blocking policy mode for the scan layer (implies the scan layer)
+      --engine <name>        Env validation engine: custom, zod, valibot, arktype (implies the scan layer)
       --docker               Enable Docker discovery
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
@@ -245,7 +273,14 @@ For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
 }
 
 export async function createAuditReport(
-  options: CliOptions & { securityUrl?: string; scan?: boolean; aiAdvisory?: boolean; dockerNative?: boolean }
+  options: CliOptions & {
+    securityUrl?: string | undefined;
+    scan?: boolean;
+    aiAdvisory?: boolean;
+    dockerNative?: boolean;
+    env?: "build" | "prod" | undefined;
+    engine?: ValidationEngineName | undefined;
+  }
 ): Promise<AuditReport> {
   const root = options.projectRoot;
   const { results: scanned, aiAdvisory: aiText } = await collectAuditResults({
@@ -255,6 +290,8 @@ export async function createAuditReport(
     scan: options.scan,
     aiAdvisory: options.aiAdvisory,
     dockerNative: options.dockerNative,
+    mode: options.env,
+    engine: options.engine,
   });
 
   const issues = scanned.flatMap((r) => r.issues);
@@ -367,7 +404,7 @@ export async function runCli(args: string[]): Promise<number> {
 
       const auditOptions = {
         ...(options as CliOptions & { securityUrl?: string }),
-        scan: Boolean(options.osv || options.docker || options.aiAdvisory),
+        scan: Boolean(options.osv || options.docker || options.aiAdvisory || options.env || options.engine),
         aiAdvisory: options.aiAdvisory ?? false,
         dockerNative: options.dockerNative ?? false,
       };
