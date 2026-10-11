@@ -20,7 +20,7 @@ vi.mock("../../../src/scan/bridge.js", () => ({ runScanAudit }));
 vi.mock("../../../src/scan/cli.js", () => ({ main: scanMain }));
 vi.mock("../../../src/cli/audit-cli.js", () => ({ run: workflowRun }));
 const ui = vi.hoisted(() => ({
-  promptScanChoices: vi.fn(),
+  runInteractiveSession: vi.fn(),
   showIntro: vi.fn(),
   showOutro: vi.fn(),
   showCancelled: vi.fn(),
@@ -301,24 +301,46 @@ describe("CLI entry (runCli)", () => {
       expect(await runCli(["-p", dir])).toBe(0);
       expect(ui.showIntro).toHaveBeenCalled();
       expect(ui.showOutro).toHaveBeenCalled();
-      expect(ui.promptScanChoices).not.toHaveBeenCalled();
+      expect(ui.runInteractiveSession).not.toHaveBeenCalled();
     });
 
-    test("-i prompts for scans and enables the scan layer", async () => {
-      ui.promptScanChoices.mockResolvedValue({ osv: true, docker: false, aiAdvisory: false });
+    test("-i hands the flags to the guided session and audits with the choices it returns", async () => {
       runScanAudit.mockResolvedValue({
         result: { module: "scan", status: "ok", issues: [], message: "", timestamp: 0, duration: 0 },
         report: { aiAdvisory: null },
       });
-      expect(await runCli(["-p", dir, "-i"])).toBe(0);
-      expect(ui.promptScanChoices).toHaveBeenCalled();
+      ui.runInteractiveSession.mockImplementation(async (initial, audit) => ({
+        cancelled: false,
+        report: await audit({ ...initial, modules: ["config"], osv: true, securityUrl: "http://x.test" }),
+      }));
+      expect(await runCli(["-p", dir, "-i", "--security-url", "http://flag.test"])).toBe(0);
+      expect(ui.showIntro).toHaveBeenCalled();
+      expect(ui.runInteractiveSession.mock.calls[0]?.[0]).toMatchObject({ projectRoot: dir, securityUrl: "http://flag.test" });
       expect(runScanAudit).toHaveBeenCalled();
+      expect(out.join("\n")).not.toContain("Muraqib Audit Report");
     });
 
-    test("cancelling the prompt exits with 130", async () => {
-      ui.promptScanChoices.mockResolvedValue(null);
+    test("-i derives the exit code from the final report", async () => {
+      execute.mockResolvedValue(unified(moduleResult("a", ["error"])));
+      ui.runInteractiveSession.mockImplementation(async (initial, audit) => ({ cancelled: false, report: await audit(initial) }));
+      expect(await runCli(["-p", dir, "-i"])).toBe(1);
+
+      execute.mockResolvedValue(unified(moduleResult("a", ["warning"])));
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(await runCli(["-p", dir, "-i", "--fail-on-warning"])).toBe(1);
+    });
+
+    test("cancelling the guided session exits with 130", async () => {
+      ui.runInteractiveSession.mockResolvedValue({ cancelled: true });
       expect(await runCli(["-p", dir, "--interactive"])).toBe(130);
       expect(ui.showCancelled).toHaveBeenCalled();
+    });
+
+    test("-i without a usable terminal says so and still audits", async () => {
+      setTty(false);
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(ui.runInteractiveSession).not.toHaveBeenCalled();
+      expect(out.join("\n")).toContain("Interactive mode needs a terminal");
     });
 
     test("--no-interactive and --json skip the UI", async () => {

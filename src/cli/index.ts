@@ -252,7 +252,7 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
-  -i, --interactive          Ask which optional scans to run (TTY only)
+  -i, --interactive          Guided mode: pick what to audit, then fixes / report / AI hand-off (TTY only)
       --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
   -h, --help                 Show this help message
@@ -326,6 +326,13 @@ export async function createAuditReport(
     },
     modules,
   };
+}
+
+/** 1 when the report has blocking findings (critical/error; warnings too with --fail-on-warning). */
+function exitCodeFor(report: AuditReport, failOnWarning: boolean): number {
+  const { summary } = report;
+  if (summary.critical > 0 || summary.error > 0) return 1;
+  return failOnWarning && summary.warning > 0 ? 1 : 0;
 }
 
 const SCAN_COMMANDS = new Set(["resolve", "image", "runtime"]);
@@ -404,19 +411,43 @@ export async function runCli(args: string[]): Promise<number> {
       });
       // Loaded on demand so importing the library never pulls in @clack/prompts
       const ui = interactive ? await import("./interactive.js") : null;
-      if (ui) {
-        ui.showIntro(options.projectRoot ?? process.cwd());
-        const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
-        if (options.interactive === true && noScanFlags) {
-          const choices = await ui.promptScanChoices();
-          if (!choices) {
-            ui.showCancelled();
-            return 130;
-          }
-          options.osv = choices.osv;
-          options.docker = choices.docker;
-          options.aiAdvisory = choices.aiAdvisory;
+      if (options.interactive === true && !ui) {
+        console.error("ℹ️  Interactive mode needs a terminal and text output (not CI, pipes, --json/--format or --output); continuing non-interactively.");
+      }
+      if (ui) ui.showIntro(options.projectRoot ?? process.cwd());
+
+      // Explicit -i: guided flow (scope -> optional scans -> results -> next steps).
+      if (ui && options.interactive === true) {
+        const projectRoot = options.projectRoot ?? process.cwd();
+        const outcome = await ui.runInteractiveSession(
+          {
+            projectRoot,
+            modules: options.modules,
+            securityUrl: options.securityUrl,
+            osv: options.osv,
+            docker: options.docker,
+            aiAdvisory: options.aiAdvisory,
+          },
+          (chosen) =>
+            createAuditReport({
+              projectRoot,
+              format: "text",
+              verbose: options.verbose ?? false,
+              failOnWarning: options.failOnWarning ?? false,
+              modules: chosen.modules ?? [],
+              securityUrl: chosen.securityUrl,
+              scan: Boolean(chosen.osv || chosen.docker || chosen.aiAdvisory || options.env || options.engine),
+              aiAdvisory: chosen.aiAdvisory ?? false,
+              dockerNative: options.dockerNative ?? false,
+              env: options.env,
+              engine: options.engine,
+            })
+        );
+        if (outcome.cancelled) {
+          ui.showCancelled();
+          return 130;
         }
+        return exitCodeFor(outcome.report, options.failOnWarning ?? false);
       }
 
       const auditOptions = {
@@ -453,10 +484,7 @@ export async function runCli(args: string[]): Promise<number> {
         console.log("✅ Audit completed successfully");
       }
 
-      const { summary } = report;
-      if (summary.critical > 0 || summary.error > 0) return 1;
-      if (auditOptions.failOnWarning && summary.warning > 0) return 1;
-      return 0;
+      return exitCodeFor(report, auditOptions.failOnWarning);
     }
   } catch (error) {
     console.error(
