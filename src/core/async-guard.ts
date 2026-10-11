@@ -20,6 +20,49 @@ interface AsyncAuditOptions {
   targetPath: string;
 }
 
+/** `new Promise((resolve) => ...)`: an executor without a `reject` parameter can only fulfil. */
+const FULFIL_ONLY_EXECUTOR = /new\s+Promise\s*\(\s*(?:async\s+)?(?:\(\s*\w+\s*\)|\w+)\s*=>|new\s+Promise\s*\(\s*(?:async\s+)?function\s*\w*\s*\(\s*\w+\s*\)/;
+
+/** Index of the `)` matching the `(` at `open`, or -1. Expects literals/comments already masked. */
+function findClosingParen(source: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const ch = source.charAt(i);
+    if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** True when `args` has a top-level comma, e.g. `onFulfilled, onRejected`. */
+function hasTopLevelComma(args: string): boolean {
+  let depth = 0;
+  for (const ch of args) {
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") depth--;
+    else if (ch === "," && depth === 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the `.then(` at `thenIndex` handles rejection: it passes an `onRejected` argument or
+ * its chain (`.then().finally()...`) continues into a `.catch(`, however many lines it spans.
+ */
+function chainHandlesRejection(source: string, thenIndex: number): boolean {
+  let position = thenIndex;
+  for (;;) {
+    const open = source.indexOf("(", position);
+    const close = open === -1 ? -1 : findClosingParen(source, open);
+    if (close === -1) return false;
+    if (hasTopLevelComma(source.slice(open + 1, close))) return true;
+    const next = /^\s*\.(then|catch|finally)(?=\s*\()/.exec(source.slice(close + 1));
+    if (next === null) return false;
+    if (next[1] === "catch") return true;
+    position = close + 1 + next[0].length;
+  }
+}
+
 function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   const reports: string[] = [];
   const unhandledPromises: string[] = [];
@@ -40,15 +83,18 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
       continue;
     }
     const lines = content.split("\n");
+    let lineStart = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      const offset = lineStart;
+      lineStart += (line?.length ?? 0) + 1;
       if (line === undefined) continue;
       const lineNum = i + 1;
       const trimmed = line.trim();
       const nextWindow = lines.slice(i, Math.min(i + 5, lines.length)).join(" ");
 
-      if (/new\s+Promise\s*\(/.test(trimmed) && !nextWindow.includes(".catch(")) {
+      if (/new\s+Promise\s*\(/.test(trimmed) && !FULFIL_ONLY_EXECUTOR.test(trimmed) && !nextWindow.includes(".catch(")) {
         unhandledPromises.push(`${relativePath}:${lineNum}`);
         reports.push(`Unhandled Promise at ${relativePath}:${lineNum} — add .catch() or try/catch`);
       }
@@ -75,7 +121,7 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
         reports.push(`Floating Promise: ${relativePath}:${lineNum} — Promise result is ignored`);
       }
 
-      if (trimmed.includes(".then(") && !nextWindow.includes(".catch(")) {
+      if (trimmed.includes(".then(") && !nextWindow.includes(".catch(") && !chainHandlesRejection(content, offset + line.indexOf(".then("))) {
         reports.push(`Promise chain without .catch(): ${relativePath}:${lineNum}`);
       }
     }
