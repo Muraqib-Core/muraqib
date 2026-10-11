@@ -21,7 +21,7 @@ export interface GuardConfig {
   dependencyTargetPath?: string;
   dockerProjectRoot?: string;
   memoryOptions?: Record<string, unknown>;
-  securityTargetUrl?: string;
+  securityTargetUrl?: string | undefined;
   imageTargetPath?: string;
   deadCodeTargetPath?: string;
 }

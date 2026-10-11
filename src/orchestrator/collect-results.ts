@@ -6,6 +6,7 @@ import { AuditOrchestrator } from "../core/orchestrator.js";
 import { buildAuditContext } from "../core/audit-context.js";
 import { runScanAudit } from "../scan/bridge.js";
 import type { AuditResult } from "../core/types.js";
+import type { ValidationEngineName } from "../scan/guard/core/engine-detector.js";
 
 export interface CollectOptions {
   projectRoot: string;
@@ -16,6 +17,10 @@ export interface CollectOptions {
   scan?: boolean | undefined;
   aiAdvisory?: boolean | undefined;
   dockerNative?: boolean | undefined;
+  /** Blocking policy mode for the scan layer (defaults to build). */
+  mode?: "build" | "prod" | undefined;
+  /** Preferred env-validation engine for the scan layer. */
+  engine?: ValidationEngineName | undefined;
 }
 
 export interface CollectedResults {
@@ -48,6 +53,8 @@ export async function collectAuditResults(options: CollectOptions): Promise<Coll
     const outcome = await runScanAudit(root, {
       enableAi: options.aiAdvisory ?? false,
       dockerNative: options.dockerNative ?? false,
+      ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.engine ? { engine: options.engine } : {}),
     });
     results.push(outcome.result);
     aiAdvisory = outcome.report.aiAdvisory;

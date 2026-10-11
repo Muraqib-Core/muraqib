@@ -3,12 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 const m = vi.hoisted(() => ({
   imageScan: vi.fn(),
   runtimeScan: vi.fn(),
-  run: vi.fn(),
-  select: vi.fn(),
-  isCancel: vi.fn(() => false),
-  spinnerStop: vi.fn(),
-  outro: vi.fn(),
-  cancel: vi.fn(),
+  resolve: vi.fn(),
 }));
 
 vi.mock("../../../src/scan/scanners/docker/image-engine.js", () => ({
@@ -21,82 +16,37 @@ vi.mock("../../../src/scan/scanners/docker/runtime-engine.js", () => ({
     scan = m.runtimeScan;
   },
 }));
-vi.mock("../../../src/scan/core/runner/audit-runner.js", () => ({
-  AuditRunner: class {
-    run = m.run;
-  },
-}));
+vi.mock("../../../src/scan/cli/resolve-workflow.js", () => ({ runResolveWorkflow: m.resolve }));
 vi.mock("../../../src/scan/core/context/project-context.js", () => ({
   createProjectContext: vi.fn(() => ({ projectPath: "/p" })),
-}));
-vi.mock("@clack/prompts", () => ({
-  intro: vi.fn(),
-  outro: m.outro,
-  cancel: m.cancel,
-  note: vi.fn(),
-  select: m.select,
-  isCancel: m.isCancel,
-  log: { info: vi.fn() },
-  spinner: () => ({ start: vi.fn(), stop: m.spinnerStop }),
 }));
 
 import { main } from "../../../src/scan/cli.js";
 
 const finding = (level: string) => ({ level, category: "security", message: "m", code: "c", severity: "error", title: "t", source: "s" });
-const report = (over: Record<string, unknown> = {}) => ({
-  findings: [],
-  totalParsedLines: 0,
-  engine: "custom",
-  mode: "build",
-  scannedEnvFiles: [],
-  aiAdvisory: null,
-  scannerCoverage: [],
-  hasBlockingIssues: false,
-  exitCode: 0,
-  ...over,
-});
-
-class ExitSignal extends Error {
-  constructor(readonly code?: number) {
-    super("exit");
-  }
-}
-
-/** Run main(); a mocked process.exit aborts the flow like the real one. */
-async function run(argv: string[]): Promise<void> {
-  try {
-    await main(argv);
-  } catch (err) {
-    if (!(err instanceof ExitSignal)) throw err;
-  }
-}
 
 let logs: string[];
-let exitSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   logs = [];
   vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => {
     logs.push(a.join(" "));
   });
-  exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
-    throw new ExitSignal(code);
-  }) as never);
   process.exitCode = undefined;
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   Object.values(m).forEach((f) => f.mockReset());
-  m.isCancel.mockReturnValue(false);
   process.exitCode = undefined;
 });
 
 describe("scan CLI validation", () => {
-  test("rejects unknown command, env and engine", async () => {
+  test("rejects unknown and missing commands", async () => {
     await expect(main(["bogus"])).rejects.toThrow("Unknown command");
-    await expect(main(["audit", "-e", "staging"])).rejects.toThrow("Invalid environment mode");
-    await expect(main(["audit", "--engine", "joi"])).rejects.toThrow("Invalid validation engine");
+    await expect(main([])).rejects.toThrow("Unknown command");
+    // `audit` is owned by the primary CLI, not the scan layer.
+    await expect(main(["audit"])).rejects.toThrow("Unknown command");
   });
 
   test("image and runtime require their target flag", async () => {
@@ -137,58 +87,15 @@ describe("scan CLI image/runtime", () => {
   });
 });
 
-describe("scan CLI audit", () => {
-  test("json success path exits with the report code", async () => {
-    m.run.mockResolvedValue(report());
-    await run(["audit", "--json", "-e", "prod", "--engine", "zod", "--ai", "--docker-native"]);
-    expect(m.run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: "prod", engine: "zod", enableAi: true, dockerNative: true }));
-    expect(exitSpy).toHaveBeenCalledWith(0);
+describe("scan CLI resolve and help", () => {
+  test("resolve runs the resolution workflow in the current project", async () => {
+    await main(["resolve", "--osv"]);
+    expect(m.resolve).toHaveBeenCalledWith({ projectPath: "/p" });
   });
 
-  test("json failure path reports AUDIT_EXECUTION_FAILED with exit 3", async () => {
-    m.run.mockRejectedValue(new Error("boom"));
-    await run(["--json"]);
-    expect(JSON.parse(logs.join("\n")).error.code).toBe("AUDIT_EXECUTION_FAILED");
-    expect(exitSpy).toHaveBeenCalledWith(3);
-  });
-
-  test("interactive failure path (Error and non-Error)", async () => {
-    m.select.mockResolvedValue("build");
-    m.run.mockRejectedValue("plain");
-    await run(["audit"]);
-    expect(m.spinnerStop).toHaveBeenCalledWith("Audit execution failed!");
-    expect(m.outro).toHaveBeenCalledWith(expect.stringContaining("plain"));
-    expect(exitSpy).toHaveBeenCalledWith(3);
-  });
-
-  test("prompts for the mode and exits 0 on a clean report", async () => {
-    m.select.mockResolvedValue("prod");
-    m.run.mockResolvedValue(report());
-    await run([]);
-    expect(m.run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: "prod" }));
-    expect(exitSpy).toHaveBeenCalledWith(0);
-  });
-
-  test("cancelled prompt exits 0", async () => {
-    m.select.mockResolvedValue(Symbol("cancel"));
-    m.isCancel.mockReturnValue(true);
-    m.run.mockResolvedValue(report());
-    await run([]);
-    expect(m.cancel).toHaveBeenCalled();
-    expect(exitSpy).toHaveBeenCalledWith(0);
-  });
-
-  test("blocking report exits 1 and prints the resolve tip", async () => {
-    const dep = { ...finding("high"), dependencyProblem: { package: "p", installedVersion: "1", advisoryCount: 1 } };
-    m.run.mockResolvedValue(report({ exitCode: 1, findings: [dep] }));
-    await run(["-e", "build"]);
+  test("--help prints usage without running anything", async () => {
+    await main(["--help"]);
     expect(logs.join("\n")).toContain("muraqib resolve");
-    expect(exitSpy).toHaveBeenCalledWith(1);
-  });
-
-  test("scanner failure exits 3", async () => {
-    m.run.mockResolvedValue(report({ exitCode: 3 }));
-    await run(["-e", "build"]);
-    expect(exitSpy).toHaveBeenCalledWith(3);
+    expect(m.resolve).not.toHaveBeenCalled();
   });
 });

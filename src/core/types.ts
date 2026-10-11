@@ -52,8 +52,8 @@ export interface AuditIssue {
     file?: string;
     line?: number;
     column?: number;
-  };
-  recommendation?: string;
+  } | undefined;
+  recommendation?: string | undefined;
   tags: string[];
   /** Five-level severity from the scan layer; `severity` is its guard-level view. */
   level?: ScanLevel;
@@ -83,8 +83,8 @@ export interface AuditContext {
   environment: "development" | "production" | "ci";
   nodeVersion: string;
   npmVersion: string;
-  gitBranch?: string;
-  gitCommit?: string;
+  gitBranch?: string | undefined;
+  gitCommit?: string | undefined;
 }
 
 export interface AIInsight {

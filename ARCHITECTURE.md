@@ -547,7 +547,7 @@ Muraqib Core has two cooperating layers plus a bridge:
 - `muraqib audit [-p dir] [-f json|text|html|csv] [-m modules]` — guard layer via `AuditOrchestrator`.
 - `muraqib audit --osv --docker --ai-advisory` — additionally runs the scan layer (`AuditRunner`) as module `scan`.
 - `muraqib audit --skip-* --url … --upgrade …` — the 13-module workflow (`runAuditWorkflow`, Aya).
-- `muraqib resolve | image | runtime` — scan CLI (`src/scan/cli.ts`): dependency resolution with approval boundary + rollback, Trivy image scan, runtime inspection.
+- `muraqib resolve | image | runtime` — scan-layer subcommands (`src/scan/cli.ts`): dependency resolution with approval boundary + rollback, Trivy image scan, runtime inspection. `muraqib audit` is served only by the primary CLI (`src/cli/index.ts`); `-e build|prod` and `--engine` select the scan layer policy mode and validation engine.
 - Library: `runAudit()` (workflow), `runGuardAudit()` (orchestrator), `scan.*` namespace, `createEnv/safeCreateEnv/loadEnv/createEnvWithPresets`, `runMuraqibUpgradeOrchestrator`.
 
 ### Where duplicates were resolved

@@ -7,7 +7,7 @@ export type OutputFormat = "json" | "text" | "html" | "csv";
 export interface CliOptions {
   projectRoot: string;
   format: OutputFormat;
-  output?: string;
+  output?: string | undefined;
   verbose: boolean;
   modules?: string[];
   failOnWarning: boolean;

@@ -167,7 +167,7 @@ export class CustomEngine {
   /**
    * Get schema metadata
    */
-  getSchemaInfo(): { type: string; description?: string } {
+  getSchemaInfo(): { type: string; description?: string | undefined } {
     return {
       type: 'CustomSchema',
       description: `Custom validation with ${this.validators.length} validator(s) and ${this.transforms.length} transform(s)`,
