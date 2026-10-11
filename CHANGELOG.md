@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Added
 
-- Guided interactive mode (`muraqib audit -i`): choose what to audit (Full, Security, Performance & assets, Configuration, Code quality, or individual modules), optionally enter a URL for the HTTP security checks, review colour-coded results, then pick a next step: recommended fixes, all issues, a paste-ready AI-assistant prompt, save the report (HTML/JSON/CSV/text) or run another audit. Flags still skip the matching prompts, and CI/`--json`/piped runs are unchanged
 - Documentation Web View: a self-contained, tabbed HTML page (`dist/webview/index.html`) and a `getWebviewHtml(nonce)` helper for VS Code webviews, with no new dependencies
+- Guided interactive mode (`muraqib audit -i`): pick audit categories (Full, Security, Performance & images, Configuration, Code health), optional security URL prompt, colour-coded report with per-module results, prioritised next steps, and follow-ups (recommended fixes grouped by severity, show every issue, a paste-ready prompt to hand the findings to an AI assistant, save an HTML report), repeated until you finish. `-i` without a terminal prints a one-line note and runs normally. Direct flags and CI behaviour are unchanged
 - `muraqib-core/webview/index.html` subpath export so tools and VS Code wrappers can resolve the generated page
 
 ## [1.0.1] - 2026-10-11

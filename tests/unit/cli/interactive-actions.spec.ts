@@ -1,14 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  AUDIT_SCOPES,
-  MODULE_CHOICES,
-  buildAssistantPrompt,
-  collectIssues,
-  formatLocation,
-  groupFixes,
-  includesSecurity,
-  moduleStatuses,
-} from "../../../src/cli/interactive-model.js";
+import { buildAssistantPrompt, collectIssues, formatLocation, groupFixes } from "../../../src/cli/interactive-actions.js";
 import type { AuditReport } from "../../../src/cli/types.js";
 
 const report: AuditReport = {
@@ -36,26 +27,6 @@ const report: AuditReport = {
   },
 };
 
-describe("audit scopes", () => {
-  test("the full scope runs everything and every named scope lists modules", () => {
-    const byId = Object.fromEntries(AUDIT_SCOPES.map((s) => [s.id, s]));
-    expect(byId["full"]?.modules).toEqual([]);
-    for (const id of ["security", "performance", "config", "quality"]) expect(byId[id]?.modules.length).toBeGreaterThan(0);
-    expect(AUDIT_SCOPES.map((s) => s.id)).toContain("custom");
-  });
-
-  test("every module filter used by a scope is selectable individually", () => {
-    const offered = new Set(MODULE_CHOICES.map((m) => m.value));
-    for (const scope of AUDIT_SCOPES) for (const m of scope.modules) expect(offered.has(m), m).toBe(true);
-  });
-
-  test("includesSecurity: empty means all, otherwise needs a matching filter", () => {
-    expect(includesSecurity([])).toBe(true);
-    expect(includesSecurity(["Security"])).toBe(true);
-    expect(includesSecurity(["image", "memory"])).toBe(false);
-  });
-});
-
 describe("collectIssues", () => {
   test("flattens valid issues, most severe first, skipping malformed entries", () => {
     const issues = collectIssues(report);
@@ -65,36 +36,25 @@ describe("collectIssues", () => {
   });
 
   test("falls back to defaults for missing title/message", () => {
-    const flat = collectIssues({ ...report, modules: { m: { issues: [{ severity: "info" }] } } });
-    expect(flat[0]).toMatchObject({ title: "Issue", message: "" });
-  });
-});
-
-describe("moduleStatuses", () => {
-  test("reports counts and worst severity, skipping non-module entries", () => {
-    expect(moduleStatuses(report)).toEqual([
-      { name: "config-guard", count: 2, worst: "warning" },
-      { name: "security-guard", count: 3, worst: "critical" },
-      { name: "memory-guard", count: 0, worst: null },
-    ]);
+    expect(collectIssues({ ...report, modules: { m: { issues: [{ severity: "info" }] } } })[0]).toMatchObject({ title: "Issue", message: "" });
   });
 });
 
 describe("groupFixes", () => {
   test("merges identical recommendations and ranks by severity then frequency", () => {
-    const fixes = groupFixes(collectIssues(report));
-    expect(fixes).toEqual([
+    expect(groupFixes(collectIssues(report))).toEqual([
       { recommendation: "Enable HSTS", severity: "critical", count: 1, modules: ["security-guard"] },
       { recommendation: "Add a license field", severity: "warning", count: 2, modules: ["config-guard"] },
     ]);
   });
 
   test("keeps the most severe level and every module of a shared recommendation", () => {
-    const fixes = groupFixes([
-      { module: "a", severity: "warning", title: "t", message: "m", recommendation: "r" },
-      { module: "b", severity: "error", title: "t", message: "m", recommendation: "r" },
-    ]);
-    expect(fixes).toEqual([{ recommendation: "r", severity: "error", count: 2, modules: ["a", "b"] }]);
+    expect(
+      groupFixes([
+        { module: "a", severity: "warning", title: "t", message: "m", recommendation: "r" },
+        { module: "b", severity: "error", title: "t", message: "m", recommendation: "r" },
+      ])
+    ).toEqual([{ recommendation: "r", severity: "error", count: 2, modules: ["a", "b"] }]);
   });
 });
 
@@ -103,6 +63,8 @@ describe("formatLocation", () => {
     [{ file: "a.ts", line: 3 }, "a.ts:3"],
     [{ file: "a.ts" }, "a.ts"],
     [{}, ""],
+    [{ file: ".eslintignore", title: "Config: .eslintignore" }, ""],
+    [{ file: ".eslintignore", line: 2, title: "Config: .eslintignore" }, ".eslintignore:2"],
   ])("%j -> %s", (loc, expected) => expect(formatLocation(loc)).toBe(expected));
 });
 

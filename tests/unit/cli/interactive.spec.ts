@@ -7,7 +7,10 @@ const clack = vi.hoisted(() => {
     intro: vi.fn(),
     outro: vi.fn(),
     cancel: vi.fn(),
-    log: { info: vi.fn() },
+    log: { info: vi.fn(), message: vi.fn() },
+    note: vi.fn(),
+    text: vi.fn(),
+    select: vi.fn(),
     multiselect: vi.fn(),
     isCancel: vi.fn((v: unknown) => v === "CANCEL"),
   };
@@ -18,13 +21,22 @@ vi.mock("@clack/prompts", () => ({
   outro: clack.outro,
   cancel: clack.cancel,
   log: clack.log,
+  note: clack.note,
+  text: clack.text,
+  select: clack.select,
   multiselect: clack.multiselect,
   isCancel: clack.isCancel,
   spinner: () => clack.spinner,
 }));
 
 import {
+  promptAfterReport,
+  promptCategories,
+  showAssistantPrompt,
+  showFixes,
   promptScanChoices,
+  promptSecurityUrl,
+  showReport,
   shouldUseInteractive,
   showCancelled,
   showIntro,
@@ -120,5 +132,88 @@ describe("prompts and rendering", () => {
     expect(clack.outro).toHaveBeenLastCalledWith(expect.stringContaining("Passed"));
     showCancelled();
     expect(clack.cancel).toHaveBeenCalled();
+  });
+
+  test("promptCategories maps ids to a module filter", async () => {
+    clack.multiselect.mockResolvedValue(["security", "performance"]);
+    const picked = await promptCategories();
+    expect(picked?.modules).toEqual(["security-guard", "image-guard", "memory-guard", "async-guard"]);
+    clack.multiselect.mockResolvedValue(["full"]);
+    expect((await promptCategories())?.modules).toBeUndefined();
+    clack.multiselect.mockResolvedValue("CANCEL");
+    expect(await promptCategories()).toBeNull();
+  });
+
+  test("promptSecurityUrl handles blank, value and cancel", async () => {
+    clack.text.mockResolvedValue("");
+    expect(await promptSecurityUrl()).toBeUndefined();
+    clack.text.mockResolvedValue("http://localhost:3000");
+    expect(await promptSecurityUrl()).toBe("http://localhost:3000");
+    clack.text.mockResolvedValue("CANCEL");
+    expect(await promptSecurityUrl()).toBeNull();
+  });
+
+  test("showReport prints overview, issues and next steps", () => {
+    const r = report({ total: 1, error: 1 });
+    r.modules = {
+      "image-guard": {
+        issues: [{ severity: "error", title: "big.png", message: "900 KB", recommendation: "compress" }],
+      },
+      "config-guard": { issues: [] },
+    };
+    showReport(r);
+    expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("image-guard"), "Results");
+    expect(clack.log.message).toHaveBeenCalledTimes(1);
+    expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("Shrink oversized images"), "Next steps");
+  });
+
+  test("promptAfterReport offers fixes and the AI hand-off only when there are issues", async () => {
+    clack.select.mockResolvedValue("done");
+    const values = (): string[] => clack.select.mock.calls.at(-1)?.[0].options.map((o: { value: string }) => o.value);
+    await promptAfterReport(true);
+    expect(values()).toEqual(["fixes", "all", "ai", "html", "done"]);
+    await promptAfterReport(false);
+    expect(values()).toEqual(["html", "done"]);
+  });
+
+  test("showFixes prints one grouped list, or says there are no recommendations", () => {
+    const withFixes = {
+      ...report({ total: 3, error: 1, warning: 2 }),
+      modules: {
+        a: {
+          issues: [
+            { severity: "warning", title: "t", message: "m", recommendation: "Add a license" },
+            { severity: "error", title: "t", message: "m", recommendation: "Add a license" },
+            { severity: "warning", title: "t", message: "m" },
+          ],
+        },
+      },
+    };
+    showFixes(withFixes);
+    const [body, title] = clack.note.mock.calls.at(-1) as [string, string];
+    expect(title).toBe("Recommended fixes");
+    expect(body).toContain("Add a license");
+    expect(body).toContain("×2");
+    expect(body).toContain("[error]");
+
+    showFixes(report());
+    expect(clack.log.info).toHaveBeenCalledWith(expect.stringContaining("No automatic recommendations"));
+  });
+
+  test("showAssistantPrompt prints a paste-ready prompt", () => {
+    showAssistantPrompt({
+      ...report({ total: 1, error: 1 }),
+      modules: { a: { issues: [{ severity: "error", title: "Bad", message: "broken", location: { file: "x.ts", line: 3 } }] } },
+    });
+    const [body, title] = clack.note.mock.calls.at(-1) as [string, string];
+    expect(title).toBe("Paste this into your AI assistant");
+    expect(body).toContain("[error] Bad (x.ts:3) - broken");
+  });
+
+  test("promptAfterReport returns the choice, done on cancel", async () => {
+    clack.select.mockResolvedValue("html");
+    expect(await promptAfterReport(true)).toBe("html");
+    clack.select.mockResolvedValue("CANCEL");
+    expect(await promptAfterReport(false)).toBe("done");
   });
 });

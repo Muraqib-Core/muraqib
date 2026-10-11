@@ -252,7 +252,7 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
-  -i, --interactive          Guided mode: pick what to audit, then fixes / report / AI hand-off (TTY only)
+  -i, --interactive          Guided mode: pick what to audit, view a colour-coded report (TTY only)
       --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
   -h, --help                 Show this help message
@@ -326,13 +326,6 @@ export async function createAuditReport(
     },
     modules,
   };
-}
-
-/** 1 when the report has blocking findings (critical/error; warnings too with --fail-on-warning). */
-function exitCodeFor(report: AuditReport, failOnWarning: boolean): number {
-  const { summary } = report;
-  if (summary.critical > 0 || summary.error > 0) return 1;
-  return failOnWarning && summary.warning > 0 ? 1 : 0;
 }
 
 const SCAN_COMMANDS = new Set(["resolve", "image", "runtime"]);
@@ -414,40 +407,37 @@ export async function runCli(args: string[]): Promise<number> {
       if (options.interactive === true && !ui) {
         console.error("ℹ️  Interactive mode needs a terminal and text output (not CI, pipes, --json/--format or --output); continuing non-interactively.");
       }
-      if (ui) ui.showIntro(options.projectRoot ?? process.cwd());
-
-      // Explicit -i: guided flow (scope -> optional scans -> results -> next steps).
-      if (ui && options.interactive === true) {
-        const projectRoot = options.projectRoot ?? process.cwd();
-        const outcome = await ui.runInteractiveSession(
-          {
-            projectRoot,
-            modules: options.modules,
-            securityUrl: options.securityUrl,
-            osv: options.osv,
-            docker: options.docker,
-            aiAdvisory: options.aiAdvisory,
-          },
-          (chosen) =>
-            createAuditReport({
-              projectRoot,
-              format: "text",
-              verbose: options.verbose ?? false,
-              failOnWarning: options.failOnWarning ?? false,
-              modules: chosen.modules ?? [],
-              securityUrl: chosen.securityUrl,
-              scan: Boolean(chosen.osv || chosen.docker || chosen.aiAdvisory || options.env || options.engine),
-              aiAdvisory: chosen.aiAdvisory ?? false,
-              dockerNative: options.dockerNative ?? false,
-              env: options.env,
-              engine: options.engine,
-            })
-        );
-        if (outcome.cancelled) {
-          ui.showCancelled();
-          return 130;
+      if (ui) {
+        ui.showIntro(options.projectRoot ?? process.cwd());
+        const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
+        if (options.interactive === true) {
+          if (!options.modules) {
+            const picked = await ui.promptCategories();
+            if (!picked) {
+              ui.showCancelled();
+              return 130;
+            }
+            if (picked.modules) options.modules = picked.modules;
+            if (!options.securityUrl && picked.modules?.includes("security-guard")) {
+              const url = await ui.promptSecurityUrl();
+              if (url === null) {
+                ui.showCancelled();
+                return 130;
+              }
+              options.securityUrl = url;
+            }
+          }
+          if (noScanFlags) {
+            const choices = await ui.promptScanChoices();
+            if (!choices) {
+              ui.showCancelled();
+              return 130;
+            }
+            options.osv = choices.osv;
+            options.docker = choices.docker;
+            options.aiAdvisory = choices.aiAdvisory;
+          }
         }
-        return exitCodeFor(outcome.report, options.failOnWarning ?? false);
       }
 
       const auditOptions = {
@@ -469,7 +459,22 @@ export async function runCli(args: string[]): Promise<number> {
 
       const formatted = formatReport(report, auditOptions.format);
 
-      if (options.output) {
+      if (ui && !options.output) {
+        ui.showReport(report, options.verbose);
+        if (options.interactive === true) {
+          // Keep offering follow-ups until the user finishes (or cancels, which reads as "done").
+          for (let action = await ui.promptAfterReport(report.summary.total > 0); action !== "done"; action = await ui.promptAfterReport(report.summary.total > 0)) {
+            if (action === "all") console.log(formatReport(report, "text"));
+            else if (action === "fixes") ui.showFixes(report);
+            else if (action === "ai") ui.showAssistantPrompt(report);
+            else if (action === "html") {
+              const htmlPath = resolve(process.cwd(), "muraqib-report.html");
+              writeFileSync(htmlPath, formatReport(report, "html"));
+              console.log(`Report saved to ${htmlPath}`);
+            }
+          }
+        }
+      } else if (options.output) {
         const outputPath = resolve(process.cwd(), options.output);
         writeFileSync(outputPath, formatted);
         if (options.verbose) {
@@ -484,7 +489,10 @@ export async function runCli(args: string[]): Promise<number> {
         console.log("✅ Audit completed successfully");
       }
 
-      return exitCodeFor(report, auditOptions.failOnWarning);
+      const { summary } = report;
+      if (summary.critical > 0 || summary.error > 0) return 1;
+      if (auditOptions.failOnWarning && summary.warning > 0) return 1;
+      return 0;
     }
   } catch (error) {
     console.error(
