@@ -20,7 +20,13 @@ vi.mock("../../../src/scan/bridge.js", () => ({ runScanAudit }));
 vi.mock("../../../src/scan/cli.js", () => ({ main: scanMain }));
 vi.mock("../../../src/cli/audit-cli.js", () => ({ run: workflowRun }));
 const ui = vi.hoisted(() => ({
-  runInteractiveSession: vi.fn(),
+  promptScanChoices: vi.fn(),
+  promptCategories: vi.fn(),
+  promptSecurityUrl: vi.fn(),
+  promptAfterReport: vi.fn(),
+  showFixes: vi.fn(),
+  showAssistantPrompt: vi.fn(),
+  showReport: vi.fn(),
   showIntro: vi.fn(),
   showOutro: vi.fn(),
   showCancelled: vi.fn(),
@@ -301,46 +307,81 @@ describe("CLI entry (runCli)", () => {
       expect(await runCli(["-p", dir])).toBe(0);
       expect(ui.showIntro).toHaveBeenCalled();
       expect(ui.showOutro).toHaveBeenCalled();
-      expect(ui.runInteractiveSession).not.toHaveBeenCalled();
+      expect(ui.promptScanChoices).not.toHaveBeenCalled();
     });
 
-    test("-i hands the flags to the guided session and audits with the choices it returns", async () => {
+    test("-i prompts for scans and enables the scan layer", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
+      ui.promptAfterReport.mockResolvedValue("done");
+      ui.promptScanChoices.mockResolvedValue({ osv: true, docker: false, aiAdvisory: false });
       runScanAudit.mockResolvedValue({
         result: { module: "scan", status: "ok", issues: [], message: "", timestamp: 0, duration: 0 },
         report: { aiAdvisory: null },
       });
-      ui.runInteractiveSession.mockImplementation(async (initial, audit) => ({
-        cancelled: false,
-        report: await audit({ ...initial, modules: ["config"], osv: true, securityUrl: "http://x.test" }),
-      }));
-      expect(await runCli(["-p", dir, "-i", "--security-url", "http://flag.test"])).toBe(0);
-      expect(ui.showIntro).toHaveBeenCalled();
-      expect(ui.runInteractiveSession.mock.calls[0]?.[0]).toMatchObject({ projectRoot: dir, securityUrl: "http://flag.test" });
-      expect(runScanAudit).toHaveBeenCalled();
-      expect(out.join("\n")).not.toContain("Muraqib Audit Report");
-    });
-
-    test("-i derives the exit code from the final report", async () => {
-      execute.mockResolvedValue(unified(moduleResult("a", ["error"])));
-      ui.runInteractiveSession.mockImplementation(async (initial, audit) => ({ cancelled: false, report: await audit(initial) }));
-      expect(await runCli(["-p", dir, "-i"])).toBe(1);
-
-      execute.mockResolvedValue(unified(moduleResult("a", ["warning"])));
       expect(await runCli(["-p", dir, "-i"])).toBe(0);
-      expect(await runCli(["-p", dir, "-i", "--fail-on-warning"])).toBe(1);
+      expect(ui.promptScanChoices).toHaveBeenCalled();
+      expect(runScanAudit).toHaveBeenCalled();
+      expect(ui.showReport).toHaveBeenCalled();
     });
 
-    test("cancelling the guided session exits with 130", async () => {
-      ui.runInteractiveSession.mockResolvedValue({ cancelled: true });
-      expect(await runCli(["-p", dir, "--interactive"])).toBe(130);
-      expect(ui.showCancelled).toHaveBeenCalled();
+    test("-i category choice filters modules and asks for a security URL", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: ["security-guard"], ids: ["security"] });
+      ui.promptSecurityUrl.mockResolvedValue("http://localhost:3000");
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport.mockResolvedValue("done");
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(ui.promptSecurityUrl).toHaveBeenCalled();
+    });
+
+    test("-i keeps offering follow-ups until done: fixes, AI hand-off, every issue, HTML", async () => {
+      execute.mockResolvedValue(unified(moduleResult("a", ["error"])));
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport
+        .mockResolvedValueOnce("fixes")
+        .mockResolvedValueOnce("ai")
+        .mockResolvedValueOnce("all")
+        .mockResolvedValueOnce("html")
+        .mockResolvedValueOnce("done");
+      const cwd = process.cwd();
+      process.chdir(dir);
+      try {
+        expect(await runCli(["-p", dir, "-i"])).toBe(1);
+      } finally {
+        process.chdir(cwd);
+      }
+      expect(ui.promptAfterReport).toHaveBeenCalledTimes(5);
+      expect(ui.promptAfterReport).toHaveBeenCalledWith(true);
+      expect(ui.showFixes).toHaveBeenCalledTimes(1);
+      expect(ui.showAssistantPrompt).toHaveBeenCalledTimes(1);
+      expect(fs.existsSync(path.join(dir, "muraqib-report.html"))).toBe(true);
+      expect(out.join("\n")).toContain("Muraqib Audit Report");
     });
 
     test("-i without a usable terminal says so and still audits", async () => {
       setTty(false);
       expect(await runCli(["-p", dir, "-i"])).toBe(0);
-      expect(ui.runInteractiveSession).not.toHaveBeenCalled();
+      expect(ui.promptCategories).not.toHaveBeenCalled();
       expect(out.join("\n")).toContain("Interactive mode needs a terminal");
+    });
+
+    test("-i with explicit --modules skips the category prompt", async () => {
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport.mockResolvedValue("done");
+      await runCli(["-p", dir, "-i", "-m", "memory"]);
+      expect(ui.promptCategories).not.toHaveBeenCalled();
+    });
+
+    test("cancelling the category prompt exits with 130", async () => {
+      ui.promptCategories.mockResolvedValue(null);
+      expect(await runCli(["-p", dir, "-i"])).toBe(130);
+    });
+
+    test("cancelling the prompt exits with 130", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
+      ui.promptScanChoices.mockResolvedValue(null);
+      expect(await runCli(["-p", dir, "--interactive"])).toBe(130);
+      expect(ui.showCancelled).toHaveBeenCalled();
     });
 
     test("--no-interactive and --json skip the UI", async () => {

@@ -1,7 +1,6 @@
 /**
- * Terminal-UI-free model behind the interactive audit flow: which modules each audit scope
- * runs, and how a report is flattened into issues, fixes and a hand-off prompt for an AI assistant.
- * Kept free of @clack/prompts so it is cheap to import and trivial to test.
+ * Terminal-UI-free helpers behind the post-report actions of the interactive audit:
+ * de-duplicated fixes ranked by severity, and a paste-ready prompt for an AI assistant.
  */
 import type { AuditReport } from "./types.js";
 
@@ -9,41 +8,6 @@ export type SeverityName = "critical" | "error" | "warning" | "info";
 
 /** Most to least severe. */
 export const SEVERITY_ORDER: readonly SeverityName[] = ["critical", "error", "warning", "info"];
-
-export interface AuditScope {
-  id: "full" | "security" | "performance" | "config" | "quality" | "custom";
-  label: string;
-  hint: string;
-  /** Substring filters on module names (as `--modules`); empty means every module. */
-  modules: readonly string[];
-}
-
-export const AUDIT_SCOPES: readonly AuditScope[] = [
-  { id: "full", label: "Full audit", hint: "every module", modules: [] },
-  { id: "security", label: "Security", hint: "HTTP headers, Dockerfile", modules: ["security", "docker"] },
-  { id: "performance", label: "Performance & assets", hint: "images, memory", modules: ["image", "memory"] },
-  { id: "config", label: "Configuration", hint: "tsconfig, package.json, compatibility", modules: ["config", "compatibility"] },
-  { id: "quality", label: "Code quality", hint: "async patterns, circular deps, dead code", modules: ["async", "dependency", "dead-code"] },
-  { id: "custom", label: "Pick modules…", hint: "choose individual modules", modules: [] },
-];
-
-/** Individual modules offered by the "Pick modules" scope (values are `--modules` filters). */
-export const MODULE_CHOICES: ReadonlyArray<{ value: string; label: string; hint: string }> = [
-  { value: "security", label: "Security", hint: "needs a running URL" },
-  { value: "docker", label: "Docker", hint: "Dockerfile best practices" },
-  { value: "image", label: "Images", hint: "size and format" },
-  { value: "memory", label: "Memory", hint: "heap and leak patterns" },
-  { value: "config", label: "Config", hint: "tsconfig / package.json" },
-  { value: "compatibility", label: "Compatibility", hint: "Node and peer dependencies" },
-  { value: "async", label: "Async", hint: "floating promises" },
-  { value: "dependency", label: "Dependencies", hint: "circular deps, deprecated APIs" },
-  { value: "dead-code", label: "Dead code", hint: "unused exports" },
-];
-
-/** True when running `modules` (empty = all) includes the HTTP security module. */
-export function includesSecurity(modules: readonly string[]): boolean {
-  return modules.length === 0 || modules.some((m) => "security-guard".includes(m.trim().toLowerCase()));
-}
 
 export interface FlatIssue {
   module: string;
@@ -101,24 +65,6 @@ export function collectIssues(report: AuditReport): FlatIssue[] {
     .map(({ issue }) => issue);
 }
 
-export interface ModuleStatus {
-  name: string;
-  count: number;
-  /** Most severe issue in the module, or null when it is clean. */
-  worst: SeverityName | null;
-}
-
-/** Per-module issue counts, in report order (the AI advisory pseudo-module is skipped). */
-export function moduleStatuses(report: AuditReport): ModuleStatus[] {
-  const issues = collectIssues(report);
-  return Object.entries(report.modules)
-    .filter(([, data]) => isRecord(data) && Array.isArray(data["issues"]))
-    .map(([name]) => {
-      const own = issues.filter((i) => i.module === name);
-      return { name, count: own.length, worst: own[0]?.severity ?? null };
-    });
-}
-
 export interface FixGroup {
   recommendation: string;
   severity: SeverityName;
@@ -145,9 +91,13 @@ export function groupFixes(issues: readonly FlatIssue[]): FixGroup[] {
   );
 }
 
-/** "file:line" for an issue, or an empty string. */
-export function formatLocation(issue: Pick<FlatIssue, "file" | "line">): string {
+/**
+ * "file:line" for an issue, or an empty string. A file the title already names is not repeated
+ * (e.g. "Configuration Issue: .eslintignore") unless there is a line to point at.
+ */
+export function formatLocation(issue: Pick<FlatIssue, "file" | "line"> & { title?: string }): string {
   if (issue.file === undefined) return "";
+  if (issue.line === undefined && issue.title?.includes(issue.file)) return "";
   return issue.line === undefined ? issue.file : `${issue.file}:${issue.line}`;
 }
 

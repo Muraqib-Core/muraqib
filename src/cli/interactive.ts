@@ -7,22 +7,10 @@
  */
 import * as x from "@clack/prompts";
 import chalk from "chalk";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { formatReport } from "./formatters.js";
-import {
-  AUDIT_SCOPES,
-  MODULE_CHOICES,
-  buildAssistantPrompt,
-  collectIssues,
-  formatLocation,
-  groupFixes,
-  includesSecurity,
-  moduleStatuses,
-  type FlatIssue,
-  type SeverityName,
-} from "./interactive-model.js";
-import type { AuditReport, OutputFormat } from "./types.js";
+import type { AuditReport } from "./types.js";
+import { AUDIT_CATEGORIES, resolveCategoryModules, type AuditCategoryId } from "./interactive-policy.js";
+import { buildAssistantPrompt, collectIssues, groupFixes, type SeverityName } from "./interactive-actions.js";
+import { buildNextSteps, getModuleViews, renderModuleIssues, renderOverview } from "./interactive-report.js";
 
 export { shouldUseInteractive } from "./interactive-policy.js";
 export type { InteractiveContext } from "./interactive-policy.js";
@@ -46,6 +34,88 @@ export async function promptScanChoices(): Promise<ScanChoices | null> {
   });
   if (x.isCancel(picked)) return null;
   return { osv: picked.includes("osv"), docker: picked.includes("docker"), aiAdvisory: picked.includes("ai") };
+}
+
+/**
+ * Ask what to audit. Returns the module filter (undefined = everything) or null when cancelled.
+ * "Full audit" is preselected so pressing enter runs everything.
+ */
+export async function promptCategories(): Promise<{ modules: string[] | undefined; ids: AuditCategoryId[] } | null> {
+  const picked = await x.multiselect<AuditCategoryId>({
+    message: "What should Muraqib check? (space to toggle, enter to confirm)",
+    required: true,
+    initialValues: ["full"],
+    options: AUDIT_CATEGORIES.map((c) => ({ value: c.id, label: c.label, hint: c.hint })),
+  });
+  if (x.isCancel(picked)) return null;
+  return { modules: resolveCategoryModules(picked), ids: picked };
+}
+
+/** Ask for the running site URL used by the security headers check. Blank skips it; null when cancelled. */
+export async function promptSecurityUrl(): Promise<string | undefined | null> {
+  const value = await x.text({
+    message: "Running site URL for the security-headers check (leave blank to skip)",
+    placeholder: "http://localhost:3000",
+    validate: (v) => (v && !/^https?:\/\//.test(v) ? "Enter a URL starting with http:// or https://" : undefined),
+  });
+  if (x.isCancel(value)) return null;
+  return value ? value : undefined;
+}
+
+/** Print the colour-coded report: overview, per-module issues, then next steps. */
+export function showReport(report: AuditReport, verbose = false): void {
+  const views = getModuleViews(report);
+  x.note(renderOverview(views), "Results");
+  for (const view of views.filter((v) => v.issues.length > 0)) {
+    x.log.message(`${view.name}\n${renderModuleIssues(view, verbose ? Number.POSITIVE_INFINITY : 5)}`);
+  }
+  const steps = buildNextSteps(report);
+  if (steps.length === 0) return;
+  const body = steps
+    .map((s, i) => `${i + 1}. ${s.title}\n   ${s.detail}${s.command ? `\n   $ ${s.command}` : ""}`)
+    .join("\n");
+  x.note(body, "Next steps");
+}
+
+/** The de-duplicated fix list for the whole report, most severe first. */
+export function showFixes(report: AuditReport): void {
+  const fixes = groupFixes(collectIssues(report));
+  if (fixes.length === 0) {
+    x.log.info("No automatic recommendations were provided for these issues.");
+    return;
+  }
+  const tone: Record<SeverityName, (s: string) => string> = {
+    critical: (s) => chalk.red.bold(s),
+    error: (s) => chalk.red(s),
+    warning: (s) => chalk.yellow(s),
+    info: (s) => chalk.cyan(s),
+  };
+  const body = fixes
+    .map((fix, n) => {
+      const times = fix.count > 1 ? chalk.dim(` ×${fix.count}`) : "";
+      return `${n + 1}. ${tone[fix.severity](`[${fix.severity}]`)} ${fix.recommendation}${times} ${chalk.dim(`(${fix.modules.join(", ")})`)}`;
+    })
+    .join("\n");
+  x.note(body, "Recommended fixes");
+}
+
+/** A paste-ready prompt for an AI assistant (Claude, ChatGPT, an IDE agent) to fix the findings. */
+export function showAssistantPrompt(report: AuditReport): void {
+  x.note(buildAssistantPrompt(report), "Paste this into your AI assistant");
+}
+
+export type AfterReportAction = "fixes" | "ai" | "html" | "all" | "done";
+
+/** Offer follow-ups once the report is shown. Returns "done" on cancel. */
+export async function promptAfterReport(hasIssues: boolean): Promise<AfterReportAction> {
+  const options: { value: AfterReportAction; label: string; hint?: string }[] = [];
+  if (hasIssues) options.push({ value: "fixes", label: "Show recommended fixes", hint: "grouped, most severe first" });
+  if (hasIssues) options.push({ value: "all", label: "Show every issue", hint: "no truncation" });
+  if (hasIssues) options.push({ value: "ai", label: "Hand off to an AI assistant", hint: "paste-ready prompt" });
+  options.push({ value: "html", label: "Save an HTML report", hint: "muraqib-report.html" });
+  options.push({ value: "done", label: "Finish" });
+  const choice = await x.select<AfterReportAction>({ message: "What next?", options });
+  return x.isCancel(choice) ? "done" : choice;
 }
 
 /** One-line verdict for the closing message. */
@@ -82,236 +152,4 @@ export function showOutro(report: AuditReport): void {
 
 export function showCancelled(): void {
   x.cancel("Audit cancelled");
-}
-
-// ---------------------------------------------------------------------------
-// Interactive session: scope -> optional scans -> run -> results -> next steps
-// ---------------------------------------------------------------------------
-
-const paint: Record<SeverityName, (text: string) => string> = {
-  critical: (t) => chalk.red.bold(t),
-  error: (t) => chalk.red(t),
-  warning: (t) => chalk.yellow(t),
-  info: (t) => chalk.cyan(t),
-};
-
-/** Ask what to audit. Returns the `--modules` filters (empty = everything) or null when cancelled. */
-export async function promptAuditScope(): Promise<string[] | null> {
-  const scope = await x.select<(typeof AUDIT_SCOPES)[number]["id"]>({
-    message: "What would you like to audit?",
-    options: AUDIT_SCOPES.map((s) => ({ value: s.id, label: s.label, hint: s.hint })),
-    initialValue: "full",
-  });
-  if (x.isCancel(scope)) return null;
-  if (scope !== "custom") return [...(AUDIT_SCOPES.find((s) => s.id === scope)?.modules ?? [])];
-
-  const picked = await x.multiselect<string>({
-    message: "Modules to run (space to toggle, enter to confirm)",
-    required: true,
-    options: MODULE_CHOICES.map((m) => ({ value: m.value, label: m.label, hint: m.hint })),
-  });
-  return x.isCancel(picked) ? null : picked;
-}
-
-/** Optional running-service URL for the HTTP security checks. `undefined` = skipped, null = cancelled. */
-export async function promptSecurityUrl(): Promise<string | undefined | null> {
-  const answer = await x.text({
-    message: "URL of a running service for HTTP security-header checks (optional)",
-    placeholder: "http://localhost:3000 - leave empty to skip",
-    validate: (value) => {
-      const text = (value ?? "").trim();
-      if (text === "") return undefined;
-      return /^https?:\/\/\S+$/i.test(text) ? undefined : "Enter an http:// or https:// URL, or leave empty";
-    },
-  });
-  if (x.isCancel(answer)) return null;
-  const url = String(answer ?? "").trim();
-  return url === "" ? undefined : url;
-}
-
-function moduleLine(name: string, count: number, worst: SeverityName | null): string {
-  if (worst === null) return `${chalk.green("✔")} ${name}`;
-  return `${paint[worst]("✖")} ${name} ${chalk.dim(`- ${count} issue${count === 1 ? "" : "s"}, worst: ${worst}`)}`;
-}
-
-/** Colour-coded verdict, severity counts and per-module status. */
-export function showReport(report: AuditReport): void {
-  const { critical, error, warning, info, total } = report.summary;
-  const { failed } = summarizeReport(report);
-  const count = (n: number, severity: SeverityName): string =>
-    n === 0 ? chalk.dim(`0 ${severity}`) : paint[severity](`${n} ${severity}`);
-  const lines = [
-    failed ? chalk.red.bold("✖ FAILED - fix critical/error issues before shipping") : chalk.green.bold("✔ PASSED - no blocking issues"),
-    "",
-    `${count(critical, "critical")}   ${count(error, "error")}   ${count(warning, "warning")}   ${count(info, "info")}   ${chalk.dim(`(${total} total)`)}`,
-    "",
-    ...moduleStatuses(report).map((m) => moduleLine(m.name, m.count, m.worst)),
-  ];
-  x.note(lines.join("\n"), "Results");
-}
-
-function logIssue(issue: FlatIssue): void {
-  // Titles such as "Configuration Issue: .eslintignore" already name the file; don't repeat it.
-  const where = issue.line === undefined && issue.file !== undefined && issue.title.includes(issue.file) ? "" : formatLocation(issue);
-  const body = [
-    `${paint[issue.severity](`[${issue.severity}]`)} ${chalk.bold(issue.title)}${where ? chalk.dim(` ${where}`) : ""}`,
-    issue.message,
-    ...(issue.recommendation ? [chalk.green(`→ ${issue.recommendation}`)] : []),
-  ].join("\n");
-  if (issue.severity === "critical" || issue.severity === "error") x.log.error(body);
-  else if (issue.severity === "warning") x.log.warn(body);
-  else x.log.info(body);
-}
-
-/** List issues (most severe first); `limit` caps the output and says how many were left out. */
-export function showIssues(issues: readonly FlatIssue[], limit = Number.POSITIVE_INFINITY): void {
-  for (const issue of issues.slice(0, limit)) logIssue(issue);
-  if (issues.length > limit) x.log.message(chalk.dim(`… and ${issues.length - limit} more - choose "Show all issues" below`));
-}
-
-/** The de-duplicated fix list, most severe first. */
-export function showFixes(issues: readonly FlatIssue[]): void {
-  const fixes = groupFixes(issues);
-  if (fixes.length === 0) {
-    x.log.info("No automatic recommendations were provided for these issues.");
-    return;
-  }
-  const lines = fixes.map((fix, n) => {
-    const times = fix.count > 1 ? chalk.dim(` ×${fix.count}`) : "";
-    return `${chalk.bold(`${n + 1}.`)} ${paint[fix.severity](`[${fix.severity}]`)} ${fix.recommendation}${times} ${chalk.dim(`(${fix.modules.join(", ")})`)}`;
-  });
-  x.note(lines.join("\n"), "Recommended fixes");
-}
-
-export type NextStep = "details" | "fixes" | "ai" | "save" | "rerun" | "done";
-
-/**
- * @param blocking - the run failed (critical/error present); only changes the wording.
- * @param hiddenIssues - issues not yet on screen; "Show all issues" is offered only when > 0.
- */
-export async function promptNextStep(blocking: boolean, hiddenIssues = 1): Promise<NextStep | null> {
-  const step = await x.select<NextStep>({
-    message: blocking ? "Issues found - what next?" : "Anything else?",
-    options: [
-      { value: "fixes", label: "Show recommended fixes", hint: "grouped, most severe first" },
-      ...(hiddenIssues > 0
-        ? [{ value: "details" as const, label: "Show all issues", hint: `${hiddenIssues} more, with file and line` }]
-        : []),
-      { value: "ai", label: "Hand off to an AI assistant", hint: "paste-ready prompt" },
-      { value: "save", label: "Save the report", hint: "html, json, csv or text" },
-      { value: "rerun", label: "Run another audit", hint: "pick a different scope" },
-      { value: "done", label: "Done" },
-    ],
-    initialValue: "fixes",
-  });
-  return x.isCancel(step) ? null : step;
-}
-
-const EXTENSIONS: Record<OutputFormat, string> = { html: "html", json: "json", csv: "csv", text: "txt" };
-
-/** Ask for a format and path, then write the report. Returns the path, or null if cancelled. */
-export async function promptSaveReport(report: AuditReport): Promise<string | null> {
-  const format = await x.select<OutputFormat>({
-    message: "Report format",
-    options: [
-      { value: "html", label: "HTML", hint: "shareable page" },
-      { value: "json", label: "JSON", hint: "machine-readable" },
-      { value: "csv", label: "CSV", hint: "spreadsheet summary" },
-      { value: "text", label: "Text" },
-    ],
-    initialValue: "html",
-  });
-  if (x.isCancel(format)) return null;
-  const target = await x.text({
-    message: "Save to",
-    initialValue: `muraqib-report.${EXTENSIONS[format]}`,
-    validate: (value) => ((value ?? "").trim() === "" ? "Enter a file path" : undefined),
-  });
-  if (x.isCancel(target)) return null;
-  const path = resolve(process.cwd(), String(target).trim());
-  writeFileSync(path, formatReport(report, format));
-  x.log.success(`Saved ${format.toUpperCase()} report to ${path}`);
-  return path;
-}
-
-export interface InteractiveAuditOptions {
-  projectRoot: string;
-  /** Module filters; empty/undefined means the user is asked (first pass) or everything. */
-  modules?: string[] | undefined;
-  securityUrl?: string | undefined;
-  osv?: boolean | undefined;
-  docker?: boolean | undefined;
-  aiAdvisory?: boolean | undefined;
-}
-
-export type SessionOutcome = { cancelled: true } | { cancelled: false; report: AuditReport };
-
-const MAX_LISTED = 8;
-
-/**
- * Drive the whole `-i` experience. `audit` performs the actual run (injected so this module
- * never imports the CLI entry point). Returns the final report, whose verdict decides the exit code.
- */
-export async function runInteractiveSession(
-  initial: InteractiveAuditOptions,
-  audit: (options: InteractiveAuditOptions) => Promise<AuditReport>
-): Promise<SessionOutcome> {
-  const scanFlagsGiven = Boolean(initial.osv || initial.docker || initial.aiAdvisory);
-  let askScope = initial.modules === undefined || initial.modules.length === 0;
-  let securityUrl = initial.securityUrl;
-  let securityAsked = securityUrl !== undefined;
-
-  for (;;) {
-    let modules = initial.modules ?? [];
-    if (askScope) {
-      const picked = await promptAuditScope();
-      if (!picked) return { cancelled: true };
-      modules = picked;
-    }
-
-    let scans = { osv: initial.osv ?? false, docker: initial.docker ?? false, aiAdvisory: initial.aiAdvisory ?? false };
-    if (!scanFlagsGiven) {
-      const choices = await promptScanChoices();
-      if (!choices) return { cancelled: true };
-      scans = choices;
-    }
-
-    if (!securityAsked && includesSecurity(modules)) {
-      const url = await promptSecurityUrl();
-      if (url === null) return { cancelled: true };
-      securityUrl = url;
-      securityAsked = true;
-    }
-
-    const options: InteractiveAuditOptions = { ...scans, projectRoot: initial.projectRoot, modules, securityUrl };
-    const report = await withSpinner(modules.length ? `Running ${modules.join(", ")}...` : "Running all audit modules...", () => audit(options));
-
-    showReport(report);
-    const issues = collectIssues(report);
-    const noisy = issues.filter((i) => i.severity !== "info");
-    showIssues(noisy, MAX_LISTED);
-    const hiddenIssues = issues.length - Math.min(noisy.length, MAX_LISTED);
-
-    let rerun = false;
-    if (issues.length > 0) {
-      for (;;) {
-        const step = await promptNextStep(summarizeReport(report).failed, hiddenIssues);
-        if (step === null) return { cancelled: true };
-        if (step === "done") break;
-        if (step === "rerun") {
-          rerun = true;
-          askScope = true;
-          break;
-        }
-        if (step === "details") showIssues(issues);
-        else if (step === "fixes") showFixes(issues);
-        else if (step === "ai") x.note(buildAssistantPrompt(report), "Paste this into your AI assistant");
-        else if (step === "save" && (await promptSaveReport(report)) === null) return { cancelled: true };
-      }
-    }
-    if (rerun) continue;
-
-    showOutro(report);
-    return { cancelled: false, report };
-  }
 }
