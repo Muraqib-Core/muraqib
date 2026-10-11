@@ -34,9 +34,9 @@ export async function promptScanChoices(): Promise<ScanChoices | null> {
 
 /** One-line verdict for the closing message. */
 export function summarizeReport(report: AuditReport): { failed: boolean; text: string } {
-  const { critical, high, medium, low, total } = report.summary;
-  const text = `${total} issue(s): ${critical} critical, ${high} error, ${medium} warning, ${low} info`;
-  return { failed: critical > 0 || high > 0, text };
+  const { critical, error, warning, info, total } = report.summary;
+  const text = `${total} issue(s): ${critical} critical, ${error} error, ${warning} warning, ${info} info`;
+  return { failed: critical > 0 || error > 0, text };
 }
 
 /** Run `task` behind a spinner; the spinner is always stopped. */

@@ -27,6 +27,22 @@ describe("Config Guard", () => {
     ).toBe(true);
   });
 
+  it("requires .eslintignore when there is no flat ESLint config", () => {
+    const result = performConfigAudit(tempDir);
+    expect(result.configFiles.missing).toContain(".eslintignore");
+  });
+
+  it.each(["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"])(
+    "does not require .eslintignore when %s is present (ESLint 9 flat config)",
+    (name) => {
+      writeFileSync(join(tempDir, name), "export default [];");
+      const result = performConfigAudit(tempDir);
+      expect(result.configFiles.missing).not.toContain(".eslintignore");
+      expect(result.issues.some((i) => i.file === ".eslintignore")).toBe(false);
+      expect(result.configFiles.found).toContain(name);
+    }
+  );
+
   it("validates valid package.json", () => {
     const packageJson = {
       name: "test-project",
