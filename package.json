@@ -20,7 +20,8 @@
     "!dist/**/*.spec.*"
   ],
   "scripts": {
-    "build": "node scripts/clean-dist.mjs && tsc",
+    "build": "node scripts/clean-dist.mjs && tsc && node scripts/build-webview.mjs",
+    "webview": "npm run build --silent",
     "dev": "tsx watch src/index.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
