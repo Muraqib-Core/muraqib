@@ -9,7 +9,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./webview/index.html": "./dist/webview/index.html"
   },
   "files": [
     "dist",
