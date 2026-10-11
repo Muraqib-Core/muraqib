@@ -147,7 +147,7 @@ muraqib audit --fail-on-warning            # exit 1 on warnings too
 | `-o, --output <path>` | Write the report to a file instead of stdout |
 | `-m, --modules <list>` | Comma-separated module name filter |
 | `--fail-on-warning` | Treat warnings as failures |
-| `-i`, `--interactive` | Ask which optional scans (OSV / Docker / AI) to run |
+| `-i`, `--interactive` | Guided mode: choose what to audit, review colour-coded results, then pick a next step (terminal only) |
 | `--no-interactive` | Disable the spinner and prompts in a terminal |
 | `-v, --verbose` | Verbose logging |
 
@@ -197,7 +197,15 @@ await executeAgentTool("muraqib_audit", { projectRoot: "/app" }); // tool-call d
 
 ### Interactive mode
 
-In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Add `-i` to choose the optional scans from a menu. Interactive output is turned off automatically for `--json`/`--format`, `--output`, piped output and CI (`CI=true`), so machine-readable output is never polluted. Use `--no-interactive` to force it off.
+In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Add `-i` for the guided flow:
+
+1. **What to audit**: Full audit, Security, Performance & assets, Configuration, Code quality, or *Pick modules…* (skipped when you pass `-m`).
+2. **Optional scans**: OSV, Docker, AI advisory (skipped when you pass `--osv`/`--docker`/`--ai-advisory`).
+3. **Security URL**: asked only when the security module is included and `--security-url` was not given; leave it empty to skip.
+4. **Results**: a colour-coded verdict, severity counts and per-module status, followed by the most severe issues with file, line and fix.
+5. **Next steps** (when issues were found): show recommended fixes (de-duplicated, most severe first), show all issues, hand off to an AI assistant (a paste-ready prompt that ends with the `muraqib agent` re-check command), save the report as HTML/JSON/CSV/text, or run another audit.
+
+The exit code is the same as in non-interactive runs (`1` on critical/error, `130` if you cancel). If `-i` is used where no terminal is available it prints a one-line note and runs normally. Interactive output is turned off automatically for `--json`/`--format`, `--output`, piped output and CI (`CI=true`), so machine-readable output is never polluted. Use `--no-interactive` to force it off.
 
 ### Exit codes
 
