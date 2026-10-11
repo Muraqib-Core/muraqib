@@ -206,3 +206,7 @@ export type { AuditOptions, AuditResult as WorkflowAuditResult, ModuleResult } f
 
 // Scan layer (OSV, Docker, compatibility, resolution, audit runner) - namespaced to avoid name clashes
 export * as scan from "./scan/index.js";
+
+// Documentation Web View (static HTML page / VS Code webview content)
+export { getWebviewHtml, createNonce, createMuraqibContent, renderPage } from "./webview/index.js";
+export type { PackageInfo, PageContent, TabContent, Block } from "./webview/index.js";

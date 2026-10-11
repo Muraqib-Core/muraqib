@@ -5,6 +5,12 @@ All notable changes to Muraqib Core will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added
+
+- Documentation Web View: a self-contained, tabbed HTML page (`dist/webview/index.html`) and a `getWebviewHtml(nonce)` helper for VS Code webviews, with no new dependencies
+
 ## [1.0.1] - 2026-10-11
 
 ### 🐛 Fixed
