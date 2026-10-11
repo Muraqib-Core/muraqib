@@ -5,6 +5,7 @@
 import type { AuditIssue, AuditResult } from "../core/types.js";
 import semver from "semver";
 import type { DependencyProblemData, OsvAdvisoryData } from "./core/findings/finding.js";
+import type { ValidationEngineName } from "./guard/core/engine-detector.js";
 import { createProjectContext } from "./core/context/project-context.js";
 import { AuditRunner, type AuditReport as ScanReport } from "./core/runner/audit-runner.js";
 
@@ -69,6 +70,7 @@ export interface ScanAuditOptions {
   enableAi?: boolean;
   dockerNative?: boolean;
   mode?: "build" | "prod";
+  engine?: ValidationEngineName | undefined;
 }
 
 export interface ScanAuditOutcome {
@@ -84,6 +86,7 @@ export async function runScanAudit(projectRoot: string, options: ScanAuditOption
     mode: options.mode ?? "build",
     enableAi: options.enableAi ?? false,
     dockerNative: options.dockerNative ?? false,
+    ...(options.engine ? { engine: options.engine } : {}),
   });
   const issues = report.findings.map(enrichIssue);
   const failed = report.exitCode === 3;

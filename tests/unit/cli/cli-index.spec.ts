@@ -160,6 +160,26 @@ describe("CLI entry (runCli)", () => {
     expect(out.join("\n")).toContain("ai text");
   });
 
+  test("-e and --engine select the scan policy mode and engine and imply the scan layer", async () => {
+    runScanAudit.mockResolvedValue({
+      result: { module: "scan", status: "ok", issues: [], message: "", timestamp: 0, duration: 0 },
+      report: { aiAdvisory: null },
+    });
+    expect(await runCli(["-p", dir, "-e", "prod", "--engine", "zod", "-f", "json"])).toBe(0);
+    expect(runScanAudit).toHaveBeenCalledWith(dir, { enableAi: false, dockerNative: false, mode: "prod", engine: "zod" });
+    expect(await runCli(["-p", dir, "--env", "build", "-f", "json"])).toBe(0);
+    expect(runScanAudit).toHaveBeenLastCalledWith(dir, { enableAi: false, dockerNative: false, mode: "build" });
+  });
+
+  test("rejects an invalid environment mode or validation engine", async () => {
+    expect(await runCli(["-p", dir, "-e", "staging"])).toBe(1);
+    expect(out.join("\n")).toContain("Invalid environment mode 'staging'");
+    expect(await runCli(["-p", dir, "--engine", "joi"])).toBe(1);
+    expect(out.join("\n")).toContain("Invalid validation engine 'joi'");
+    expect(await runCli(["-p", dir, "--engine"])).toBe(1);
+    expect(runScanAudit).not.toHaveBeenCalled();
+  });
+
   test("does not run the scan layer by default", async () => {
     await runCli(["-p", dir]);
     expect(runScanAudit).not.toHaveBeenCalled();

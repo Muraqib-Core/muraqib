@@ -31,7 +31,7 @@ export interface ValibotValidationResult {
   success: boolean;
   data?: unknown;
   errors: ValidationIssue[];
-  raw?: BaseIssue<unknown>;
+  raw?: BaseIssue<unknown> | undefined;
 }
 
 /**
@@ -133,7 +133,7 @@ export class ValibotEngine {
   /**
    * Get schema description or metadata
    */
-  getSchemaInfo(): { type: string; description?: string } {
+  getSchemaInfo(): { type: string; description?: string | undefined } {
     const type = this.schema.constructor.name;
     return {
       type,

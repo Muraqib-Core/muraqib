@@ -85,7 +85,7 @@ function performImageAuditInternal(targetPath?: string): ImageAuditResult {
 export { performImageAuditInternal as runImagePerformanceAudit };
 
 export class ImageGuard extends BaseGuard {
-  private targetPath?: string;
+  private targetPath?: string | undefined;
 
   constructor(targetPath?: string, context?: AuditContext) {
     super('image-guard', context);

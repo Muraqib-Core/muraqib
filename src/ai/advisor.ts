@@ -77,13 +77,13 @@ export interface AdvisorySuggestion {
   /** AI-generated recommendation text */
   recommendation: string;
   /** Code example if applicable */
-  codeExample?: string;
+  codeExample?: string | undefined;
   /** Link to documentation */
   docLink?: string;
   /** Priority level (1-5, 5 is highest) */
   priority: number;
   /** Estimated fix time in minutes */
-  estimatedTime?: number;
+  estimatedTime?: number | undefined;
 }
 
 /**

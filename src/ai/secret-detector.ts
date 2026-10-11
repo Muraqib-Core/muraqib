@@ -19,9 +19,9 @@ export interface DetectedSecret {
   /** Matched pattern value (masked) */
   pattern: string;
   /** File location if found */
-  file?: string;
+  file?: string | undefined;
   /** Line number if found */
-  line?: number;
+  line?: number | undefined;
   /** Confidence level (0-1) */
   confidence: number;
   /** Description of the secret */

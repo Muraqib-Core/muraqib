@@ -36,7 +36,7 @@ import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 export abstract class BaseGuard {
   protected module: string;
   protected startTime: number = 0;
-  protected context?: AuditContext;
+  protected context?: AuditContext | undefined;
 
   /**
    * Initialize a BaseGuard instance

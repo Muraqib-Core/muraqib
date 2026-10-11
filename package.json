@@ -1,6 +1,6 @@
 {
   "name": "muraqib-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
   "main": "dist/index.js",
@@ -30,7 +30,8 @@
     "audit": "tsx src/cli/index.ts audit --url http://localhost:3000 --security-url http://localhost:3000 --silent",
     "audit:demo": "tsx src/index.ts --path ./examples/sample-project",
     "type-check": "tsc --noEmit",
-    "scan": "tsx src/scan/cli.ts",
+    "type-check:tests": "tsc -p tsconfig.test.json",
+    "scan": "tsx src/cli/index.ts audit --osv",
     "dev-server": "npm --prefix examples/express-prisma run dev",
     "audit:ci": "tsx scripts/collect-audit.ts",
     "prepublishOnly": "npm run build && npm test"
