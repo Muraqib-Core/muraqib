@@ -7,7 +7,7 @@ const issue = (severity: string, title = "t") => ({ severity, title, message: "m
 const report: AuditReport = {
   timestamp: 0,
   projectRoot: "/p",
-  summary: { total: 3, critical: 0, high: 1, medium: 1, low: 1 },
+  summary: { total: 3, critical: 0, error: 1, warning: 1, info: 1 },
   modules: {
     "memory-guard": { issues: [issue("info")] },
     "dependency-guard": { issues: [issue("error")] },

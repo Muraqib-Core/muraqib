@@ -41,8 +41,17 @@ const criticalConfigs = [
   ".gitignore",
   ".eslintignore",
 ];
-const optionalConfigs = [
+/** ESLint flat config files (ESLint 9+); they declare ignores themselves and ESLint no longer reads `.eslintignore`. */
+const ESLINT_FLAT_CONFIGS = [
   "eslint.config.js",
+  "eslint.config.mjs",
+  "eslint.config.cjs",
+  "eslint.config.ts",
+  "eslint.config.mts",
+  "eslint.config.cts",
+];
+const optionalConfigs = [
+  ...ESLINT_FLAT_CONFIGS,
   ".eslintrc.js",
   "prettier.config.js",
   "vitest.config.ts",
@@ -55,8 +64,11 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   const reports: string[] = [];
   const configFiles = { found: [] as string[], missing: [] as string[] };
 
+  const usesFlatEslintConfig = ESLINT_FLAT_CONFIGS.some((name) => existsSync(join(root, name)));
+
   // Check critical configs
   for (const config of criticalConfigs) {
+    if (config === ".eslintignore" && usesFlatEslintConfig) continue;
     const configPath = join(root, config);
     if (!existsSync(configPath)) {
       configFiles.missing.push(config);

@@ -63,9 +63,9 @@ export function formatText(report: AuditReport): string {
   lines.push("──────────────────────────────");
   lines.push(`  Total Issues:  ${report.summary.total}`);
   lines.push(`  🔴 Critical:   ${report.summary.critical}`);
-  lines.push(`  🟠 High:       ${report.summary.high}`);
-  lines.push(`  🟡 Medium:     ${report.summary.medium}`);
-  lines.push(`  🔵 Low:        ${report.summary.low}`);
+  lines.push(`  🟠 Error:      ${report.summary.error}`);
+  lines.push(`  🟡 Warning:    ${report.summary.warning}`);
+  lines.push(`  🔵 Info:       ${report.summary.info}`);
   lines.push("");
 
   // Module breakdown
@@ -99,9 +99,9 @@ export function formatText(report: AuditReport): string {
 
 export function formatHtml(report: AuditReport): string {
   const criticalColor = "#dc2626";
-  const highColor = "#ea580c";
-  const mediumColor = "#eab308";
-  const lowColor = "#0ea5e9";
+  const errorColor = "#ea580c";
+  const warningColor = "#eab308";
+  const infoColor = "#0ea5e9";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -172,19 +172,19 @@ export function formatHtml(report: AuditReport): string {
       border-color: ${criticalColor};
     }
 
-    .summary-card.high {
+    .summary-card.error {
       background: #fed7aa;
-      border-color: ${highColor};
+      border-color: ${errorColor};
     }
 
-    .summary-card.medium {
+    .summary-card.warning {
       background: #fef08a;
-      border-color: ${mediumColor};
+      border-color: ${warningColor};
     }
 
-    .summary-card.low {
+    .summary-card.info {
       background: #cffafe;
-      border-color: ${lowColor};
+      border-color: ${infoColor};
     }
 
     .summary-card h3 {
@@ -262,18 +262,18 @@ export function formatHtml(report: AuditReport): string {
       color: white;
     }
 
-    .status-badge.high {
-      background: ${highColor};
+    .status-badge.error {
+      background: ${errorColor};
       color: white;
     }
 
-    .status-badge.medium {
-      background: ${mediumColor};
+    .status-badge.warning {
+      background: ${warningColor};
       color: black;
     }
 
-    .status-badge.low {
-      background: ${lowColor};
+    .status-badge.info {
+      background: ${infoColor};
       color: white;
     }
   </style>
@@ -306,17 +306,17 @@ export function formatHtml(report: AuditReport): string {
           <h3>${report.summary.critical}</h3>
           <p>Critical</p>
         </div>
-        <div class="summary-card high">
-          <h3>${report.summary.high}</h3>
-          <p>High</p>
+        <div class="summary-card error">
+          <h3>${report.summary.error}</h3>
+          <p>Error</p>
         </div>
-        <div class="summary-card medium">
-          <h3>${report.summary.medium}</h3>
-          <p>Medium</p>
+        <div class="summary-card warning">
+          <h3>${report.summary.warning}</h3>
+          <p>Warning</p>
         </div>
-        <div class="summary-card low">
-          <h3>${report.summary.low}</h3>
-          <p>Low</p>
+        <div class="summary-card info">
+          <h3>${report.summary.info}</h3>
+          <p>Info</p>
         </div>
       </div>
 
@@ -348,9 +348,9 @@ export function formatCsv(report: AuditReport): string {
   const lines: string[] = [
     "Module,Severity,Count",
     `Summary,Critical,${report.summary.critical}`,
-    `Summary,High,${report.summary.high}`,
-    `Summary,Medium,${report.summary.medium}`,
-    `Summary,Low,${report.summary.low}`,
+    `Summary,Error,${report.summary.error}`,
+    `Summary,Warning,${report.summary.warning}`,
+    `Summary,Info,${report.summary.info}`,
   ];
 
   return lines.join("\n");

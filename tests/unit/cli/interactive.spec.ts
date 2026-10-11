@@ -57,7 +57,7 @@ const tty: InteractiveContext = {
 const report = (over: Partial<AuditReport["summary"]> = {}): AuditReport => ({
   timestamp: 0,
   projectRoot: "/p",
-  summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, ...over },
+  summary: { total: 0, critical: 0, error: 0, warning: 0, info: 0, ...over },
   modules: {},
 });
 
@@ -103,8 +103,8 @@ describe("prompts and rendering", () => {
   });
 
   test("summarizeReport flags critical/error as failed", () => {
-    expect(summarizeReport(report({ total: 2, high: 1, medium: 1 })).failed).toBe(true);
-    const ok = summarizeReport(report({ total: 1, low: 1 }));
+    expect(summarizeReport(report({ total: 2, error: 1, warning: 1 })).failed).toBe(true);
+    const ok = summarizeReport(report({ total: 1, info: 1 }));
     expect(ok.failed).toBe(false);
     expect(ok.text).toContain("1 info");
   });
@@ -152,7 +152,7 @@ describe("prompts and rendering", () => {
   });
 
   test("showReport prints overview, issues and next steps", () => {
-    const r = report({ total: 1, high: 1 });
+    const r = report({ total: 1, error: 1 });
     r.modules = {
       "image-guard": {
         issues: [{ severity: "error", title: "big.png", message: "900 KB", recommendation: "compress" }],
