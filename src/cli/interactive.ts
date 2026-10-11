@@ -6,8 +6,10 @@
  * the prompts, spinner and summary (the policy lives in interactive-policy.ts).
  */
 import * as x from "@clack/prompts";
+import chalk from "chalk";
 import type { AuditReport } from "./types.js";
 import { AUDIT_CATEGORIES, resolveCategoryModules, type AuditCategoryId } from "./interactive-policy.js";
+import { buildAssistantPrompt, collectIssues, groupFixes, type SeverityName } from "./interactive-actions.js";
 import { buildNextSteps, getModuleViews, renderModuleIssues, renderOverview } from "./interactive-report.js";
 
 export { shouldUseInteractive } from "./interactive-policy.js";
@@ -75,12 +77,41 @@ export function showReport(report: AuditReport, verbose = false): void {
   x.note(body, "Next steps");
 }
 
-export type AfterReportAction = "html" | "all" | "done";
+/** The de-duplicated fix list for the whole report, most severe first. */
+export function showFixes(report: AuditReport): void {
+  const fixes = groupFixes(collectIssues(report));
+  if (fixes.length === 0) {
+    x.log.info("No automatic recommendations were provided for these issues.");
+    return;
+  }
+  const tone: Record<SeverityName, (s: string) => string> = {
+    critical: (s) => chalk.red.bold(s),
+    error: (s) => chalk.red(s),
+    warning: (s) => chalk.yellow(s),
+    info: (s) => chalk.cyan(s),
+  };
+  const body = fixes
+    .map((fix, n) => {
+      const times = fix.count > 1 ? chalk.dim(` ×${fix.count}`) : "";
+      return `${n + 1}. ${tone[fix.severity](`[${fix.severity}]`)} ${fix.recommendation}${times} ${chalk.dim(`(${fix.modules.join(", ")})`)}`;
+    })
+    .join("\n");
+  x.note(body, "Recommended fixes");
+}
+
+/** A paste-ready prompt for an AI assistant (Claude, ChatGPT, an IDE agent) to fix the findings. */
+export function showAssistantPrompt(report: AuditReport): void {
+  x.note(buildAssistantPrompt(report), "Paste this into your AI assistant");
+}
+
+export type AfterReportAction = "fixes" | "ai" | "html" | "all" | "done";
 
 /** Offer follow-ups once the report is shown. Returns "done" on cancel. */
 export async function promptAfterReport(hasIssues: boolean): Promise<AfterReportAction> {
   const options: { value: AfterReportAction; label: string; hint?: string }[] = [];
+  if (hasIssues) options.push({ value: "fixes", label: "Show recommended fixes", hint: "grouped, most severe first" });
   if (hasIssues) options.push({ value: "all", label: "Show every issue", hint: "no truncation" });
+  if (hasIssues) options.push({ value: "ai", label: "Hand off to an AI assistant", hint: "paste-ready prompt" });
   options.push({ value: "html", label: "Save an HTML report", hint: "muraqib-report.html" });
   options.push({ value: "done", label: "Finish" });
   const choice = await x.select<AfterReportAction>({ message: "What next?", options });

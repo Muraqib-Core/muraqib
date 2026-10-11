@@ -24,6 +24,8 @@ const ui = vi.hoisted(() => ({
   promptCategories: vi.fn(),
   promptSecurityUrl: vi.fn(),
   promptAfterReport: vi.fn(),
+  showFixes: vi.fn(),
+  showAssistantPrompt: vi.fn(),
   showReport: vi.fn(),
   showIntro: vi.fn(),
   showOutro: vi.fn(),
@@ -329,6 +331,38 @@ describe("CLI entry (runCli)", () => {
       ui.promptAfterReport.mockResolvedValue("done");
       expect(await runCli(["-p", dir, "-i"])).toBe(0);
       expect(ui.promptSecurityUrl).toHaveBeenCalled();
+    });
+
+    test("-i keeps offering follow-ups until done: fixes, AI hand-off, every issue, HTML", async () => {
+      execute.mockResolvedValue(unified(moduleResult("a", ["error"])));
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport
+        .mockResolvedValueOnce("fixes")
+        .mockResolvedValueOnce("ai")
+        .mockResolvedValueOnce("all")
+        .mockResolvedValueOnce("html")
+        .mockResolvedValueOnce("done");
+      const cwd = process.cwd();
+      process.chdir(dir);
+      try {
+        expect(await runCli(["-p", dir, "-i"])).toBe(1);
+      } finally {
+        process.chdir(cwd);
+      }
+      expect(ui.promptAfterReport).toHaveBeenCalledTimes(5);
+      expect(ui.promptAfterReport).toHaveBeenCalledWith(true);
+      expect(ui.showFixes).toHaveBeenCalledTimes(1);
+      expect(ui.showAssistantPrompt).toHaveBeenCalledTimes(1);
+      expect(fs.existsSync(path.join(dir, "muraqib-report.html"))).toBe(true);
+      expect(out.join("\n")).toContain("Muraqib Audit Report");
+    });
+
+    test("-i without a usable terminal says so and still audits", async () => {
+      setTty(false);
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(ui.promptCategories).not.toHaveBeenCalled();
+      expect(out.join("\n")).toContain("Interactive mode needs a terminal");
     });
 
     test("-i with explicit --modules skips the category prompt", async () => {
