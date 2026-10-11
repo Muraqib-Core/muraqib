@@ -12,7 +12,16 @@ export interface ScannedFile { // muraqib-ignore-dead: auto-suppressed by script
   content: string;
 }
 
-export function scanProjectFiles(targetPath: string, fileExtensions: string[] = ["ts", "js"]): ScannedFile[] {
+export interface ScanOptions {
+  /** Also read spec files and the `tests/` folder (used to find where an export is consumed). */
+  includeTests?: boolean;
+}
+
+export function scanProjectFiles(
+  targetPath: string,
+  fileExtensions: string[] = ["ts", "js"],
+  options: ScanOptions = {}
+): ScannedFile[] {
   // بناء نمط البحث ديناميكياً بناءً على الامتدادات المطلوبة
   const pattern = fileExtensions.length === 1 ? `**/*.${fileExtensions[0]}` : `**/*.{${fileExtensions.join(",")}}`;
   
@@ -20,7 +29,9 @@ export function scanProjectFiles(targetPath: string, fileExtensions: string[] = 
   const files = globSync(pattern, {
     cwd: targetPath,
     absolute: true,
-    ignore: ["node_modules/**", "dist/**", "tests/**", "**/*.spec.ts", "**/*.d.ts"],
+    ignore: options.includeTests
+      ? ["node_modules/**", "dist/**", "coverage/**", "**/*.d.ts"]
+      : ["node_modules/**", "dist/**", "tests/**", "**/*.spec.ts", "**/*.d.ts"],
   });
 
   const scannedFiles: ScannedFile[] = [];

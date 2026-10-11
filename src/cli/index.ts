@@ -2,7 +2,8 @@
  * Muraqib CLI - Command Line Interface
  * Main entry point for running audits from the command line
  */
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
+import { homedir } from "os";
 import { resolve } from "path";
 import type { CliOptions, AuditReport, OutputFormat } from "./types.js";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -35,6 +36,18 @@ interface ExtendedCliOptions extends Partial<CliOptions> {
 const VALIDATION_ENGINES: readonly ValidationEngineName[] = ["custom", "zod", "valibot", "arktype"];
 function isValidationEngine(value: string | undefined): value is ValidationEngineName {
   return VALIDATION_ENGINES.some((engine) => engine === value);
+}
+
+/**
+ * Expand a leading `~` (shells such as PowerShell/cmd leave it untouched) and make sure the
+ * project root is an existing directory, so a typo fails fast instead of producing a bogus report.
+ */
+function resolveProjectRoot(raw: string): string {
+  const expanded = raw === "~" || /^~[\\/]/.test(raw) ? resolve(homedir(), raw.slice(2)) : resolve(raw);
+  if (!existsSync(expanded) || !statSync(expanded).isDirectory()) {
+    throw new Error(`Project path not found or not a directory: ${expanded}`);
+  }
+  return expanded;
 }
 
 function parseArgs(args: string[]): ExtendedCliOptions {
@@ -342,6 +355,10 @@ export async function runCli(args: string[]): Promise<number> {
 
     const options = parseArgs(args);
     const command = options.command || "audit";
+
+    if (command !== "context" && command !== "tool-schema") {
+      options.projectRoot = resolveProjectRoot(options.projectRoot ?? process.cwd());
+    }
 
     if (command === "context") {
       console.log(JSON.stringify(getSystemContext(), null, 2));
