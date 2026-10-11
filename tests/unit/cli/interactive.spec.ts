@@ -7,7 +7,10 @@ const clack = vi.hoisted(() => {
     intro: vi.fn(),
     outro: vi.fn(),
     cancel: vi.fn(),
-    log: { info: vi.fn() },
+    log: { info: vi.fn(), message: vi.fn() },
+    note: vi.fn(),
+    text: vi.fn(),
+    select: vi.fn(),
     multiselect: vi.fn(),
     isCancel: vi.fn((v: unknown) => v === "CANCEL"),
   };
@@ -18,13 +21,20 @@ vi.mock("@clack/prompts", () => ({
   outro: clack.outro,
   cancel: clack.cancel,
   log: clack.log,
+  note: clack.note,
+  text: clack.text,
+  select: clack.select,
   multiselect: clack.multiselect,
   isCancel: clack.isCancel,
   spinner: () => clack.spinner,
 }));
 
 import {
+  promptAfterReport,
+  promptCategories,
   promptScanChoices,
+  promptSecurityUrl,
+  showReport,
   shouldUseInteractive,
   showCancelled,
   showIntro,
@@ -120,5 +130,45 @@ describe("prompts and rendering", () => {
     expect(clack.outro).toHaveBeenLastCalledWith(expect.stringContaining("Passed"));
     showCancelled();
     expect(clack.cancel).toHaveBeenCalled();
+  });
+
+  test("promptCategories maps ids to a module filter", async () => {
+    clack.multiselect.mockResolvedValue(["security", "performance"]);
+    const picked = await promptCategories();
+    expect(picked?.modules).toEqual(["security-guard", "image-guard", "memory-guard", "async-guard"]);
+    clack.multiselect.mockResolvedValue(["full"]);
+    expect((await promptCategories())?.modules).toBeUndefined();
+    clack.multiselect.mockResolvedValue("CANCEL");
+    expect(await promptCategories()).toBeNull();
+  });
+
+  test("promptSecurityUrl handles blank, value and cancel", async () => {
+    clack.text.mockResolvedValue("");
+    expect(await promptSecurityUrl()).toBeUndefined();
+    clack.text.mockResolvedValue("http://localhost:3000");
+    expect(await promptSecurityUrl()).toBe("http://localhost:3000");
+    clack.text.mockResolvedValue("CANCEL");
+    expect(await promptSecurityUrl()).toBeNull();
+  });
+
+  test("showReport prints overview, issues and next steps", () => {
+    const r = report({ total: 1, error: 1 });
+    r.modules = {
+      "image-guard": {
+        issues: [{ severity: "error", title: "big.png", message: "900 KB", recommendation: "compress" }],
+      },
+      "config-guard": { issues: [] },
+    };
+    showReport(r);
+    expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("image-guard"), "Results");
+    expect(clack.log.message).toHaveBeenCalledTimes(1);
+    expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("Shrink oversized images"), "Next steps");
+  });
+
+  test("promptAfterReport returns the choice, done on cancel", async () => {
+    clack.select.mockResolvedValue("html");
+    expect(await promptAfterReport(true)).toBe("html");
+    clack.select.mockResolvedValue("CANCEL");
+    expect(await promptAfterReport(false)).toBe("done");
   });
 });
