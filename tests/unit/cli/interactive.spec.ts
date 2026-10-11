@@ -32,6 +32,8 @@ vi.mock("@clack/prompts", () => ({
 import {
   promptAfterReport,
   promptCategories,
+  showAssistantPrompt,
+  showFixes,
   promptScanChoices,
   promptSecurityUrl,
   showReport,
@@ -163,6 +165,49 @@ describe("prompts and rendering", () => {
     expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("image-guard"), "Results");
     expect(clack.log.message).toHaveBeenCalledTimes(1);
     expect(clack.note).toHaveBeenCalledWith(expect.stringContaining("Shrink oversized images"), "Next steps");
+  });
+
+  test("promptAfterReport offers fixes and the AI hand-off only when there are issues", async () => {
+    clack.select.mockResolvedValue("done");
+    const values = (): string[] => clack.select.mock.calls.at(-1)?.[0].options.map((o: { value: string }) => o.value);
+    await promptAfterReport(true);
+    expect(values()).toEqual(["fixes", "all", "ai", "html", "done"]);
+    await promptAfterReport(false);
+    expect(values()).toEqual(["html", "done"]);
+  });
+
+  test("showFixes prints one grouped list, or says there are no recommendations", () => {
+    const withFixes = {
+      ...report({ total: 3, error: 1, warning: 2 }),
+      modules: {
+        a: {
+          issues: [
+            { severity: "warning", title: "t", message: "m", recommendation: "Add a license" },
+            { severity: "error", title: "t", message: "m", recommendation: "Add a license" },
+            { severity: "warning", title: "t", message: "m" },
+          ],
+        },
+      },
+    };
+    showFixes(withFixes);
+    const [body, title] = clack.note.mock.calls.at(-1) as [string, string];
+    expect(title).toBe("Recommended fixes");
+    expect(body).toContain("Add a license");
+    expect(body).toContain("×2");
+    expect(body).toContain("[error]");
+
+    showFixes(report());
+    expect(clack.log.info).toHaveBeenCalledWith(expect.stringContaining("No automatic recommendations"));
+  });
+
+  test("showAssistantPrompt prints a paste-ready prompt", () => {
+    showAssistantPrompt({
+      ...report({ total: 1, error: 1 }),
+      modules: { a: { issues: [{ severity: "error", title: "Bad", message: "broken", location: { file: "x.ts", line: 3 } }] } },
+    });
+    const [body, title] = clack.note.mock.calls.at(-1) as [string, string];
+    expect(title).toBe("Paste this into your AI assistant");
+    expect(body).toContain("[error] Bad (x.ts:3) - broken");
   });
 
   test("promptAfterReport returns the choice, done on cancel", async () => {

@@ -404,6 +404,9 @@ export async function runCli(args: string[]): Promise<number> {
       });
       // Loaded on demand so importing the library never pulls in @clack/prompts
       const ui = interactive ? await import("./interactive.js") : null;
+      if (options.interactive === true && !ui) {
+        console.error("ℹ️  Interactive mode needs a terminal and text output (not CI, pipes, --json/--format or --output); continuing non-interactively.");
+      }
       if (ui) {
         ui.showIntro(options.projectRoot ?? process.cwd());
         const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
@@ -459,12 +462,16 @@ export async function runCli(args: string[]): Promise<number> {
       if (ui && !options.output) {
         ui.showReport(report, options.verbose);
         if (options.interactive === true) {
-          const action = await ui.promptAfterReport(report.summary.total > 0);
-          if (action === "all") console.log(formatReport(report, "text"));
-          if (action === "html") {
-            const htmlPath = resolve(process.cwd(), "muraqib-report.html");
-            writeFileSync(htmlPath, formatReport(report, "html"));
-            console.log(`Report saved to ${htmlPath}`);
+          // Keep offering follow-ups until the user finishes (or cancels, which reads as "done").
+          for (let action = await ui.promptAfterReport(report.summary.total > 0); action !== "done"; action = await ui.promptAfterReport(report.summary.total > 0)) {
+            if (action === "all") console.log(formatReport(report, "text"));
+            else if (action === "fixes") ui.showFixes(report);
+            else if (action === "ai") ui.showAssistantPrompt(report);
+            else if (action === "html") {
+              const htmlPath = resolve(process.cwd(), "muraqib-report.html");
+              writeFileSync(htmlPath, formatReport(report, "html"));
+              console.log(`Report saved to ${htmlPath}`);
+            }
           }
         }
       } else if (options.output) {
