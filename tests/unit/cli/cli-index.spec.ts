@@ -83,6 +83,37 @@ describe("CLI entry (runCli)", () => {
     expect(out.length).toBeGreaterThan(0);
   });
 
+  test("fails fast when the project path does not exist", async () => {
+    const missing = path.join(dir, "does-not-exist");
+    for (const args of [["-p", missing], ["agent", "-p", missing], ["-p", missing, "resolve"]]) {
+      out = [];
+      expect(await runCli(args)).toBe(1);
+      expect(out.join("\n")).toContain("Project path not found");
+    }
+    expect(execute).not.toHaveBeenCalled();
+    expect(scanMain).not.toHaveBeenCalled();
+  });
+
+  test("rejects a project path that is a file", async () => {
+    const file = path.join(dir, "file.txt");
+    fs.writeFileSync(file, "x");
+    expect(await runCli(["-p", file])).toBe(1);
+  });
+
+  test("expands a leading ~ to the home directory", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "muraqib-home-"));
+    fs.mkdirSync(path.join(home, "my-app"));
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    try {
+      expect(await runCli(["agent", "-p", "~/my-app"])).toBe(0);
+      expect(JSON.parse(out.join("\n")).projectRoot).toBe(path.join(home, "my-app"));
+    } finally {
+      vi.unstubAllEnvs();
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   test("agent command prints a deterministic JSON report and maps the verdict to the exit code", async () => {
     execute.mockResolvedValue(unified(moduleResult("m", ["error", "info"])));
     expect(await runCli(["agent", "-p", dir, "--max-issues", "1"])).toBe(1);
