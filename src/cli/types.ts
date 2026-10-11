@@ -19,9 +19,9 @@ export interface AuditReport {
   summary: {
     total: number;
     critical: number;
-    high: number;
-    medium: number;
-    low: number;
+    error: number;
+    warning: number;
+    info: number;
   };
   modules: Record<string, unknown>;
 }
