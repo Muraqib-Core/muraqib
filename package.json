@@ -36,6 +36,7 @@
     "scan": "tsx src/cli/index.ts audit --osv",
     "dev-server": "npm --prefix examples/express-prisma run dev",
     "audit:ci": "tsx scripts/collect-audit.ts",
+    "self-audit": "node bin/muraqib.js audit --project . --no-interactive",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
