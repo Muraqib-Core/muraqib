@@ -21,6 +21,10 @@ vi.mock("../../../src/scan/cli.js", () => ({ main: scanMain }));
 vi.mock("../../../src/cli/audit-cli.js", () => ({ run: workflowRun }));
 const ui = vi.hoisted(() => ({
   promptScanChoices: vi.fn(),
+  promptCategories: vi.fn(),
+  promptSecurityUrl: vi.fn(),
+  promptAfterReport: vi.fn(),
+  showReport: vi.fn(),
   showIntro: vi.fn(),
   showOutro: vi.fn(),
   showCancelled: vi.fn(),
@@ -305,6 +309,8 @@ describe("CLI entry (runCli)", () => {
     });
 
     test("-i prompts for scans and enables the scan layer", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
+      ui.promptAfterReport.mockResolvedValue("done");
       ui.promptScanChoices.mockResolvedValue({ osv: true, docker: false, aiAdvisory: false });
       runScanAudit.mockResolvedValue({
         result: { module: "scan", status: "ok", issues: [], message: "", timestamp: 0, duration: 0 },
@@ -313,9 +319,32 @@ describe("CLI entry (runCli)", () => {
       expect(await runCli(["-p", dir, "-i"])).toBe(0);
       expect(ui.promptScanChoices).toHaveBeenCalled();
       expect(runScanAudit).toHaveBeenCalled();
+      expect(ui.showReport).toHaveBeenCalled();
+    });
+
+    test("-i category choice filters modules and asks for a security URL", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: ["security-guard"], ids: ["security"] });
+      ui.promptSecurityUrl.mockResolvedValue("http://localhost:3000");
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport.mockResolvedValue("done");
+      expect(await runCli(["-p", dir, "-i"])).toBe(0);
+      expect(ui.promptSecurityUrl).toHaveBeenCalled();
+    });
+
+    test("-i with explicit --modules skips the category prompt", async () => {
+      ui.promptScanChoices.mockResolvedValue({ osv: false, docker: false, aiAdvisory: false });
+      ui.promptAfterReport.mockResolvedValue("done");
+      await runCli(["-p", dir, "-i", "-m", "memory"]);
+      expect(ui.promptCategories).not.toHaveBeenCalled();
+    });
+
+    test("cancelling the category prompt exits with 130", async () => {
+      ui.promptCategories.mockResolvedValue(null);
+      expect(await runCli(["-p", dir, "-i"])).toBe(130);
     });
 
     test("cancelling the prompt exits with 130", async () => {
+      ui.promptCategories.mockResolvedValue({ modules: undefined, ids: ["full"] });
       ui.promptScanChoices.mockResolvedValue(null);
       expect(await runCli(["-p", dir, "--interactive"])).toBe(130);
       expect(ui.showCancelled).toHaveBeenCalled();

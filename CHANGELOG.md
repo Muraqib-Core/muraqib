@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ✨ Added
 
 - Documentation Web View: a self-contained, tabbed HTML page (`dist/webview/index.html`) and a `getWebviewHtml(nonce)` helper for VS Code webviews, with no new dependencies
+- Guided interactive mode (`muraqib audit -i`): pick audit categories (Full, Security, Performance & images, Configuration, Code health), optional security URL prompt, colour-coded report with per-module results, prioritised next steps, and follow-ups (show every issue, save an HTML report). Direct flags and CI behaviour are unchanged
 - `muraqib-core/webview/index.html` subpath export so tools and VS Code wrappers can resolve the generated page
 
 ## [1.0.1] - 2026-10-11
