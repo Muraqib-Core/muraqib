@@ -2,6 +2,7 @@
  * AsyncAudit: أداة فحص ذكية لمراقبة العمليات غير المتزامنة (Asynchronous Operations).
  * تعتمد على الـ file-scanner المشترك لضمان معمارية نظيفة وخالية من التكرار.
  */
+import { maskLiteralsAndComments } from "../utils/code-mask.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
@@ -30,7 +31,10 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   const scannedFiles = scanProjectFiles(targetPath, ["ts"]);
 
   for (const scannedFile of scannedFiles) {
-    const { relativePath, content } = scannedFile;
+    const { relativePath } = scannedFile;
+    // Strings, template text and comments are data, not executed code (e.g. a browser script
+    // embedded in a template literal); mask them so only real statements are inspected.
+    const content = maskLiteralsAndComments(scannedFile.content);
     // Skip scanning the guard and related guards themselves to avoid self-matching callback patterns
     if (/core[\\/]async-guard/.test(relativePath) || /core[\\/]security-guard/.test(relativePath)) {
       continue;

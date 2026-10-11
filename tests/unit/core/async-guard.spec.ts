@@ -25,6 +25,58 @@ describe('AsyncGuard', () => {
     vi.clearAllMocks();
   });
 
+  describe('Literals and comments are not code', () => {
+    it('ignores promise chains inside template literals (embedded browser scripts)', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/webview/tabs-script.ts',
+          content: [
+            'export const SCRIPT = `',
+            '  navigator.clipboard.writeText(text).then(done, function () { fallback(); });',
+            '  fetch(url);',
+            '  new Promise(function (resolve) { resolve(); });',
+            '`;',
+          ].join('\n'),
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.status).toBe('ok');
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('ignores patterns that only appear in comments and strings', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/notes.ts',
+          content: "// fetch(url)\nconst hint = 'call x.then(y) here';\n",
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('still reports the real promise chain next to an embedded script', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/mixed.ts',
+          content: 'const s = `a.then(b)`;\nload().then(use);\n',
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0]?.message).toContain('src/mixed.ts:2');
+    });
+  });
+
   // ===== CLEAN CODE TESTS =====
 
   describe('Clean Async Code', () => {
