@@ -12,7 +12,7 @@ const report = (modules: Record<string, unknown> = {}): AuditReport =>
   ({
     timestamp: 0,
     projectRoot: "/proj",
-    summary: { total: 4, critical: 1, high: 1, medium: 1, low: 1 },
+    summary: { total: 4, critical: 1, error: 1, warning: 1, info: 1 },
     modules,
   }) as AuditReport;
 
@@ -25,9 +25,9 @@ describe("formatters", () => {
     expect(formatCsv(report()).split("\n")).toEqual([
       "Module,Severity,Count",
       "Summary,Critical,1",
-      "Summary,High,1",
-      "Summary,Medium,1",
-      "Summary,Low,1",
+      "Summary,Error,1",
+      "Summary,Warning,1",
+      "Summary,Info,1",
     ]);
   });
 

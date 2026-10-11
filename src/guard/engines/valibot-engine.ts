@@ -13,11 +13,9 @@
 import type { BaseSchema, BaseIssue } from 'valibot';
 import { safeParse } from 'valibot';
 
-/** Loose view of a Valibot issue / nested input used to walk the error path. */
+/** One step of a Valibot issue path (`issue.path`), e.g. an object key or array index. */
 interface PathNode {
-  key?: string | number;
-  index?: number;
-  input?: unknown;
+  key?: unknown;
 }
 
 export interface ValidationIssue {
@@ -198,19 +196,13 @@ export class ValibotEngine {
    * Extract path array from issue
    */
   private extractPath(issue: BaseIssue<unknown>): (string | number)[] {
+    const items: readonly PathNode[] = (issue as { path?: readonly PathNode[] }).path ?? [];
     const pathArray: (string | number)[] = [];
-    let current: PathNode | undefined = issue as unknown as PathNode;
-
-    while (current) {
-      if (current.key) {
-        pathArray.unshift(current.key);
-      } else if (current.index !== undefined) {
-        pathArray.unshift(current.index);
+    for (const item of items) {
+      if (typeof item.key === 'string' || typeof item.key === 'number') {
+        pathArray.push(item.key);
       }
-      const next: unknown = current.input;
-      current = typeof next === 'object' && next !== null ? (next as PathNode) : undefined;
     }
-
     return pathArray;
   }
 

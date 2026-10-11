@@ -25,6 +25,115 @@ describe('AsyncGuard', () => {
     vi.clearAllMocks();
   });
 
+  describe('Literals and comments are not code', () => {
+    it('ignores promise chains inside template literals (embedded browser scripts)', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/webview/tabs-script.ts',
+          content: [
+            'export const SCRIPT = `',
+            '  navigator.clipboard.writeText(text).then(done, function () { fallback(); });',
+            '  fetch(url);',
+            '  new Promise(function (resolve) { resolve(); });',
+            '`;',
+          ].join('\n'),
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.status).toBe('ok');
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('ignores patterns that only appear in comments and strings', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/notes.ts',
+          content: "// fetch(url)\nconst hint = 'call x.then(y) here';\n",
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('still reports the real promise chain next to an embedded script', async () => {
+      const guard = new AsyncGuard({ targetPath: '/project' });
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
+        {
+          relativePath: 'src/mixed.ts',
+          content: 'const s = `a.then(b)`;\nload().then(use);\n',
+        },
+      ]);
+
+      const result = await guard.execute();
+
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0]?.message).toContain('src/mixed.ts:2');
+    });
+  });
+
+  describe('Rejection handling heuristics', () => {
+    const run = async (content: string) => {
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([{ relativePath: 'src/a.ts', content }]);
+      return new AsyncGuard({ targetPath: '/project' }).execute();
+    };
+
+    it('does not flag a promise whose executor cannot reject', async () => {
+      for (const content of [
+        'const p = new Promise((resolve) => { resolve(1); });',
+        'const p = new Promise(resolve => resolve(1));',
+        'const p = new Promise(function (resolve) { resolve(1); });',
+        'const p = new Promise(async (resolve) => { resolve(1); });',
+      ]) {
+        expect((await run(content)).issues, content).toHaveLength(0);
+      }
+    });
+
+    it('still flags a promise whose executor can reject', async () => {
+      const result = await run('const p = new Promise((resolve, reject) => { reject(new Error("x")); });');
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0]?.message).toContain('Unhandled Promise');
+    });
+
+    it('accepts a .catch placed after a long multi-line .then callback', async () => {
+      const result = await run(
+        ['main()', '  .then((code) => {', '    // 1', '    // 2', '    // 3', '    // 4', '    done(code);', '  })', '  .catch((error) => {', '    fail(error);', '  });'].join('\n')
+      );
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('follows .then().finally().catch() chains', async () => {
+      const result = await run('load()\n  .then(a)\n  .finally(b)\n  .catch(c);');
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('accepts the two-argument .then(onFulfilled, onRejected) form', async () => {
+      const result = await run('load().then(ok, (e) => { report(e); });');
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('does not treat commas inside callbacks as an onRejected argument', async () => {
+      const result = await run('load().then((a) => combine(a, 1));');
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0]?.message).toContain('Promise chain without .catch()');
+    });
+
+    it('flags a chain that ends without a catch', async () => {
+      const result = await run('load()\n  .then(a)\n  .then(b);');
+      expect(result.issues.length).toBeGreaterThan(0);
+    });
+
+    it('does not crash on an unterminated .then(', async () => {
+      const result = await run('load().then(');
+      expect(result.issues).toHaveLength(1);
+    });
+  });
+
   // ===== CLEAN CODE TESTS =====
 
   describe('Clean Async Code', () => {
@@ -110,7 +219,7 @@ describe('AsyncGuard', () => {
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
           relativePath: 'src/index.ts',
-          content: `const p = new Promise((resolve) => {
+          content: `const p = new Promise((resolve, reject) => {
   resolve();
 });`,
         },
@@ -134,7 +243,7 @@ describe('AsyncGuard', () => {
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
           relativePath: 'src/index.ts',
-          content: `const p = new Promise((resolve) => {
+          content: `const p = new Promise((resolve, reject) => {
   resolve();
 }).catch(err => console.error(err));`,
         },
@@ -153,7 +262,7 @@ describe('AsyncGuard', () => {
           relativePath: 'src/test.ts',
           content: `line 1
 line 2
-new Promise((resolve) => { resolve(); })
+new Promise((resolve, reject) => { resolve(); })
 line 4`,
         },
       ]);
@@ -601,7 +710,7 @@ while (loadUser()) { }`,
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
           relativePath: 'src/messy.ts',
-          content: `new Promise(resolve => resolve());
+          content: `new Promise((resolve, reject) => resolve());
 
 fetch('/api/data');
 
