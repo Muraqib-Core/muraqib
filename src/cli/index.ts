@@ -252,7 +252,7 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
-  -i, --interactive          Ask which optional scans to run (TTY only)
+  -i, --interactive          Guided mode: pick what to audit, view a colour-coded report (TTY only)
       --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
   -h, --help                 Show this help message
@@ -407,15 +407,33 @@ export async function runCli(args: string[]): Promise<number> {
       if (ui) {
         ui.showIntro(options.projectRoot ?? process.cwd());
         const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
-        if (options.interactive === true && noScanFlags) {
-          const choices = await ui.promptScanChoices();
-          if (!choices) {
-            ui.showCancelled();
-            return 130;
+        if (options.interactive === true) {
+          if (!options.modules) {
+            const picked = await ui.promptCategories();
+            if (!picked) {
+              ui.showCancelled();
+              return 130;
+            }
+            if (picked.modules) options.modules = picked.modules;
+            if (!options.securityUrl && picked.modules?.includes("security-guard")) {
+              const url = await ui.promptSecurityUrl();
+              if (url === null) {
+                ui.showCancelled();
+                return 130;
+              }
+              options.securityUrl = url;
+            }
           }
-          options.osv = choices.osv;
-          options.docker = choices.docker;
-          options.aiAdvisory = choices.aiAdvisory;
+          if (noScanFlags) {
+            const choices = await ui.promptScanChoices();
+            if (!choices) {
+              ui.showCancelled();
+              return 130;
+            }
+            options.osv = choices.osv;
+            options.docker = choices.docker;
+            options.aiAdvisory = choices.aiAdvisory;
+          }
         }
       }
 
@@ -438,7 +456,18 @@ export async function runCli(args: string[]): Promise<number> {
 
       const formatted = formatReport(report, auditOptions.format);
 
-      if (options.output) {
+      if (ui && !options.output) {
+        ui.showReport(report, options.verbose);
+        if (options.interactive === true) {
+          const action = await ui.promptAfterReport(report.summary.total > 0);
+          if (action === "all") console.log(formatReport(report, "text"));
+          if (action === "html") {
+            const htmlPath = resolve(process.cwd(), "muraqib-report.html");
+            writeFileSync(htmlPath, formatReport(report, "html"));
+            console.log(`Report saved to ${htmlPath}`);
+          }
+        }
+      } else if (options.output) {
         const outputPath = resolve(process.cwd(), options.output);
         writeFileSync(outputPath, formatted);
         if (options.verbose) {
