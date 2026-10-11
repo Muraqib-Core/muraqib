@@ -5,6 +5,25 @@ All notable changes to Muraqib Core will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-10-11
+
+### 🐛 Fixed
+
+#### Packaging & Publishing
+- Ship `dist` and `bin` in the npm tarball via an explicit `files` whitelist (previously fell back to `.gitignore`), excluding compiled `*.spec.*` files
+- Add `repository`, `bugs` and `homepage` metadata to `package.json`
+- Add a `prepublishOnly` guard that runs build and tests before every publish
+
+### 🧹 Changed
+
+- Enable `exactOptionalPropertyTypes` in `tsconfig.json` and add `tsconfig.test.json` for type-checking specs
+- Remove the stale `AUDIT.md` and one-off helper scripts under `scripts/`
+- Unify the duplicated audit CLI in `src/scan/cli.ts` with the primary CLI
+
+### ✅ Tests
+
+- Add unit tests for `cache-guard`, `manager-detector` and `resolve-workflow`
+
 ## [1.0.0] - 2026-10-07
 
 ### ✨ Added
