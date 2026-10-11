@@ -345,9 +345,9 @@ muraqib --verbose
 ──────────────────────────────
   Total Issues:  15
   🔴 Critical:   2
-  🟠 High:       5
-  🟡 Medium:     6
-  🔵 Low:        2
+  🟠 Error:      5
+  🟡 Warning:    6
+  🔵 Info:       2
 ```
 
 **JSON**
@@ -358,9 +358,9 @@ muraqib --verbose
   "summary": {
     "total": 15,
     "critical": 2,
-    "high": 5,
-    "medium": 6,
-    "low": 2
+    "error": 5,
+    "warning": 6,
+    "info": 2
   },
   "modules": {}
 }

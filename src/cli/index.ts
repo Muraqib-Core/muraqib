@@ -320,9 +320,9 @@ export async function createAuditReport(
     summary: {
       total: issues.length,
       critical: count("critical"),
-      high: count("error"),
-      medium: count("warning"),
-      low: count("info"),
+      error: count("error"),
+      warning: count("warning"),
+      info: count("info"),
     },
     modules,
   };
@@ -454,8 +454,8 @@ export async function runCli(args: string[]): Promise<number> {
       }
 
       const { summary } = report;
-      if (summary.critical > 0 || summary.high > 0) return 1;
-      if (auditOptions.failOnWarning && summary.medium > 0) return 1;
+      if (summary.critical > 0 || summary.error > 0) return 1;
+      if (auditOptions.failOnWarning && summary.warning > 0) return 1;
       return 0;
     }
   } catch (error) {

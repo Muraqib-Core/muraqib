@@ -5,7 +5,7 @@ import type { AuditReport } from "../../../src/cli/types.js";
 const base = {
   timestamp: 0,
   projectRoot: "/p",
-  summary: { total: 1, critical: 0, high: 1, medium: 0, low: 0 },
+  summary: { total: 1, critical: 0, error: 1, warning: 0, info: 0 },
   modules: {
     scan: {
       status: "issues",
