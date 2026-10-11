@@ -114,7 +114,7 @@ function performCompatibilityAuditInternal(
 export { performCompatibilityAuditInternal as performCompatibilityAudit };
 
 export class CompatibilityGuard extends BaseGuard {
-  private projectRoot?: string;
+  private projectRoot?: string | undefined;
 
   constructor(projectRoot?: string, context?: AuditContext) {
     super("compatibility-guard", context);

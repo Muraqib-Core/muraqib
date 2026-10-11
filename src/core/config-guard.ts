@@ -32,7 +32,7 @@ export interface ConfigAuditResult {
 }
 
 interface ConfigAuditOptions {
-  projectRoot?: string;
+  projectRoot?: string | undefined;
 }
 
 const criticalConfigs = [

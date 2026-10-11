@@ -21,11 +21,11 @@ interface FallbackSuggestionRule {
   /** Suggested recommendation */
   recommendation: string;
   /** Code example (optional) */
-  codeExample?: string;
+  codeExample?: string | undefined;
   /** Priority (1-5) */
   priority: number;
   /** Estimated fix time in minutes */
-  estimatedTime?: number;
+  estimatedTime?: number | undefined;
 }
 
 /**

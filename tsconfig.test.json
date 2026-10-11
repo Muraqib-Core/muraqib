@@ -1,0 +1,31 @@
+{
+  // Type-checks specs under the same strict flags as src (incl. exactOptionalPropertyTypes).
+  // The files excluded below predate this config and still have loose fixtures; shrink this list as they are fixed.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests/unit/ai/advisor.spec.ts",
+    "tests/unit/ai/fallback.spec.ts",
+    "tests/unit/core/ai-boundary.spec.ts",
+    "tests/unit/core/ai-hardening.spec.ts",
+    "tests/unit/core/async-guard.spec.ts",
+    "tests/unit/core/base-guard.spec.ts",
+    "tests/unit/core/compatibility.spec.ts",
+    "tests/unit/core/guard-factory.spec.ts",
+    "tests/unit/core/orchestrator-rejections.spec.ts",
+    "tests/unit/core/orchestrator.spec.ts",
+    "tests/unit/core/security-guard.spec.ts",
+    "tests/unit/guard/engines/arktype-engine.spec.ts",
+    "tests/unit/guard/engines/custom-engine.spec.ts",
+    "tests/unit/guard/engines/valibot-engine.spec.ts",
+    "tests/unit/guard/engines/zod-engine.spec.ts",
+    "tests/validate.spec.ts"
+  ]
+}

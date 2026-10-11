@@ -5,7 +5,7 @@ import { DockerScanner } from "../scan/scanners/docker/docker-engine.js";
 import { enrichIssue } from "../scan/bridge.js";
 
 interface DockerAuditOptions {
-  projectRoot?: string;
+  projectRoot?: string | undefined;
   /** Opt in to Docker-CLI-backed build / effective compose validation. */
   nativeValidation?: boolean;
 }

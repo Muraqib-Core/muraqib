@@ -46,15 +46,15 @@ export interface AgentReport {
 }
 
 export interface AgentAuditOptions {
-  projectRoot?: string;
+  projectRoot?: string | undefined;
   /** Module-name filters, e.g. ["security", "memory"]. */
-  modules?: string[];
-  securityUrl?: string;
+  modules?: string[] | undefined;
+  securityUrl?: string | undefined;
   /** Include the scan layer: OSV vulnerabilities, Docker, compatibility, env files. */
-  osv?: boolean;
-  docker?: boolean;
-  aiAdvisory?: boolean;
-  failOnWarning?: boolean;
+  osv?: boolean | undefined;
+  docker?: boolean | undefined;
+  aiAdvisory?: boolean | undefined;
+  failOnWarning?: boolean | undefined;
   /** Cap the issue list to keep an agent's context small. */
-  maxIssues?: number;
+  maxIssues?: number | undefined;
 }
