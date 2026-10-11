@@ -236,6 +236,7 @@ describe("CLI entry (runCli)", () => {
     }) as never);
     await runCli(["--version"]);
     expect(out.join("\n")).toContain("Muraqib Core v");
+    expect(out.join("\n")).not.toContain("v1.0.0");
   });
 
   test("returns 1 and prints the error when the orchestrator throws", async () => {
