@@ -30,6 +30,7 @@
     "audit": "tsx src/cli/index.ts audit --url http://localhost:3000 --security-url http://localhost:3000 --silent",
     "audit:demo": "tsx src/index.ts --path ./examples/sample-project",
     "type-check": "tsc --noEmit",
+    "type-check:tests": "tsc -p tsconfig.test.json",
     "scan": "tsx src/scan/cli.ts",
     "dev-server": "npm --prefix examples/express-prisma run dev",
     "audit:ci": "tsx scripts/collect-audit.ts",

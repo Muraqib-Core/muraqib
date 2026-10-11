@@ -24,9 +24,9 @@ interface ExtendedCliOptions extends Partial<CliOptions> {
   osv?: boolean;
   docker?: boolean;
   aiAdvisory?: boolean;
-  packageName?: string;
-  packageVersion?: string;
-  securityUrl?: string;
+  packageName?: string | undefined;
+  packageVersion?: string | undefined;
+  securityUrl?: string | undefined;
 }
 
 function parseArgs(args: string[]): ExtendedCliOptions {
