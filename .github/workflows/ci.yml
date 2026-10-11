@@ -99,10 +99,50 @@ jobs:
           path: coverage/
           retention-days: 30
 
+  self-audit:
+    name: Self-Audit (muraqib audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          CI: true
+
+      - name: Build project
+        run: npm run build
+
+      # Gate: exits 1 on any critical/error finding (warnings and info do not block).
+      - name: Audit this repository with its own CLI
+        run: npm run self-audit
+
+      - name: Save JSON report
+        if: always()
+        run: node bin/muraqib.js audit --project . --no-interactive --format json --output muraqib-self-audit.json || true
+
+      - name: Upload self-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-audit-report
+          path: muraqib-self-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
+
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint-and-build, test-and-coverage]
+    needs: [lint-and-build, test-and-coverage, self-audit]
     if: always()
 
     steps:
@@ -122,6 +162,14 @@ jobs:
           fi
           echo "✓ Tests passed"
 
+      - name: Check self-audit status
+        run: |
+          if [ "${{ needs.self-audit.result }}" != "success" ]; then
+            echo "❌ Self-audit failed"
+            exit 1
+          fi
+          echo "✓ Self-audit passed"
+
       - name: Create success badge
         if: success()
         run: |
@@ -131,6 +179,7 @@ jobs:
           echo "- Build: ✓"
           echo "- Tests: ✓"
           echo "- Coverage: ✓"
+          echo "- Self-audit: ✓"
 
   security-scan:
     name: Security Scan

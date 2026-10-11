@@ -369,7 +369,7 @@ describe("createAuditReport", () => {
       verbose: false,
       failOnWarning: false,
     } as never);
-    expect(report.summary).toEqual({ total: 5, critical: 1, high: 1, medium: 1, low: 2 });
+    expect(report.summary).toEqual({ total: 5, critical: 1, error: 1, warning: 1, info: 2 });
     expect(Object.keys(report.modules)).toEqual(["a"]);
   });
 

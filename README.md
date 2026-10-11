@@ -204,7 +204,7 @@ In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Ad
 | Code | Meaning |
 |------|---------|
 | `0` | No blocking findings |
-| `1` | Blocking findings (critical/high; warnings too with `--fail-on-warning`) |
+| `1` | Blocking findings (critical/error; warnings too with `--fail-on-warning`) |
 | `3` | A scanner failed, so the result is not reliable |
 | `130` | Interactive prompt cancelled by the user |
 
