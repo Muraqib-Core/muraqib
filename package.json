@@ -11,6 +11,14 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!dist/**/*.spec.*"
+  ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc",
     "dev": "tsx watch src/index.ts",
@@ -24,7 +32,8 @@
     "type-check": "tsc --noEmit",
     "scan": "tsx src/scan/cli.ts",
     "dev-server": "npm --prefix examples/express-prisma run dev",
-    "audit:ci": "tsx scripts/collect-audit.ts"
+    "audit:ci": "tsx scripts/collect-audit.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "audit",
@@ -38,6 +47,14 @@
   ],
   "author": "Aya Almadhon & Jenan",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ayaalmadhon2004/-Muraqib-Core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ayaalmadhon2004/-Muraqib-Core/issues"
+  },
+  "homepage": "https://github.com/Ayaalmadhon2004/-Muraqib-Core#readme",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
