@@ -2,10 +2,10 @@
  * Muraqib CLI - Command Line Interface
  * Main entry point for running audits from the command line
  */
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import type { CliOptions, AuditReport, OutputFormat } from "./types.js";
-import { pathToFileURL } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { formatReport } from "./formatters.js";
 import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import { getSystemContext } from "../agent/system-context.js";
@@ -170,7 +170,7 @@ function parseArgs(args: string[]): ExtendedCliOptions {
     }
 
     if (arg === "--version" && options.command === "audit") {
-      console.log("Muraqib Core v1.0.0");
+      console.log(`Muraqib Core v${readPackageVersion()}`);
       process.exit(0);
     }
   }
@@ -450,14 +450,32 @@ export async function runCli(args: string[]): Promise<number> {
   }
 }
 
+/** Read the package version at runtime so `--version` never drifts from package.json. */
+function readPackageVersion(): string {
+  try {
+    const pkgPath = fileURLToPath(new URL("../../package.json", import.meta.url));
+    const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
+    if (typeof pkg === "object" && pkg !== null && "version" in pkg && typeof pkg.version === "string") {
+      return pkg.version;
+    }
+  } catch {
+    // fall through to the placeholder
+  }
+  return "unknown";
+}
+
 // CLI entry point
 const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const args = process.argv.slice(2);
   runCli(args)
-    .then((code) => process.exit(code))
+    .then((code) => {
+      // Set exitCode instead of calling process.exit() so large stdout payloads
+      // are fully flushed when piped (process.exit truncates at the 64KB pipe buffer).
+      process.exitCode = code;
+    })
     .catch((error) => {
       console.error("Fatal error:", error);
-      process.exit(1);
+      process.exitCode = 1;
     });
 }
