@@ -14,6 +14,77 @@ export interface DeadCodeAuditResult {
   unusedExports: string[];
 }
 
+const IDENTIFIER_REGEX = /[A-Za-z_$][\w$]*/g;
+const JUMP_STATEMENT_REGEX = /^(?:return|throw|break|continue)\b/;
+
+/** Public entry points and barrels are the package API: their exports are consumed outside the repo. */
+function isEntryOrBarrel(relativePath: string): boolean {
+  const normalized = relativePath.replace(/\\/g, "/");
+  return normalized.startsWith("src/index") || /(^|\/)index\.[cm]?[jt]sx?$/.test(normalized) || normalized.startsWith("src/core/");
+}
+
+function stripStringsAndComments(line: string): string {
+  return line
+    .replace(/\/\/.*$/, "")
+    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g, '""');
+}
+
+function bracketDelta(line: string): number {
+  let delta = 0;
+  for (const ch of stripStringsAndComments(line)) {
+    if (ch === "(" || ch === "[" || ch === "{") delta++;
+    else if (ch === ")" || ch === "]" || ch === "}") delta--;
+  }
+  return delta;
+}
+
+/**
+ * Returns the 1-based line numbers of statements that sit directly after a complete
+ * `return`/`throw`/`break`/`continue` statement inside the same block.
+ * A closing brace, `case`, `default` or `else` after the jump is normal code, not dead code.
+ */
+export function findUnreachableLines(lines: string[]): number[] {
+  const found: number[] = [];
+  const MAX_STATEMENT_LINES = 40;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = (lines[i] ?? "").trim();
+    if (!JUMP_STATEMENT_REGEX.test(line)) continue;
+
+    // `if (x)\n  return y;` has no braces: the jump only guards that branch
+    let p = i - 1;
+    while (p >= 0 && ((lines[p] ?? "").trim() === "" || (lines[p] ?? "").trim().startsWith("//"))) p--;
+    const previous = p >= 0 ? stripStringsAndComments(lines[p] ?? "").trim() : "";
+    if (previous.endsWith(")") || previous === "else" || previous.endsWith("=>")) continue;
+
+    // Find where the (possibly multi-line) statement ends
+    let depth = 0;
+    let end = -1;
+    for (let j = i; j < Math.min(lines.length, i + MAX_STATEMENT_LINES); j++) {
+      depth += bracketDelta(lines[j] ?? "");
+      const code = stripStringsAndComments(lines[j] ?? "").trim();
+      if (depth <= 0 && (code.endsWith(";") || /^(?:break|continue|return|throw)$/.test(code) || depth < 0)) {
+        end = depth < 0 ? -1 : j;
+        break;
+      }
+    }
+    if (end === -1) continue;
+
+    let n = end + 1;
+    while (n < lines.length) {
+      const next = (lines[n] ?? "").trim();
+      if (next !== "" && !next.startsWith("//") && !next.startsWith("*") && !next.startsWith("/*")) break;
+      n++;
+    }
+    const next = n < lines.length ? (lines[n] ?? "").trim() : "";
+    if (next === "" || /^[}\])]/.test(next) || /^(?:case\b|default\s*:|else\b)/.test(next)) continue;
+    if (/^(?:async\s+)?function\b/.test(next)) continue; // hoisted declarations stay reachable
+
+    found.push(n + 1);
+  }
+  return found;
+}
+
 function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
   const reports: string[] = [];
   const emptyFunctions: string[] = [];
@@ -21,9 +92,12 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
   const unusedExports: string[] = [];
 
   const scannedFiles = scanProjectFiles(targetPath, ["ts"]);
-  const fileContents = new Map<string, string>();
-  for (const scannedFile of scannedFiles) {
-    fileContents.set(scannedFile.path, scannedFile.content);
+
+  // An export counts as used when its name appears in ANY other project file: sources, specs,
+  // tests, bin scripts and plain JS consumers included (not only `import ... from` lines in src).
+  const identifiersByFile = new Map<string, Set<string>>();
+  for (const consumer of scanProjectFiles(targetPath, ["ts", "tsx", "js", "mjs", "cjs"], { includeTests: true })) {
+    identifiersByFile.set(consumer.path, new Set(consumer.content.match(IDENTIFIER_REGEX) ?? []));
   }
 
   for (const scannedFile of scannedFiles) {
@@ -43,33 +117,9 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
       reports.push(`Empty function body: ${relativePath}:${lineNum} — "${name}" does nothing`);
     }
 
-    for (let i = 0; i < lines.length - 1; i++) {
-      const currentLine = lines[i];
-      const followingLine = lines[i + 1];
-      if (currentLine === undefined || followingLine === undefined) continue;
-
-      const line = currentLine.trim();
-      const nextLine = followingLine.trim();
-
-      const endsControlFlow = /^(return|throw)\b.*;?$/.test(line) || /^(break|continue);?$/.test(line);
-      const lineIsBlockBoundary = nextLine === "}" || nextLine === "else" || nextLine.startsWith("else ") || nextLine.startsWith("case ") || nextLine.startsWith("default:");
-      const nextIsMeaningful =
-        nextLine.length > 0 &&
-        nextLine !== "}" &&
-        !nextLine.startsWith("//") &&
-        !nextLine.startsWith("*") &&
-        !nextLine.startsWith("/*") &&
-        !nextLine.startsWith("case ") &&
-        !nextLine.startsWith("default:");
-
-      if (endsControlFlow && lineIsBlockBoundary) {
-        unreachableBranches.push(`${relativePath}:${i + 2}`);
-        reports.push(`Unreachable code: ${relativePath}:${i + 2} — appears right after a "${line.split(/\s+/)[0]}" statement`);
-      }
-
-      if (endsControlFlow && nextIsMeaningful && (line.includes("if (") || line.includes("for (") || line.includes("while ("))) {
-        continue;
-      }
+    for (const lineNum of findUnreachableLines(lines)) {
+      unreachableBranches.push(`${relativePath}:${lineNum}`);
+      reports.push(`Unreachable code: ${relativePath}:${lineNum} — statement follows return/throw/break/continue in the same block`);
     }
 
     const exportRegex = /export\s+(?:async\s+)?(?:function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
@@ -77,16 +127,13 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
       const exportedName = match[1];
       if (!exportedName || exportedName === "default") continue;
 
-      const reExportFile = relativePath.startsWith("src/index") || relativePath.includes("/index.") || relativePath.startsWith("src/core/");
-      if (reExportFile) {
+      if (isEntryOrBarrel(relativePath)) {
         continue;
       }
 
       let usedElsewhere = false;
-      for (const [otherFile, otherContent] of fileContents) {
-        if (otherFile === filePath) continue;
-        const importUsageRegex = new RegExp(`import\\s+[^;]*\\b${exportedName}\\b[^;]*from`, "m");
-        if (importUsageRegex.test(otherContent)) {
+      for (const [otherFile, identifiers] of identifiersByFile) {
+        if (otherFile !== filePath && identifiers.has(exportedName)) {
           usedElsewhere = true;
           break;
         }
