@@ -36,7 +36,7 @@
 ## 2️⃣ Dual-Repository Integration (استراتيجية الدمج)
 
 ### Repository Sources
-1. **Primary (Muraqib Core)**: `https://github.com/Ayaalmadhon2004/-Muraqib-Core`
+1. **Primary (Muraqib Core)**: `https://github.com/Muraqib-Core/muraqib`
    - النواة الأساسية، Guard implementations، التوثيق
 2. **Secondary (Partner Repository)**: ميزات إضافية، AI integrations، UI improvements
 
