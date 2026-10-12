@@ -22,10 +22,17 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Allow auto-merge for non-major updates with passing CI
-    auto-merge: true
     # Commit message strategy
     commit-message:
       prefix: "chore(deps):"
       prefix-development: "chore(deps-dev):"
       include: "scope"
+
+  # Keep the SHA-pinned GitHub Actions up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci(deps):"
