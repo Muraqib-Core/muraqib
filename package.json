@@ -1,6 +1,6 @@
 {
   "name": "muraqib-core",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
   "main": "dist/index.js",

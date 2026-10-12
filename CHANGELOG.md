@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-12
+
 ### ⚠️ Changed (breaking for `audit --json` consumers)
 
 - One severity vocabulary everywhere: `critical` / `error` / `warning` / `info`. The classic report summary (`audit --json`, text, HTML and CSV) now uses these names instead of `critical` / `high` / `medium` / `low`, matching its own issue entries and the `AgentReport`. Rename `summary.high` → `summary.error`, `summary.medium` → `summary.warning`, `summary.low` → `summary.info`
 
 ### 🐛 Fixed
 
+- `--upgrade` now runs package-manager detection, migrations and the build check inside the target project (`--path`) instead of the process working directory, and only reports packages that actually changed
+- Web view CSP now also sets `base-uri 'none'` and `form-action 'none'`
 - `async-guard` no longer reports code that lives inside string/template literals or comments (e.g. the browser script embedded by the web view)
 - `ValibotEngine` now reports the real field path of each failure instead of always `root`
 
