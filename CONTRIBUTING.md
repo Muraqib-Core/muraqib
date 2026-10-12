@@ -20,8 +20,8 @@ Thank you for your interest in contributing to Muraqib Core! This document provi
 
 ```bash
 # Clone the repository
-git clone https://github.com/Ayaalmadhon2004/-Muraqib-Core.git
-cd -muraqib-core
+git clone https://github.com/Muraqib-Core/muraqib.git
+cd muraqib
 
 # Install dependencies
 npm install
@@ -323,8 +323,8 @@ export function performSecurityAudit(targetPath: string): SecurityAuditResult
 ## Questions?
 
 - 📖 Check [API.md](API.md) for API details
-- 💬 Open a [GitHub Discussion](https://github.com/Ayaalmadhon2004/-Muraqib-Core/discussions)
-- 🐛 Report issues in [GitHub Issues](https://github.com/Ayaalmadhon2004/-Muraqib-Core/issues)
+- 💬 Open a [GitHub Discussion](https://github.com/Muraqib-Core/muraqib/discussions)
+- 🐛 Report issues in [GitHub Issues](https://github.com/Muraqib-Core/muraqib/issues)
 
 ## License
 

@@ -130,7 +130,7 @@ function featuresTab(): TabContent {
 }
 
 function installationTab(info: PackageInfo): TabContent {
-  const repo = info.repositoryUrl ?? "https://github.com/Ayaalmadhon2004/-Muraqib-Core";
+  const repo = info.repositoryUrl ?? "https://github.com/Muraqib-Core/muraqib";
   return {
     id: "installation",
     title: "Installation",
@@ -139,7 +139,7 @@ function installationTab(info: PackageInfo): TabContent {
       {
         kind: "code",
         language: "bash",
-        code: [`git clone ${repo}.git`, "cd -muraqib-core", "npm install", "npm run build", "npm test"].join("\n"),
+        code: [`git clone ${repo}.git`, "cd muraqib", "npm install", "npm run build", "npm test"].join("\n"),
       },
       { kind: "heading", level: 2, text: "Run an audit" },
       {

@@ -297,8 +297,8 @@ No breaking changes in 1.0.0 (initial release).
 
 - 📖 Documentation: [API.md](API.md)
 - 🤝 Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- 🐛 Issues: [GitHub Issues](https://github.com/Ayaalmadhon2004/-Muraqib-Core/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/Ayaalmadhon2004/-Muraqib-Core/discussions)
+- 🐛 Issues: [GitHub Issues](https://github.com/Muraqib-Core/muraqib/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/Muraqib-Core/muraqib/discussions)
 
 ---
 

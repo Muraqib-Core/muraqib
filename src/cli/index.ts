@@ -218,7 +218,7 @@ EXAMPLES:
   muraqib resolve
   muraqib -p ./my-app resolve
 
-For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
+For more information, visit: https://github.com/Muraqib-Core/muraqib
 `);
   } else {
     console.log(`
@@ -280,7 +280,7 @@ FORMATS:
   html   - Interactive HTML report
   csv    - Spreadsheet-compatible format
 
-For more information, visit: https://github.com/Ayaalmadhon2004/-Muraqib-Core
+For more information, visit: https://github.com/Muraqib-Core/muraqib
 `);
   }
 }

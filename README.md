@@ -9,7 +9,7 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Ayaalmadhon2004/-Muraqib-Core/actions)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
 </div>
@@ -53,8 +53,8 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 
 ```bash
 # Clone the repository
-git clone https://github.com/Ayaalmadhon2004/-Muraqib-Core.git
-cd -muraqib-core
+git clone https://github.com/Muraqib-Core/muraqib.git
+cd muraqib
 
 # Install dependencies
 npm install
