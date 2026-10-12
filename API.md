@@ -488,8 +488,8 @@ for (const issue of result.issues) {
 
 ## Support & Contributing
 
-- 🐛 Report bugs: [GitHub Issues](https://github.com/Ayaalmadhon2004/-Muraqib-Core/issues)
-- 💡 Suggest features: [GitHub Discussions](https://github.com/Ayaalmadhon2004/-Muraqib-Core/discussions)
+- 🐛 Report bugs: [GitHub Issues](https://github.com/Muraqib-Core/muraqib/issues)
+- 💡 Suggest features: [GitHub Discussions](https://github.com/Muraqib-Core/muraqib/discussions)
 - 🤝 Contributing: See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
