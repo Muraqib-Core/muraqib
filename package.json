@@ -53,12 +53,12 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ayaalmadhon2004/-Muraqib-Core.git"
+    "url": "git+https://github.com/Muraqib-Core/muraqib.git"
   },
   "bugs": {
-    "url": "https://github.com/Ayaalmadhon2004/-Muraqib-Core/issues"
+    "url": "https://github.com/Muraqib-Core/muraqib/issues"
   },
-  "homepage": "https://github.com/Ayaalmadhon2004/-Muraqib-Core#readme",
+  "homepage": "https://github.com/Muraqib-Core/muraqib#readme",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
