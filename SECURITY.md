@@ -36,7 +36,7 @@ We will acknowledge your report within 48 hours and provide updates on our progr
 - **Configuration Guard** — identifies insecure configuration files
 
 ### Preset System
-- Remote presets are fetched and validated
+- Remote presets (`remotePresetUrl`) are fetched over HTTPS only, with a timeout, and validated against a strict schema; invalid data falls back to the built-in presets
 - Use only trusted preset URLs
 - Presets are validated against schema before application
 
