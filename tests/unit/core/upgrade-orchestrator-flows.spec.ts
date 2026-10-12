@@ -45,7 +45,7 @@ describe("upgrade orchestrator flows", () => {
   test("bumps the version and runs the build for the detected manager", async () => {
     const result = await run();
     expect(result.updatedVersion).toBe("^2.0.0");
-    expect(execSync).toHaveBeenCalledWith("npm run build", { stdio: "ignore" });
+    expect(execSync).toHaveBeenCalledWith("npm run build", { stdio: "ignore", cwd: process.cwd() });
   });
 
   test.each([
@@ -55,7 +55,7 @@ describe("upgrade orchestrator flows", () => {
   ])("uses the %s build command", async (manager, command) => {
     vi.mocked(detectProjectPackageManager).mockReturnValue(manager as never);
     await run();
-    expect(execSync).toHaveBeenCalledWith(command, { stdio: "ignore" });
+    expect(execSync).toHaveBeenCalledWith(command, { stdio: "ignore", cwd: process.cwd() });
   });
 
   test("reports the matching preset group, fetching remote presets when a url is given", async () => {
@@ -78,7 +78,7 @@ describe("upgrade orchestrator flows", () => {
     expect(result.schemaMigrated).toBe(true);
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining("@tailwindcss/upgrade"),
-      { stdio: "inherit" }
+      { stdio: "inherit", cwd: process.cwd() }
     );
   });
 
