@@ -86,6 +86,8 @@ export interface OrchestratorConfig { // muraqib-ignore-dead: auto-suppressed by
   newVersion: string;
   rangeStrategy: 'replace' | 'widen' | 'bump';
   remotePresetUrl?: string;
+  /** Project directory in which detection, migrations and the build verification run. Defaults to the process cwd. */
+  cwd?: string;
 }
 
 /**
@@ -109,6 +111,7 @@ export async function runMuraqibUpgradeOrchestrator({
   newVersion,
   rangeStrategy,
   remotePresetUrl,
+  cwd = process.cwd(),
 }: OrchestratorConfig): Promise<{ updatedVersion: string | null; schemaMigrated: boolean; skipReason?: string }> {
 
   let schemaMigrated = false;
@@ -130,7 +133,7 @@ export async function runMuraqibUpgradeOrchestrator({
     console.warn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
     return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' };
   }
-  const currentEnv = detectProjectPackageManager();
+  const currentEnv = detectProjectPackageManager(cwd);
   // Map the simple package manager id to a small command/metadata object
   const managerMeta: Record<string, { type: string; commands: { lockFile: string; build: string } }> = {
     npm: { type: 'npm', commands: { lockFile: 'package-lock.json', build: 'npm run build' } },
@@ -185,10 +188,10 @@ export async function runMuraqibUpgradeOrchestrator({
       }
 
       try {
-        execSync(migrationRule.migrationCommand, { stdio: 'inherit' });
+        execSync(migrationRule.migrationCommand, { stdio: 'inherit', cwd });
         console.log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
         schemaMigrated = true;
-      } catch (_migrationError) {
+      } catch {
         console.error(`❌ [Error]: Automated schema migration failed for ${packageName}. Proceeding with cautious testing.`);
       }
     } else {
@@ -204,9 +207,9 @@ export async function runMuraqibUpgradeOrchestrator({
     }
 
     try {
-      execSync(targetBuildCommand, { stdio: 'ignore' });
+      execSync(targetBuildCommand, { stdio: 'ignore', cwd });
       console.log(`💎 [Integrity Success]: Project build passed smoothly on [${envMeta.type.toUpperCase()}] environment! Safe to commit.`);
-    } catch (_buildError) {
+    } catch {
       console.error(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!`);
       console.log(`⚠️  [Warning]: Build failed. The package upgrade has been applied but the build needs to be fixed before committing.`);
       console.log(`🔍 [Next Steps]: Review the error above and fix the build issues, then run the build command again.`);

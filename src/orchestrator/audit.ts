@@ -403,13 +403,16 @@ export async function runUpgradePackages(targetPath: string): Promise<void> {
   for (const [name, current] of Object.entries(allDeps)) {
     if (typeof current !== "string") continue;
     try {
-      await runMuraqibUpgradeOrchestrator({
+      const result = await runMuraqibUpgradeOrchestrator({
         packageName: name,
         currentValue: current,
         newVersion: current,
         rangeStrategy: "replace",
+        cwd: targetPath,
       });
-      upgraded++;
+      if (result.updatedVersion !== null && result.updatedVersion !== current) {
+        upgraded++;
+      }
     } catch {
       // Skip failed individual upgrades
     }

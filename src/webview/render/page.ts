@@ -75,7 +75,7 @@ function renderSidebar(groups: SidebarGroup[]): string {
 export function renderPage(content: PageContent, options: RenderOptions): string {
   validate(content, options);
   const { nonce } = options;
-  const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src data:`;
+  const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src data:; base-uri 'none'; form-action 'none'`;
   const badges = content.badges.map((badge) => `<li>${escapeHtml(badge)}</li>`).join("");
 
   return (
