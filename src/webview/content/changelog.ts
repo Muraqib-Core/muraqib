@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 /** Newest first. Keep the top entry in sync with `package.json` (a unit test enforces it). */
 export const CHANGELOG: readonly ChangelogRelease[] = [
   {
+    version: "1.0.2",
+    date: "2026-10-12",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "`--upgrade` runs inside the target project (`--path`) instead of the process working directory",
+          "Web view CSP adds `base-uri 'none'` and `form-action 'none'`",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0.1",
     date: "2026-10-11",
     groups: [
