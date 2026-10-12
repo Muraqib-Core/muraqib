@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { execSync } from "child_process";
+import { detectProjectPackageManager } from "../utils/manager-detector.js";
 import { runMuraqibUpgradeOrchestrator, type OrchestratorConfig } from "./upgrade-orchestrator";
 
 vi.mock("child_process");
@@ -201,5 +203,39 @@ describe("runMuraqibUpgradeOrchestrator", () => {
       expect(typeof config.currentValue).toBe("string");
       expect(typeof config.newVersion).toBe("string");
     });
+  });
+  it("runs detection, migration and build inside the given cwd", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    vi.mocked(execSync).mockReturnValue(Buffer.from(""));
+
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "react",
+      currentValue: "^18.0.0",
+      newVersion: "^19.0.0",
+      rangeStrategy: "replace",
+      cwd: "/projects/other",
+    });
+
+    expect(result.schemaMigrated).toBe(true);
+    expect(detectProjectPackageManager).toHaveBeenCalledWith("/projects/other");
+    const calls = vi.mocked(execSync).mock.calls;
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call[1]).toMatchObject({ cwd: "/projects/other" });
+    }
+  });
+
+  it("does not run anything when the version does not change", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+
+    await runMuraqibUpgradeOrchestrator({
+      packageName: "react",
+      currentValue: "^18.0.0",
+      newVersion: "^18.0.0",
+      rangeStrategy: "replace",
+      cwd: "/projects/other",
+    });
+
+    expect(execSync).not.toHaveBeenCalled();
   });
 });
