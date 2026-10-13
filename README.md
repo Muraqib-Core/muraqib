@@ -145,6 +145,8 @@ import { getWebviewHtml } from "muraqib-core";
 panel.webview.html = getWebviewHtml(nonce);
 ```
 
+A ready-made VS Code extension built on `runAuditForAgent` and `getWebviewHtml` lives in [`extension/`](extension/README.md).
+
 The page text lives in `src/webview/content/` as typed data, so adding a tab or translating it never touches the markup. The version and the dependency list are read from `package.json` at build time.
 
 ---
