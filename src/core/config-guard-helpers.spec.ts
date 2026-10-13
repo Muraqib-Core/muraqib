@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigGuard, performConfigAudit } from "./config-guard.js";
+import { runGit } from "./helpers/git-protection.js";
 
 describe("ConfigGuard tsconfig handling (tsconfig-parser)", () => {
   let dir: string;
@@ -41,6 +42,33 @@ describe("ConfigGuard tsconfig handling (tsconfig-parser)", () => {
     writeFileSync(join(dir, "tsconfig.json"), "{ nope");
     const result = performConfigAudit(dir);
     expect(result.issues.some((i) => i.type === "invalid_json" && i.file === "tsconfig.json")).toBe(true);
+  });
+
+  describe("tracked environment files (git-protection)", () => {
+    it("flags tracked env files but not templates or untracked ones", () => {
+      expect(runGit(["init", "-q"], dir).status).toBe(0);
+      writeFileSync(join(dir, ".env"), "A=1\n");
+      writeFileSync(join(dir, ".env.example"), "A=\n");
+      writeFileSync(join(dir, ".env.local"), "A=1\n");
+      expect(runGit(["add", ".env", ".env.example"], dir).status).toBe(0);
+      const tracked = performConfigAudit(dir).issues.filter((i) => i.type === "tracked_env_file");
+      expect(tracked.map((i) => i.file)).toEqual([".env"]);
+      expect(tracked[0]?.severity).toBe("high");
+    });
+
+    it("reports nothing outside a repository", () => {
+      writeFileSync(join(dir, ".env"), "A=1\n");
+      expect(performConfigAudit(dir).issues.some((i) => i.type === "tracked_env_file")).toBe(false);
+    });
+
+    it("surfaces as an error-level CONFIG_TRACKED_ENV_FILE issue", async () => {
+      expect(runGit(["init", "-q"], dir).status).toBe(0);
+      writeFileSync(join(dir, ".env"), "A=1\n");
+      expect(runGit(["add", ".env"], dir).status).toBe(0);
+      const result = await new ConfigGuard({ projectRoot: dir }).run();
+      const issue = result.issues.find((i) => i.code === "CONFIG_TRACKED_ENV_FILE");
+      expect(issue?.severity).toBe("error");
+    });
   });
 
   it("maps issues through ConfigGuard", async () => {
