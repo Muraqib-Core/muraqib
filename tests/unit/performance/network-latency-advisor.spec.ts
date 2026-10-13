@@ -72,7 +72,7 @@ describe("performLiveLatencyAudit", () => {
 
 describe("NetworkLatencyGuard", () => {
   it("returns ok for an optimized target", async () => {
-    get.mockResolvedValue({ headers: { "content-length": "1024" }, data: "x" });
+    get.mockResolvedValue(reply({ "content-length": "1024" }, "x"));
     const res = await new NetworkLatencyGuard({ targetUrl: "http://x" }).run();
     expect(res.module).toBe("network-latency-guard");
     expect(res.status).toBe("ok");
@@ -81,7 +81,7 @@ describe("NetworkLatencyGuard", () => {
   it("reports payload and latency warnings with Arabic messages", async () => {
     get.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 320));
-      return { headers: { "content-length": String(40 * 1024) }, data: "x" };
+      return reply({ "content-length": String(40 * 1024) }, "x");
     });
     const res = await new NetworkLatencyGuard({ targetUrl: "http://x" }).run();
     expect(res.status).toBe("warning");
