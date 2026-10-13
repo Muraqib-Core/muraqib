@@ -1,0 +1,104 @@
+{
+  "name": "muraqib-vscode",
+  "displayName": "Muraqib",
+  "description": "Run Muraqib security, performance and configuration audits from VS Code, with results in the Problems panel and an RTL-friendly report view.",
+  "version": "0.1.0",
+  "publisher": "muraqib-core",
+  "license": "ISC",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Muraqib-Core/muraqib.git",
+    "directory": "extension"
+  },
+  "homepage": "https://github.com/Muraqib-Core/muraqib#readme",
+  "bugs": {
+    "url": "https://github.com/Muraqib-Core/muraqib/issues"
+  },
+  "categories": ["Linters", "Other"],
+  "keywords": ["audit", "security", "performance", "muraqib"],
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18.0.0"
+  },
+  "main": "./dist/host/extension.js",
+  "activationEvents": [
+    "onCommand:muraqib.runAudit",
+    "onCommand:muraqib.showDocumentation",
+    "onCommand:muraqib.showLastReport"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Muraqib reads project files and can contact the configured security URL, so it only runs in trusted workspaces."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Muraqib audits files on disk and needs a local folder."
+    }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "muraqib.runAudit", "title": "Run Audit", "category": "Muraqib" },
+      { "command": "muraqib.showDocumentation", "title": "Show Documentation", "category": "Muraqib" },
+      { "command": "muraqib.showLastReport", "title": "Show Last Report", "category": "Muraqib" }
+    ],
+    "configuration": {
+      "title": "Muraqib",
+      "properties": {
+        "muraqib.modules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Only run modules whose name contains one of these strings (for example `security`, `memory`, `docker`). Empty runs every module."
+        },
+        "muraqib.osv": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include OSV dependency vulnerability scanning (contacts the OSV service)."
+        },
+        "muraqib.docker": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include Docker discovery and Dockerfile analysis."
+        },
+        "muraqib.securityUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "URL of a running service (`http://` or `https://`) for HTTP security-header checks. Leave empty to skip."
+        },
+        "muraqib.failOnWarning": {
+          "type": "boolean",
+          "default": false,
+          "description": "Treat warnings as a failing verdict."
+        },
+        "muraqib.maxIssues": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 0,
+          "description": "Maximum number of issues returned by one audit (0 means no limit)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build:core": "npm --prefix .. run build",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "package": "npm run build:core && npm run build && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "muraqib-core": "file:.."
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.9",
+    "@types/vscode": "1.85.0",
+    "@vitest/coverage-v8": "^5.0.3",
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

@@ -13,7 +13,7 @@ const engines: ValidationEngine[] = [
   new ArkTypeValidationEngine(),
 ];
 
-test("Engine Conformance: All engines pass for clean, valid environment", () => {
+test("Engine Conformance: All engines pass for clean, valid environment", async () => {
   const validEnv: Record<string, string> = {
     NODE_ENV: "production",
     PORT: "3000",
@@ -22,7 +22,7 @@ test("Engine Conformance: All engines pass for clean, valid environment", () => 
   };
 
   for (const engine of engines) {
-    const result = engine.validate(validEnv, ["app", "auth", "neon"]);
+    const result = await engine.validate(validEnv, ["app", "auth", "neon"]);
     assert.equal(
       result.errors.length,
       0,
@@ -31,13 +31,13 @@ test("Engine Conformance: All engines pass for clean, valid environment", () => 
   }
 });
 
-test("Engine Conformance: All engines catch invalid PORT", () => {
+test("Engine Conformance: All engines catch invalid PORT", async () => {
   const invalidPortEnv = {
     PORT: "99999", // > 65535
   };
 
   for (const engine of engines) {
-    const result = engine.validate(invalidPortEnv, ["app"]);
+    const result = await engine.validate(invalidPortEnv, ["app"]);
     const portError = result.errors.find((e) => e.path.includes("PORT"));
     assert.ok(
       portError,
@@ -46,13 +46,13 @@ test("Engine Conformance: All engines catch invalid PORT", () => {
   }
 });
 
-test("Engine Conformance: All engines catch weak JWT_SECRET", () => {
+test("Engine Conformance: All engines catch weak JWT_SECRET", async () => {
   const weakSecretEnv = {
     JWT_SECRET: "too-short",
   };
 
   for (const engine of engines) {
-    const result = engine.validate(weakSecretEnv, ["auth"]);
+    const result = await engine.validate(weakSecretEnv, ["auth"]);
     const secretError = result.errors.find((e) => e.path.includes("JWT_SECRET"));
     assert.ok(
       secretError,
@@ -61,13 +61,13 @@ test("Engine Conformance: All engines catch weak JWT_SECRET", () => {
   }
 });
 
-test("Engine Conformance: All engines catch invalid DATABASE_URL", () => {
+test("Engine Conformance: All engines catch invalid DATABASE_URL", async () => {
   const badDbEnv = {
     DATABASE_URL: "ftp://not-a-db-url",
   };
 
   for (const engine of engines) {
-    const result = engine.validate(badDbEnv, ["neon"]);
+    const result = await engine.validate(badDbEnv, ["neon"]);
     const dbError = result.errors.find((e) => e.path.includes("DATABASE_URL"));
     assert.ok(
       dbError,
@@ -76,14 +76,14 @@ test("Engine Conformance: All engines catch invalid DATABASE_URL", () => {
   }
 });
 
-test("Engine Conformance: All engines identify custom unknown keys", () => {
+test("Engine Conformance: All engines identify custom unknown keys", async () => {
   const envWithCustom = {
     CUSTOM_FLAG: "true",
     MY_CUSTOM_VAR: "hello",
   };
 
   for (const engine of engines) {
-    const result = engine.validate(envWithCustom, ["app"]);
+    const result = await engine.validate(envWithCustom, ["app"]);
     assert.ok(result.unknownKeys.includes("CUSTOM_FLAG"));
     assert.ok(result.unknownKeys.includes("MY_CUSTOM_VAR"));
   }

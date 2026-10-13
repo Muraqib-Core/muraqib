@@ -7,7 +7,7 @@
 Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.12+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
@@ -68,6 +68,18 @@ npx muraqib audit
 > `npx muraqib ...` only works after `muraqib-core` is installed in the project; without installing it, npx looks for a package literally named `muraqib`.
 
 In CI, pass `--no-interactive` (or run without a TTY) and use `--fail-on-warning` to fail the build on findings.
+
+### Optional peer dependencies
+
+The default install is lightweight. These packages are optional peer dependencies; install only what you use:
+
+| Package | Needed for | Install |
+|---|---|---|
+| `valibot` | `--engine valibot` / `ValibotEngine` | `npm i valibot` |
+| `arktype` | `--engine arktype` / `ArktypeEngine` | `npm i arktype` |
+| `@google/genai` | AI advisor (`--ai-advisory`, Gemini) | `npm i @google/genai` |
+
+`zod` is installed with `muraqib-core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
 
 ---
 
@@ -132,6 +144,8 @@ import { getWebviewHtml } from "muraqib-core";
 
 panel.webview.html = getWebviewHtml(nonce);
 ```
+
+A ready-made VS Code extension built on `runAuditForAgent` and `getWebviewHtml` lives in [`extension/`](extension/README.md).
 
 The page text lives in `src/webview/content/` as typed data, so adding a tab or translating it never touches the markup. The version and the dependency list are read from `package.json` at build time.
 
@@ -365,7 +379,7 @@ GitHub Actions workflow with multi-stage validation:
 
 ### Jobs
 
-1. **lint-and-build** (Matrix: Node 18.x, 20.x)
+1. **lint-and-build** (Matrix: Node 20.12.0 (minimum), 22.x)
    - Type checking
    - Build compilation
    - ESLint validation
@@ -419,8 +433,8 @@ src/
 ├── rules/                 # cache, bundle budget, dead code, HTTP/1 advisor
 ├── orchestrator/          # Unified audit pipeline (audit.ts)
 ├── guard/engines/         # Schema engines: zod, valibot, arktype, custom
-├── presets/ + config/     # Validation presets
-├── env/ + env.ts          # Environment validation engine
+├── config/                # Package upgrade presets (not env presets)
+├── env/                   # Environment validation engine (+ platform presets)
 ├── ai/                    # Secret detector and AI advisor (guard layer)
 ├── cli/                   # CLI entry (index.ts), audit workflow, formatters
 ├── renderers/ + shared/   # Output renderers, logger, progress, constants

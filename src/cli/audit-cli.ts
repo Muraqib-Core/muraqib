@@ -1,4 +1,4 @@
-import { loadEnv } from "../env.js";
+import { loadEnv } from "../env/index.js";
 import { getArg } from "../shared/utils.js";
 import { CLI_FLAGS } from "../shared/constants.js";
 import { runAuditWorkflow } from "./workflow.js";
