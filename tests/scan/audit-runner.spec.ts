@@ -9,16 +9,16 @@ vi.mock("../../src/scan/scanners/compatibility/compatibility-engine.js", () => (
   CompatibilityEngine: vi.fn(),
 }));
 vi.mock("../../src/scan/scanners/docker/docker-engine.js", () => ({ DockerScanner: vi.fn() }));
-vi.mock("../../src/scan/ai/fallback.js", () => ({ analyzeUnknownVariablesWithAi: vi.fn() }));
-vi.mock("../../src/scan/ai/advisor.js", () => ({ generateAdvisory: vi.fn() }));
+vi.mock("../../src/ai/fallback.js", () => ({ analyzeUnknownVariablesWithAi: vi.fn() }));
+vi.mock("../../src/ai/advisor.js", () => ({ generateFindingsAdvisory: vi.fn() }));
 
 import { createEnv } from "../../src/scan/guard/env-validator.js";
 import { EnvValidationError } from "../../src/scan/guard/errors/env-validation-error.js";
 import { OsvScanner } from "../../src/scan/scanners/dependency/osv-engine.js";
 import { CompatibilityEngine } from "../../src/scan/scanners/compatibility/compatibility-engine.js";
 import { DockerScanner } from "../../src/scan/scanners/docker/docker-engine.js";
-import { analyzeUnknownVariablesWithAi } from "../../src/scan/ai/fallback.js";
-import { generateAdvisory } from "../../src/scan/ai/advisor.js";
+import { analyzeUnknownVariablesWithAi } from "../../src/ai/fallback.js";
+import { generateFindingsAdvisory } from "../../src/ai/advisor.js";
 import { AuditRunner } from "../../src/scan/core/runner/audit-runner.js";
 import { createScanIssue } from "../../src/scan/core/findings/finding.js";
 import type { ProjectContext } from "../../src/scan/core/context/project-context.js";
@@ -77,7 +77,7 @@ describe("AuditRunner", () => {
     vi.mocked(createEnv).mockReset();
     vi.mocked(createEnv).mockResolvedValue({ engine: "zod", unknownKeys: [] } as never);
     vi.mocked(analyzeUnknownVariablesWithAi).mockReset();
-    vi.mocked(generateAdvisory).mockReset();
+    vi.mocked(generateFindingsAdvisory).mockReset();
     stubScanner(OsvScanner, "osv", false);
     stubScanner(CompatibilityEngine, "compat", false);
     stubScanner(DockerScanner, "docker", false);
@@ -221,12 +221,12 @@ describe("AuditRunner", () => {
   test("requests an AI advisory for security findings when AI is enabled", async () => {
     stubScanner(OsvScanner, "osv", true, { findings: [highFinding] });
     vi.stubEnv("GEMINI_API_KEY", "key");
-    vi.mocked(generateAdvisory).mockResolvedValue("upgrade it");
+    vi.mocked(generateFindingsAdvisory).mockResolvedValue("upgrade it");
     const report = await new AuditRunner().run(
       context({ dependencies: { a: "1" }, devDependencies: { b: "2" } }),
       { enableAi: true }
     );
     expect(report.aiAdvisory).toBe("upgrade it");
-    expect(generateAdvisory).toHaveBeenCalledWith(expect.any(Array), { a: "1", b: "2" });
+    expect(generateFindingsAdvisory).toHaveBeenCalledWith(expect.any(Array), { a: "1", b: "2" });
   });
 });
