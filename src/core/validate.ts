@@ -1,3 +1,4 @@
+import * as logger from "../shared/logger.js";
 // chalk is loaded dynamically; null means "unavailable", undefined means "not yet tried"
 type ChalkLike = { red: { bold: (s: string) => string } };
 let chalkInstance: ChalkLike | null | undefined = undefined;
@@ -14,7 +15,13 @@ async function getChalk() {
   return chalkInstance;
 }
 
-export async function createMuraqibEnv(rawEnv: Record<string, string | undefined>) {
+/**
+ * Create muraqib env.
+ *
+ * @param rawEnv - Raw env
+ * @returns Create muraqib env result
+ */
+export async function createMuraqibEnv(rawEnv: Record<string, string | undefined>): Promise<Record<string, string>> {
   const sanitizedEnv: Record<string, string> = {};
   for (const [key, value] of Object.entries(rawEnv)) { 
     if (value !== undefined) {
@@ -31,9 +38,9 @@ export async function createMuraqibEnv(rawEnv: Record<string, string | undefined
       const chalk = await getChalk(); 
       const errorMessage = `[Muraqib Security Exception]: The server-side variable '${key}' cannot contain client-side prefixes!`;
       if (chalk) {
-        console.error(chalk.red.bold(errorMessage));
+        logger.error(chalk.red.bold(errorMessage));
       } else {
-        console.error(errorMessage);
+        logger.error(errorMessage);
       }
       throw new Error(errorMessage);
     }

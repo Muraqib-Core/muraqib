@@ -35,14 +35,29 @@ const KNOWN_COMPATIBILITY_RULES: KnownRule[] = [
   },
 ];
 
+/**
+ * Compatibility engine class.
+ */
 export class CompatibilityEngine implements ScannerEngine {
   readonly name = "compatibility";
 
+  /**
+   * Supports.
+   *
+   * @param context - Context
+   * @returns Supports result
+   */
   supports(context: ScanContext): boolean {
     const pkgPath = path.join(context.projectPath, "package.json");
     return fs.existsSync(pkgPath);
   }
 
+  /**
+   * Scan.
+   *
+   * @param context - Context
+   * @returns Scan result
+   */
   async scan(context: ScanContext): Promise<ScanResult> {
     const pkgPath = path.join(context.projectPath, "package.json");
     if (!fs.existsSync(pkgPath)) {
@@ -55,7 +70,7 @@ export class CompatibilityEngine implements ScannerEngine {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
       peerDependencies?: Record<string, string>;
-    } = {};
+    };
 
     try {
       packageJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));

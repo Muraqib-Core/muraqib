@@ -11,6 +11,7 @@
  */
 
 import type { BaseSchema, BaseIssue } from 'valibot';
+import { nonEmpty } from '../../utils/defaults.js';
 import { requireOptionalDependency } from '../../utils/optional-dependency.js';
 
 type ValibotModule = typeof import('valibot');
@@ -187,8 +188,8 @@ export class ValibotEngine {
   private parseValibotIssues(issues: BaseIssue<unknown>[]): ValidationIssue[] {
     return issues.map(issue => ({
       field: this.getFieldPath(issue),
-      message: issue.message || 'Validation error',
-      code: (issue as { type?: string }).type || 'VALIDATION_ERROR',
+      message: nonEmpty(issue.message, 'Validation error'),
+      code: nonEmpty((issue as { type?: string }).type, 'VALIDATION_ERROR'),
       path: this.extractPath(issue),
     }));
   }

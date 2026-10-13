@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { loadEnv } from "../src/env.js";
+import { loadEnv } from "../src/env/index.js";
 import { runAudit } from "../src/index.js";
 
 async function main() {

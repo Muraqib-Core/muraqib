@@ -1,0 +1,10 @@
+**
+!package.json
+!README.md
+!LICENSE
+!CHANGELOG.md
+!dist/**/*.js
+dist/**/*.spec.*
+!node_modules/muraqib-core/package.json
+!node_modules/muraqib-core/dist/**
+!node_modules/muraqib-core/node_modules/**

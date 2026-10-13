@@ -23,6 +23,12 @@ function finding(id: string, title: string, message: string, severity: ScanIssue
   return { id, title, message, severity, category: "security", source: "docker-runtime", confidence: "confirmed", file: container };
 }
 
+/**
+ * Analyze container.
+ *
+ * @param input - Input
+ * @returns Analyze container result
+ */
 export function analyzeContainer(input: unknown): ScanIssue[] {
   const container = input as ContainerInspect;
   if (!container || typeof container.Id !== "string" || !container.HostConfig) throw new Error("Invalid container inspect result");
@@ -38,8 +44,17 @@ export function analyzeContainer(input: unknown): ScanIssue[] {
   return findings.map(createScanIssue);
 }
 
+/**
+ * Docker runtime scanner class.
+ */
 export class DockerRuntimeScanner {
   constructor(private readonly run: CommandRunner = defaultRunner) {}
+  /**
+   * Scan.
+   *
+   * @param container - Container
+   * @returns Scan result
+   */
   async scan(container: string): Promise<ScanResult> {
   // eslint-disable-next-line no-control-regex
     if (!container || container.startsWith("-") || /[\x00-\x1f]/.test(container)) return { scanner: "docker-runtime", status: "failed", findings: [], error: "Invalid container target." };

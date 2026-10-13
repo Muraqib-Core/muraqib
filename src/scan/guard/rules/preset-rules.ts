@@ -176,6 +176,14 @@ export const PRESET_RULES: PresetMap = {
 // Helper: فحص قيمة واحدة ضد rule واحدة
 // كل الـ engines تستخدم هذه الدالة للتحقق — مصدر واحد للمنطق
 // =========================================================================
+/**
+ * Validate field.
+ *
+ * @param _key - _key
+ * @param value - Value
+ * @param rule - Rule
+ * @returns Validate field result
+ */
 export function validateField(_key: string, value: string, rule: FieldRule): string | null {
   if (rule.allowedValues && !rule.allowedValues.includes(value)) {
     return rule.message;
@@ -198,6 +206,12 @@ export function validateField(_key: string, value: string, rule: FieldRule): str
 // =========================================================================
 // Helper: auto-detect الـ presets من الـ env variables الموجودة
 // =========================================================================
+/**
+ * Detect presets.
+ *
+ * @param env - Env
+ * @returns Detect presets result
+ */
 export function detectPresets(env: Record<string, string>): string[] {
   const presets = new Set<string>(["app"]);
 

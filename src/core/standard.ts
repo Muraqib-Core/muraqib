@@ -2,10 +2,17 @@
 import { z } from "zod";
 import type { GuardOptions } from "./types.js";
 
+/**
+ * Create guard.
+ *
+ * @param schema - Schema
+ * @param options - Options
+ * @returns Create guard result
+ */
 export function createGuard<T extends z.ZodRawShape>(
   schema: z.ZodObject<T>,
   options: GuardOptions
-) {
+): { data: z.infer<z.ZodObject<T>> } {
   // هنا نقوم بدمج المتغيرات مع المخطط (Zod Schema)
   const result = schema.safeParse(options.runtimeEnv);
 

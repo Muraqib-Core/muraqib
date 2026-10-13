@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
 import { createScanIssue, type DependencyType, type ScanIssueInput } from "../../core/findings/finding.js";
 import { queryOsv, type OsvVulnerability } from "./osv-client.js";
+import { nonEmpty } from "../../../utils/defaults.js";
 
 interface PackageToScan {
   name: string;
@@ -11,6 +12,9 @@ interface PackageToScan {
   dependencyType: DependencyType;
 }
 
+/**
+ * Osv scanner class.
+ */
 export class OsvScanner implements ScannerEngine {
   readonly name = "osv";
 
@@ -20,11 +24,23 @@ export class OsvScanner implements ScannerEngine {
     this.concurrencyLimit = concurrencyLimit;
   }
 
+  /**
+   * Supports.
+   *
+   * @param context - Context
+   * @returns Supports result
+   */
   supports(context: ScanContext): boolean {
     const pkgPath = path.join(context.projectPath, "package.json");
     return fs.existsSync(pkgPath);
   }
 
+  /**
+   * Scan.
+   *
+   * @param context - Context
+   * @returns Scan result
+   */
   async scan(context: ScanContext): Promise<ScanResult> {
     const pkgPath = path.join(context.projectPath, "package.json");
     if (!fs.existsSync(pkgPath)) {
@@ -79,7 +95,7 @@ export class OsvScanner implements ScannerEngine {
 
     const packagesToScan: PackageToScan[] = Array.from(packageMap.entries()).map(
       ([name, meta]) => {
-        const declaredVersion = meta.declaredVersion || "latest";
+        const declaredVersion = nonEmpty(meta.declaredVersion, "latest");
         let installedVersion = declaredVersion.replace(/[\^~]/g, "");
 
         const installedPkgPath = path.join(

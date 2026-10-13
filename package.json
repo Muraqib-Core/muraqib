@@ -1,8 +1,13 @@
 {
-  "name": "muraqib-core",
-  "version": "1.0.2",
+  "name": "@muraqib/core",
+  "version": "1.0.3-beta.1",
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
+  "publishConfig": {
+  "access": "public",
+  "tag": "beta",
+  "registry": "https://registry.npmjs.org/"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -61,12 +66,12 @@
   },
   "homepage": "https://github.com/Muraqib-Core/muraqib#readme",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.12.0",
     "npm": ">=9.0.0"
   },
   "dependencies": {
     "@clack/prompts": "^1.4.0",
-    "chalk": "^5.6.2",
+    "chalk": "^6.0.1",
     "cron-parser": "^5.5.0",
     "glob": "^13.0.6",
     "ignore": "^7.0.10",
@@ -91,14 +96,16 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@google/genai": "^2.22.0",
-    "@types/node": "^25.9.9",
+    "@types/node": "^26.6.5",
     "@types/semver": "^7.7.1",
     "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.68.0",
     "@vitest/coverage-v8": "^5.0.3",
     "arktype": "^2.2.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "sharp": "^0.35.4",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",

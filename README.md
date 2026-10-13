@@ -7,7 +7,7 @@
 Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.12+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
@@ -51,24 +51,25 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 
 ## 📦 Usage from npm
 
-The package is `muraqib-core`; the command it installs is `muraqib`. With `npx`, use the **package** name:
+The npm package is `@muraqib/core`; the CLI command it installs is `muraqib`.
+The beta version will be available after publication:
 
 ```bash
-# Full audit of the current directory
-npx muraqib-core audit
+# Full audit
+npx @muraqib/core@beta audit
 
-# Guided interactive mode (Clack) - needs a real terminal (TTY)
-npx muraqib-core audit -i
+# Guided interactive mode (Clack)
+npx @muraqib/core@beta audit -i
 
-# Install as a dev dependency, then use the `muraqib` command
-npm i -D muraqib-core
+# Install locally, then use the CLI command
+npm install -D @muraqib/core@beta
 npx muraqib audit
 ```
 
-> `npx muraqib ...` only works after `muraqib-core` is installed in the project; without installing it, npx looks for a package literally named `muraqib`.
+> After installing `@muraqib/core`, use `npx muraqib`.
+> Without a local installation, use `npx @muraqib/core@beta`.
 
-In CI, pass `--no-interactive` (or run without a TTY) and use `--fail-on-warning` to fail the build on findings.
-
+In CI, pass `--no-interactive` and use `--fail-on-warning` when warnings should block the build.
 ### Optional peer dependencies
 
 The default install is lightweight. These packages are optional peer dependencies; install only what you use:
@@ -140,10 +141,12 @@ npm run webview   # rebuild and print the path of the page
 To show the same page inside a VS Code webview panel, pass the nonce from your extension's CSP:
 
 ```typescript
-import { getWebviewHtml } from "muraqib-core";
+import { getWebviewHtml } from "@muraqib/core";
 
 panel.webview.html = getWebviewHtml(nonce);
 ```
+
+A ready-made VS Code extension built on `runAuditForAgent` and `getWebviewHtml` lives in [`extension/`](extension/README.md).
 
 The page text lives in `src/webview/content/` as typed data, so adding a tab or translating it never touches the markup. The version and the dependency list are read from `package.json` at build time.
 
@@ -219,7 +222,7 @@ muraqib audit --json                               # classic report as JSON (sho
 Programmatic use:
 
 ```typescript
-import { runAuditForAgent, getSystemContext, AGENT_TOOL_DEFINITIONS, executeAgentTool } from "muraqib-core";
+import { runAuditForAgent, getSystemContext, AGENT_TOOL_DEFINITIONS, executeAgentTool } from "@muraqib/core";
 
 const report = await runAuditForAgent({ projectRoot: process.cwd(), osv: true, maxIssues: 50 });
 // { ok, verdict: "pass" | "fail", summary, modules, issues[], truncated }
@@ -260,7 +263,7 @@ The exit code is the same as in non-interactive runs (`1` on critical/error, `13
 The foundation for all audit modules. Each guard specializes in one audit category:
 
 ```typescript
-import { BaseGuard, AuditContext, AuditResult } from 'muraqib-core';
+import { BaseGuard, AuditContext, AuditResult } from '@muraqib/core';
 
 class CustomGuard extends BaseGuard {
   constructor(context?: AuditContext) {
@@ -377,7 +380,7 @@ GitHub Actions workflow with multi-stage validation:
 
 ### Jobs
 
-1. **lint-and-build** (Matrix: Node 18.x, 20.x)
+1. **lint-and-build** (Matrix: Node 20.12.0 (minimum), 22.x)
    - Type checking
    - Build compilation
    - ESLint validation
@@ -431,8 +434,8 @@ src/
 ├── rules/                 # cache, bundle budget, dead code, HTTP/1 advisor
 ├── orchestrator/          # Unified audit pipeline (audit.ts)
 ├── guard/engines/         # Schema engines: zod, valibot, arktype, custom
-├── presets/ + config/     # Validation presets
-├── env/ + env.ts          # Environment validation engine
+├── config/                # Package upgrade presets (not env presets)
+├── env/                   # Environment validation engine (+ platform presets)
 ├── ai/                    # Secret detector and AI advisor (guard layer)
 ├── cli/                   # CLI entry (index.ts), audit workflow, formatters
 ├── renderers/ + shared/   # Output renderers, logger, progress, constants

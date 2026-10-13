@@ -29,6 +29,9 @@ export interface PackageManifest {
 
 export type PackageManagerName = "pnpm" | "npm" | "yarn" | "bun";
 
+/**
+ * Dependency graph class.
+ */
 export class DependencyGraph {
   public readonly projectPath: string;
   public readonly packageManager: PackageManagerName;
@@ -43,7 +46,7 @@ export class DependencyGraph {
       throw new Error(`No package.json found at ${projectPath}`);
     }
 
-    let rootPkg: PackageManifest = {};
+    let rootPkg: PackageManifest;
     try {
       rootPkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     } catch {
@@ -107,10 +110,22 @@ export class DependencyGraph {
     }
   }
 
+  /**
+   * Get package.
+   *
+   * @param name - Name
+   * @returns Get package result
+   */
   public getPackage(name: string): PackageMetadata | undefined {
     return this.declaredPackages.get(name);
   }
 
+  /**
+   * Get installed meta.
+   *
+   * @param packageName - Package name
+   * @returns Get installed meta result
+   */
   public getInstalledMeta(packageName: string): PackageManifest | null {
     const pkgPath = path.join(this.projectPath, "node_modules", packageName, "package.json");
     if (!fs.existsSync(pkgPath)) return null;
@@ -144,6 +159,11 @@ export class DependencyGraph {
     return Array.from(related);
   }
 
+  /**
+   * Create fingerprint.
+   *
+   * @returns Create fingerprint result
+   */
   public createFingerprint(): string {
     const hash = createHash("sha256");
     const relevantFiles = [
