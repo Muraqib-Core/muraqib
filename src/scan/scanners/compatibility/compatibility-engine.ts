@@ -70,7 +70,7 @@ export class CompatibilityEngine implements ScannerEngine {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
       peerDependencies?: Record<string, string>;
-    } = {};
+    };
 
     try {
       packageJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
