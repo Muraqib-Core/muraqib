@@ -74,7 +74,7 @@ export class AuditRunner {
         collector.addMany(result.findings);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to read environment file ${file}: ${msg}`);
+        throw new Error(`Failed to read environment file ${file}: ${msg}`, { cause: err });
       }
     }
 
@@ -116,7 +116,7 @@ export class AuditRunner {
           }
         } else {
           const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`Environment validation execution failed: ${msg}`);
+          throw new Error(`Environment validation execution failed: ${msg}`, { cause: err });
         }
       }
     }

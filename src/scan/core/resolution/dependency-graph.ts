@@ -46,7 +46,7 @@ export class DependencyGraph {
       throw new Error(`No package.json found at ${projectPath}`);
     }
 
-    let rootPkg: PackageManifest = {};
+    let rootPkg: PackageManifest;
     try {
       rootPkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
     } catch {
