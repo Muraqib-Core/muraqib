@@ -55,7 +55,7 @@ export function createProjectContext(projectPath: string = process.cwd()): Proje
     packageManager = "bun";
   }
 
-  let envFiles: string[] = [];
+  let envFiles: string[];
   try {
     envFiles = fs
       .readdirSync(projectPath)
@@ -66,10 +66,8 @@ export function createProjectContext(projectPath: string = process.cwd()): Proje
     envFiles = [];
   }
 
-  let dependencies: Record<string, string> = {};
-  let devDependencies: Record<string, string> = {};
-  dependencies = (packageJson.dependencies as Record<string, string> | undefined) ?? {};
-  devDependencies = (packageJson.devDependencies as Record<string, string> | undefined) ?? {};
+  const dependencies = (packageJson.dependencies as Record<string, string> | undefined) ?? {};
+  const devDependencies = (packageJson.devDependencies as Record<string, string> | undefined) ?? {};
 
   const { dockerfiles, composeFiles, dockerignoreFiles } = discoverDockerFiles(projectPath);
 
