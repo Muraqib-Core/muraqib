@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { presetsMap } from "../presets.js";
-import type { PresetInput } from "../presets.js";
+import { presetsMap } from "./preset-map.js";
+import type { PresetInput } from "./preset-map.js";
 import { createEnv } from "./core.js";
 import type { CreateEnvOptions } from "./options.js";
 import * as logger from "../shared/logger.js";

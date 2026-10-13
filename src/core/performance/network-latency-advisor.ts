@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { BaseGuard } from '../base-guard.js';
 import type { AuditContext, AuditIssue, AuditResult } from '../types.js';
 import * as logger from '../../shared/logger.js';
@@ -58,13 +57,17 @@ export const performLiveLatencyAudit = async (url: string): Promise<LatencyAudit
   const startTime = Date.now();
 
   try {
-    const response = await axios.get(url, { timeout: REQUEST_TIMEOUT_MS });
+    const response = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+    }
+    const body = await response.arrayBuffer();
     const endTime = Date.now();
     const requestTimeMs = endTime - startTime;
-    const contentLength = response.headers['content-length'] as string | undefined;
-    const payloadSizeKb = contentLength && typeof contentLength === 'string'
+    const contentLength = response.headers.get('content-length');
+    const payloadSizeKb = contentLength
       ? parseInt(contentLength, 10) / 1024
-      : Buffer.byteLength(JSON.stringify(response.data)) / 1024;
+      : body.byteLength / 1024;
     const auditResult = analyzeLatency(requestTimeMs, payloadSizeKb);
 
     logger.log(`\n🌐 [Muraqib Network Audit] Results for: ${url}`);

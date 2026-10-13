@@ -35,7 +35,7 @@ export async function createEnv(opts: GuardOptions): Promise<ValidatedEnv> {
   const engine = resolveValidationEngine(opts.engine, opts.projectRoot);
 
   // Execute validation
-  const result = engine.validate(processedEnv, activePresets);
+  const result = await engine.validate(processedEnv, activePresets);
 
   // Raise typed domain errors if validation fails
   if (result.errors.length > 0) {

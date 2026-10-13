@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { BaseGuard } from "../core/base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "../core/types.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
@@ -21,6 +23,58 @@ const JUMP_STATEMENT_REGEX = /^(?:return|throw|break|continue)\b/;
 function isEntryOrBarrel(relativePath: string): boolean {
   const normalized = relativePath.replace(/\\/g, "/");
   return normalized.startsWith("src/index") || /(^|\/)index\.[cm]?[jt]sx?$/.test(normalized) || normalized.startsWith("src/core/");
+}
+
+/** Maps a built path from package.json (`./dist/foo.js`) back to its source file (`src/foo.ts`). */
+function distToSource(value: string): string | undefined {
+  const match = /^\.?\/?(?:dist|build|lib)\/(.+?)(?:\.d)?\.[cm]?[jt]s$/.exec(value);
+  return match?.[1] ? `src/${match[1]}.ts` : undefined;
+}
+
+function collectPackageTargets(value: unknown, out: string[]): void {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) value.forEach((v) => collectPackageTargets(v, out));
+  else if (typeof value === "object" && value !== null) {
+    Object.values(value as Record<string, unknown>).forEach((v) => collectPackageTargets(v, out));
+  }
+}
+
+/** Source files declared as package entrypoints through `main`, `types`, `module` or `exports`. */
+function readPackageEntrypoints(targetPath: string): Set<string> {
+  const entries = new Set<string>();
+  try {
+    const pkg: unknown = JSON.parse(fs.readFileSync(path.join(targetPath, "package.json"), "utf-8"));
+    if (typeof pkg !== "object" || pkg === null) return entries;
+    const record = pkg as Record<string, unknown>;
+    const targets: string[] = [];
+    for (const key of ["main", "types", "module", "exports"]) collectPackageTargets(record[key], targets);
+    for (const target of targets) {
+      const source = distToSource(target);
+      if (source) entries.add(source);
+    }
+  } catch {
+    // no readable package.json: fall back to the index/barrel heuristics only
+  }
+  return entries;
+}
+
+/** Resolves `export * from "./x"` re-exports of a barrel to the relative source paths they publish. */
+function resolveStarReExports(barrelPath: string, content: string, knownFiles: Set<string>): string[] {
+  const resolved: string[] = [];
+  const starRegex = /export\s+(?:type\s+)?\*(?:\s+as\s+\w+)?\s+from\s+["'](\.[^"']*)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = starRegex.exec(content)) !== null) {
+    const base = path.posix.join(path.posix.dirname(barrelPath), (m[1] ?? "").replace(/\.[cm]?js$/, ""));
+    for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`]) {
+      if (knownFiles.has(candidate)) resolved.push(candidate);
+    }
+  }
+  return resolved;
+}
+
+function countOccurrences(content: string, name: string): number {
+  const escaped = name.replace(/\$/g, "\\$");
+  return (content.match(new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "g")) ?? []).length;
 }
 
 function stripStringsAndComments(line: string): string {
@@ -100,6 +154,16 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
     identifiersByFile.set(consumer.path, new Set(consumer.content.match(IDENTIFIER_REGEX) ?? []));
   }
 
+  // Package entrypoints (and anything they `export *` from) are public API consumed outside the repo.
+  const knownFiles = new Set(scannedFiles.map((f) => f.relativePath.replace(/\\/g, "/")));
+  const publicFiles = readPackageEntrypoints(targetPath);
+  for (const f of scannedFiles) {
+    const rel = f.relativePath.replace(/\\/g, "/");
+    if (isEntryOrBarrel(rel) || publicFiles.has(rel)) {
+      for (const reExported of resolveStarReExports(rel, f.content, knownFiles)) publicFiles.add(reExported);
+    }
+  }
+
   for (const scannedFile of scannedFiles) {
     const { path: filePath, relativePath, content } = scannedFile;
     if (content.includes("muraqib-ignore-dead") || content.includes("muraqib-unreachable")) {
@@ -122,12 +186,21 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
       reports.push(`Unreachable code: ${relativePath}:${lineNum} — statement follows return/throw/break/continue in the same block`);
     }
 
-    const exportRegex = /export\s+(?:async\s+)?(?:function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
+    const isPublicFile = isEntryOrBarrel(relativePath) || publicFiles.has(relativePath.replace(/\\/g, "/"));
+    const unusedInFile: Array<{ name: string; line: number }> = [];
+    const exportRegex = /export\s+(?:async\s+)?(function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
     while ((match = exportRegex.exec(content)) !== null) {
-      const exportedName = match[1];
+      const exportKind = match[1];
+      const exportedName = match[2];
       if (!exportedName || exportedName === "default") continue;
 
-      if (isEntryOrBarrel(relativePath)) {
+      if (isPublicFile) {
+        continue;
+      }
+
+      // A type-only export that the file itself still uses is part of the signature of its
+      // other declarations (public API shape), not dead code.
+      if ((exportKind === "interface" || exportKind === "type") && countOccurrences(content, exportedName) > 1) {
         continue;
       }
 
@@ -141,9 +214,18 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
 
       if (!usedElsewhere) {
         const lineNum = content.slice(0, match.index).split("\n").length;
-        unusedExports.push(`${relativePath}:${lineNum} (${exportedName})`);
-        reports.push(`Potentially unused export: ${relativePath}:${lineNum} — "${exportedName}" is not imported anywhere else`);
+        unusedInFile.push({ name: exportedName, line: lineNum });
       }
+    }
+
+    // One summary entry per file keeps unused-export noise from burying real findings.
+    const [first] = unusedInFile;
+    if (first) {
+      const names = unusedInFile.map((e) => e.name).join(", ");
+      unusedExports.push(`${relativePath}:${first.line} (${names})`);
+      reports.push(
+        `Potentially unused export${unusedInFile.length > 1 ? "s" : ""}: ${relativePath}:${first.line} — ${unusedInFile.length} not imported anywhere else (${names})`
+      );
     }
   }
 

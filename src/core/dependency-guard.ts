@@ -6,7 +6,7 @@ An advanced auditing utility designed to analyze project source code dependencie
 #### Key Features:
 * **Deprecated API Detection:** Scans codebase for obsolete or deprecated APIs (e.g., `url.parse`, `fs.exists`, `__dirname` in ESM) and suggests modern alternatives.
 * **Circular Dependency Detection:** Builds a file relationship graph and runs a Depth-First Search (DFS) algorithm to locate cyclic module imports.
-* **Version & Lockfile Inspection:** Analyzes `package.json` for potentially unstable `v0.x` packages and scans lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`) for duplicate package versions.
+* **Version & Lockfile Inspection:** Scans lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`) for duplicate package versions.
 */
 import fs from "fs";
 import path from "path";
@@ -136,24 +136,10 @@ function performDependencyAuditInternal(targetPath: string): DependencyAuditResu
     }
   }
 
-  // Check package.json for duplicates and outdated
+  // Check lock files for duplicate package versions. A 0.x version is not "outdated" per se,
+  // and without network access we cannot know about newer majors, so no version heuristic runs here.
   const packageJsonPath = path.join(targetPath, "package.json");
   if (fs.existsSync(packageJsonPath)) {
-    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
-    const allDeps: Record<string, string> = {
-      ...pkg.dependencies,
-      ...pkg.devDependencies,
-    };
-
-    const depNames = Object.keys(allDeps);
-    for (const dep of depNames) {
-      const version = allDeps[dep];
-      if (version && version.startsWith("^0.")) {
-        outdatedPackages.push(`${dep}@${version} — v0.x may have breaking changes`);
-        reports.push(`Potentially outdated: ${dep}@${version} (v0.x detected)`);
-      }
-    }
-
     const lockPaths = [
       path.join(targetPath, "package-lock.json"),
       path.join(targetPath, "yarn.lock"),
@@ -222,8 +208,6 @@ export class DependencyGuard extends BaseGuard {
       if (report.includes("Circular dependency")) {
         severity = "error";
       } else if (report.includes("Deprecated API")) {
-        severity = "warning";
-      } else if (report.includes("outdated") || report.includes("v0.x")) {
         severity = "warning";
       }
 

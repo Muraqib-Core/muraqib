@@ -6,11 +6,11 @@
  * to help developers fix detected issues with context-aware solutions.
  */
 
-import { GoogleGenAI } from "@google/genai";
 import os from "node:os";
 import type { AuditResult, AuditIssue } from "../core/types.js";
 import { redactSecretsInText } from "./safe-metadata.js";
 import { firstNonEmpty } from "../utils/defaults.js";
+import { createGeminiClient, warnIfGenAIMissing } from "./gemini-client.js";
 
 /**
  * Resolve the API key. GEMINI_API_KEY is the documented name; GOOGLE_API_KEY is kept for backward compatibility.
@@ -160,7 +160,7 @@ export async function generateAdvisory(
     }
 
     // Initialize Generative AI client
-    const client = new GoogleGenAI({ apiKey });
+    const client = await createGeminiClient(apiKey);
 
     // Build prompt for AI
     const issueDescriptions = filteredIssues
@@ -350,7 +350,7 @@ export async function generateFindingsAdvisory(
   if (!apiKey || findings.length === 0) return null;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = await createGeminiClient(apiKey);
     const context = findings
       .map((f, i) => {
         const source = f.source ?? f.tags[0] ?? "unknown";
@@ -379,7 +379,8 @@ Generate the compliance advice now as plain text.`;
       contents,
     });
     return response.text?.trim() ?? null;
-  } catch {
+  } catch (error) {
+    warnIfGenAIMissing(error);
     return null;
   }
 }
