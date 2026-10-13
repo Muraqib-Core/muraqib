@@ -11,7 +11,14 @@
  */
 
 import type { BaseSchema, BaseIssue } from 'valibot';
-import { safeParse } from 'valibot';
+import { requireOptionalDependency } from '../../utils/optional-dependency.js';
+
+type ValibotModule = typeof import('valibot');
+
+/** Load valibot on first use; the engine API is synchronous so this resolves synchronously. */
+function loadValibot(): ValibotModule {
+  return requireOptionalDependency<ValibotModule>('valibot', "engine 'valibot'");
+}
 
 /** One step of a Valibot issue path (`issue.path`), e.g. an object key or array index. */
 interface PathNode {
@@ -51,6 +58,8 @@ export class ValibotEngine {
    * Validate data against the schema
    */
   validate(data: unknown): ValibotValidationResult {
+    // Outside the try block so a missing dependency surfaces as an actionable error.
+    const { safeParse } = loadValibot();
     try {
       const result = safeParse(this.schema, data);
 

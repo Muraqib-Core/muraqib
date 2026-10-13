@@ -9,8 +9,8 @@
 import type { AuditIssue } from "../core/types.js";
 import type { AdvisorySuggestion } from "./advisor.js";
 import { resolveApiKey } from "./advisor.js";
+import { createGeminiClient, warnIfGenAIMissing } from "./gemini-client.js";
 import { extractSafeMetadata } from "./safe-metadata.js";
-import { GoogleGenAI } from "@google/genai";
 
 /**
  * Rule-based suggestion for a specific issue type
@@ -296,7 +296,7 @@ Only flag clear configuration errors. If everything looks normal return [].
 Respond with ONLY a raw JSON array: [{"path": ["VARIABLE_NAME"], "message": "explanation"}]`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = await createGeminiClient(apiKey);
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
@@ -320,7 +320,8 @@ Respond with ONLY a raw JSON array: [{"path": ["VARIABLE_NAME"], "message": "exp
       }
     }
     return out;
-  } catch {
+  } catch (error) {
+    warnIfGenAIMissing(error);
     return [];
   }
 }

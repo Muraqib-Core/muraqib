@@ -14,5 +14,5 @@ export interface ValidationEngine {
   validate(
     env: Record<string, string>,
     presets: string[]
-  ): ValidationResult;
+  ): ValidationResult | Promise<ValidationResult>;
 }
