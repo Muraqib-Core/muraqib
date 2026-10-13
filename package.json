@@ -1,8 +1,13 @@
 {
-  "name": "muraqib-core",
-  "version": "1.0.2",
+  "name": "@muraqib/core",
+  "version": "1.0.3-beta.1",
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
+  "publishConfig": {
+  "access": "public",
+  "tag": "beta",
+  "registry": "https://registry.npmjs.org/"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

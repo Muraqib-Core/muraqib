@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add integration regressions for build/prod policies, high findings, partial coverage, failed/crashed scanners and agent failure propagation.
 
 
-## [1.0.2] - 2026-10-12
+## [1.0.3-beta.1] - 2026-10-13
 
 ### ⚠️ Changed (breaking for `audit --json` consumers)
 
