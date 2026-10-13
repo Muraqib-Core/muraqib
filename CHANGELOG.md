@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Fixed
 
 - `--upgrade` now runs package-manager detection, migrations and the build check inside the target project (`--path`) instead of the process working directory, and only reports packages that actually changed
+- Remote presets (`remotePresetUrl`) now require an HTTPS URL, time out after 10 s and are validated against a strict schema (valid npm package names, bounded sizes); invalid payloads fall back to the local presets
+- Upgrade orchestrator output goes through the shared logger, so silent mode is honoured
 - Web view CSP now also sets `base-uri 'none'` and `form-action 'none'`
 - `async-guard` no longer reports code that lives inside string/template literals or comments (e.g. the browser script embedded by the web view)
 - `ValibotEngine` now reports the real field path of each failure instead of always `root`
