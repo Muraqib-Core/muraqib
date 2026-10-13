@@ -1,10 +1,14 @@
 /**
  * Configuration Guard - Validates project configuration files
+ *
+ * Helpers wired in from `./helpers`:
+ * - `tsconfig-parser`: JSONC-aware, `extends`-aware tsconfig compiler options.
  */
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import { readCompilerOptions } from "./helpers/tsconfig-parser.js";
 
 export interface ConfigIssue {
   type:
@@ -88,8 +92,12 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
       // Validate JSON configs
       if (config.endsWith(".json")) {
         try {
-          const content = readFileSync(configPath, "utf-8");
-          JSON.parse(content);
+          if (config === "tsconfig.json") {
+            // tsconfig is JSONC (comments, trailing commas) and may extend other files.
+            readCompilerOptions(configPath);
+          } else {
+            JSON.parse(readFileSync(configPath, "utf-8"));
+          }
           reports.push(`✅ Valid JSON: ${config}`);
         } catch (e) {
           issues.push({
@@ -118,10 +126,10 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   const tsconfigPath = join(root, "tsconfig.json");
   if (existsSync(tsconfigPath)) {
     try {
-      const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf-8"));
+      const compilerOptions = readCompilerOptions(tsconfigPath);
 
       // Check strict mode
-      if (!tsconfig.compilerOptions?.strict) {
+      if (!compilerOptions?.strict) {
         issues.push({
           type: "unsafe_setting",
           file: "tsconfig.json",
@@ -134,7 +142,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
       }
 
       // Check for noImplicitAny
-      if (tsconfig.compilerOptions?.noImplicitAny === false) {
+      if (compilerOptions?.noImplicitAny === false) {
         issues.push({
           type: "unsafe_setting",
           file: "tsconfig.json",
