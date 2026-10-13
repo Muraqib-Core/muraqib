@@ -15,6 +15,8 @@ export const CHANGELOG: readonly ChangelogRelease[] = [
         title: "Fixed",
         items: [
           "`--upgrade` runs inside the target project (`--path`) instead of the process working directory",
+          "Remote presets require HTTPS, time out and are schema-validated",
+          "Upgrade orchestrator logs through the shared logger",
           "Web view CSP adds `base-uri 'none'` and `form-action 'none'`",
         ],
       },

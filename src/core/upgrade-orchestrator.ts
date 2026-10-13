@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import semver from 'semver';
+import { log, error as logError, warn as logWarn } from '../shared/logger.js';
 import { getMuraqibNewVersionValue, type VersionUpdateStrategy } from './muraqib-version.js';
 import { MURAQIB_LOCAL_PRESETS, fetchRemoteMuraqibPresets } from '../config/presets.js';
 import type { PackageGroup } from '../config/presets.js'; 
@@ -116,13 +117,13 @@ export async function runMuraqibUpgradeOrchestrator({
 
   let schemaMigrated = false;
   if (typeof packageName !== 'string' || packageName.trim().length === 0) {
-    console.error('❌ [Muraqib Orchestrator Error]: Invalid package name.');
+    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
     return { updatedVersion: null, schemaMigrated: false };
 // muraqib-unreachable: flagged by automated triage. Review before removal.
   }
 
   if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
-    console.error(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
+    logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
 // muraqib-unreachable: flagged by automated triage. Review before removal.
     return { updatedVersion: null, schemaMigrated: false };
   }
@@ -130,7 +131,7 @@ export async function runMuraqibUpgradeOrchestrator({
   const coercedCurrent = semver.coerce(currentValue);
   if (!coercedCurrent || !semver.valid(coercedCurrent)) {
 // muraqib-unreachable: flagged by automated triage. Review before removal.
-    console.warn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
+    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
     return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' };
   }
   const currentEnv = detectProjectPackageManager(cwd);
@@ -142,12 +143,12 @@ export async function runMuraqibUpgradeOrchestrator({
   };
 
   const envMeta = (managerMeta[currentEnv as string] ?? managerMeta['npm']!);
-  console.log(`🔍 [Muraqib Environment]: Active Package Manager detected: [${envMeta.type.toUpperCase()}] via "${envMeta.commands.lockFile}"`);
+  log(`🔍 [Muraqib Environment]: Active Package Manager detected: [${envMeta.type.toUpperCase()}] via "${envMeta.commands.lockFile}"`);
 
   let activePresets: PackageGroup[] = MURAQIB_LOCAL_PRESETS;
  
   if (remotePresetUrl && remotePresetUrl.trim().length > 0) {
-    console.log(`🌐 [Muraqib Remote Engine]: Fetching centralized presets from URL...`);
+    log(`🌐 [Muraqib Remote Engine]: Fetching centralized presets from URL...`);
     activePresets = await fetchRemoteMuraqibPresets(remotePresetUrl);
   }
 
@@ -156,8 +157,8 @@ export async function runMuraqibUpgradeOrchestrator({
   );
 
   if (matchedPreset) {
-    console.log(`\n📦 [Muraqib Manager]: Package "${packageName}" matches active preset group: [${matchedPreset.groupName}]`);
-    console.log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(', ')}) simultaneously.`);
+    log(`\n📦 [Muraqib Manager]: Package "${packageName}" matches active preset group: [${matchedPreset.groupName}]`);
+    log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(', ')}) simultaneously.`);
   }
 
   const internalStrategy: VersionUpdateStrategy = rangeStrategy === 'widen' ? 'keep-both' : 'replace';
@@ -170,7 +171,7 @@ export async function runMuraqibUpgradeOrchestrator({
   });
 
   if (updatedVersionValue && updatedVersionValue !== currentValue) {
-    console.log(`\n[Muraqib Engine]: Version bumped for ${packageName} to ${updatedVersionValue} 🎉`);
+    log(`\n[Muraqib Engine]: Version bumped for ${packageName} to ${updatedVersionValue} 🎉`);
     
     const targetMajor = semver.major(semver.coerce(newVersion) || newVersion);
 
@@ -179,40 +180,40 @@ export async function runMuraqibUpgradeOrchestrator({
     );
 
     if (migrationRule) {
-      console.log(`⚠️  [Schema Alert]: ${packageName} v${targetMajor} introduces breaking configuration changes!`);
-      console.log(`🔄 [Migration]: Running Automated Repair: ${migrationRule.description}...`);
+      log(`⚠️  [Schema Alert]: ${packageName} v${targetMajor} introduces breaking configuration changes!`);
+      log(`🔄 [Migration]: Running Automated Repair: ${migrationRule.description}...`);
 
       if (!isValidCommand(migrationRule.migrationCommand)) {
-        console.error(`❌ [Security Error]: Migration command validation failed. Invalid command syntax.`);
+        logError(`❌ [Security Error]: Migration command validation failed. Invalid command syntax.`);
         return { updatedVersion: currentValue, schemaMigrated: false };
       }
 
       try {
         execSync(migrationRule.migrationCommand, { stdio: 'inherit', cwd });
-        console.log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
+        log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
         schemaMigrated = true;
       } catch {
-        console.error(`❌ [Error]: Automated schema migration failed for ${packageName}. Proceeding with cautious testing.`);
+        logError(`❌ [Error]: Automated schema migration failed for ${packageName}. Proceeding with cautious testing.`);
       }
     } else {
-      console.log(`ℹ️  [Info]: No core schema modifications required for ${packageName} v${targetMajor}.`);
+      log(`ℹ️  [Info]: No core schema modifications required for ${packageName} v${targetMajor}.`);
     }
 
     const targetBuildCommand = envMeta.commands.build;
-    console.log(`🧪 [Integrity]: Testing project build after upgrade using: "${targetBuildCommand}"...`);
+    log(`🧪 [Integrity]: Testing project build after upgrade using: "${targetBuildCommand}"...`);
 
     if (!isValidCommand(targetBuildCommand)) {
-      console.error(`❌ [Security Error]: Build command validation failed. Invalid command syntax.`);
+      logError(`❌ [Security Error]: Build command validation failed. Invalid command syntax.`);
       return { updatedVersion: currentValue, schemaMigrated: false };
     }
 
     try {
       execSync(targetBuildCommand, { stdio: 'ignore', cwd });
-      console.log(`💎 [Integrity Success]: Project build passed smoothly on [${envMeta.type.toUpperCase()}] environment! Safe to commit.`);
+      log(`💎 [Integrity Success]: Project build passed smoothly on [${envMeta.type.toUpperCase()}] environment! Safe to commit.`);
     } catch {
-      console.error(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!`);
-      console.log(`⚠️  [Warning]: Build failed. The package upgrade has been applied but the build needs to be fixed before committing.`);
-      console.log(`🔍 [Next Steps]: Review the error above and fix the build issues, then run the build command again.`);
+      logError(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!`);
+      log(`⚠️  [Warning]: Build failed. The package upgrade has been applied but the build needs to be fixed before committing.`);
+      log(`🔍 [Next Steps]: Review the error above and fix the build issues, then run the build command again.`);
       return { updatedVersion: currentValue, schemaMigrated: false };
     }
   }

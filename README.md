@@ -49,7 +49,29 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 
 ---
 
-##  Installation
+## 📦 Usage from npm
+
+The package is `muraqib-core`; the command it installs is `muraqib`. With `npx`, use the **package** name:
+
+```bash
+# Full audit of the current directory
+npx muraqib-core audit
+
+# Guided interactive mode (Clack) - needs a real terminal (TTY)
+npx muraqib-core audit -i
+
+# Install as a dev dependency, then use the `muraqib` command
+npm i -D muraqib-core
+npx muraqib audit
+```
+
+> `npx muraqib ...` only works after `muraqib-core` is installed in the project; without installing it, npx looks for a package literally named `muraqib`.
+
+In CI, pass `--no-interactive` (or run without a TTY) and use `--fail-on-warning` to fail the build on findings.
+
+---
+
+## 🧑‍💻 Local development
 
 ```bash
 # Clone the repository
