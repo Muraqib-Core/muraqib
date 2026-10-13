@@ -14,7 +14,7 @@ import { runPerformanceAudit as runPerformanceAuditCore } from "../core/performa
 import { analyzeHttpProfile } from "../core/performance/optimizer-engine.js";
 import { probeHttp } from "../core/performance/http-probe.js";
 import { cachePerformanceSchema } from "../rules/cache-guard.js";
-import { createEnvWithPresets, safeCreateEnv } from "../env.js";
+import { createEnvWithPresets, safeCreateEnv } from "../env/index.js";
 import { runMuraqibUpgradeOrchestrator } from "../core/upgrade-orchestrator.js";
 import { toMessage, extractEnvErrors } from "../shared/utils.js";
 
@@ -261,9 +261,9 @@ export async function runEnvAudit(
       runtimeEnv: process.env as Record<string, string | undefined>,
       isServer: true,
       silent: true,
-      ...(options.presets ? { presets: options.presets as import("../presets.js").PresetInput[] } : {}),
+      ...(options.presets ? { presets: options.presets as import("../env/preset-map.js").PresetInput[] } : {}),
       ...(options.schedule ? { schedule: options.schedule } : {}),
-    } as unknown as import("../env.js").CreateEnvOptions;
+    } as unknown as import("../env/index.js").CreateEnvOptions;
 
     if (options.safe) {
       const envResult = safeCreateEnv(envOptions);
