@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve scan policy outcomes in the unified CLI: medium findings block `prod`, and scanner failures return exit code 3 rather than a generic findings exit code.
+- Retain scanner coverage, scanned/skipped inputs and diagnostics in unified and agent reports; display them in text, HTML, CSV and interactive output.
+- Report thrown scan execution errors as unreliable audits, including in the agent API.
+- Complete missing platform-specific dependency entries in `package-lock.json` so clean `npm ci` installs work, without changing existing package versions.
+
+### Tests
+
+- Add integration regressions for build/prod policies, high findings, partial coverage, failed/crashed scanners and agent failure propagation.
+
+
 ## [1.0.2] - 2026-10-12
 
 ### ⚠️ Changed (breaking for `audit --json` consumers)
