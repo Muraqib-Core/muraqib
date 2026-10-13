@@ -5,9 +5,19 @@ import * as v from "valibot";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
+/**
+ * Valibot validation engine class.
+ */
 export class ValibotValidationEngine implements ValidationEngine {
   readonly name = "valibot";
 
+  /**
+   * Validate.
+   *
+   * @param runtimeEnv - Runtime env
+   * @param presets - Presets
+   * @returns Validate result
+   */
   validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
@@ -69,6 +79,13 @@ export class ValibotValidationEngine implements ValidationEngine {
 
 const defaultValibotEngine = new ValibotValidationEngine();
 
+/**
+ * Run valibot validation.
+ *
+ * @param runtimeEnv - Runtime env
+ * @param presets - Presets
+ * @returns Run valibot validation result
+ */
 export function runValibotValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]

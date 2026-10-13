@@ -20,14 +20,21 @@ import {
   runUpgradePackages,
 } from "../orchestrator/audit.js";
 import { log, section, renderHeader, renderSummary, Colors, setSilent } from "../renderers/index.js";
+import { nonEmpty } from "../utils/defaults.js";
 
 const { RED, GREEN, YELLOW, DIM, RESET } = Colors;
 
+/**
+ * Run audit workflow.
+ *
+ * @param options - Options
+ * @returns Run audit workflow result
+ */
 export async function runAuditWorkflow(options: AuditOptions = {}): Promise<AuditResult> {
-  const targetPath = options.targetPath || process.cwd();
-  const latencyUrl = options.latencyUrl || "http://localhost:3000";
-  const securityUrl = options.securityUrl || latencyUrl;
-  const silent = options.silent || false;
+  const targetPath = nonEmpty(options.targetPath, process.cwd());
+  const latencyUrl = nonEmpty(options.latencyUrl, "http://localhost:3000");
+  const securityUrl = nonEmpty(options.securityUrl, latencyUrl);
+  const silent = options.silent ?? false;
 
   setSilent(silent);
   setSilentMode(silent);
@@ -122,7 +129,7 @@ export async function runAuditWorkflow(options: AuditOptions = {}): Promise<Audi
     section("5️⃣  SECURITY HEADERS");
     const audit = await runSecurityAudit(securityUrl);
     result.security = audit;
-    const score = audit.score || 0;
+    const score = audit.score ?? 0;
     if (audit.ok) {
       log("Security audit", "pass", `Score: ${score}/100`);
     } else {

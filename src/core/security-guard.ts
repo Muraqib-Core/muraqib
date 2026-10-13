@@ -156,6 +156,10 @@ async function performSecurityAuditInternal(targetUrl: string): Promise<Security
   });
 }
 
+/**
+ * Security guard class.
+ * Severity levels used: error, warning, critical.
+ */
 export class SecurityGuard extends BaseGuard {
   private options: SecurityAuditOptions;
 
@@ -164,6 +168,11 @@ export class SecurityGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = await performSecurityAuditInternal(this.options.targetUrl);
 

@@ -37,6 +37,12 @@ const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
   /^AIza[0-9A-Za-z_-]{35}$/, // Google API
 ];
 
+/**
+ * Tokenize key.
+ *
+ * @param key - Key
+ * @returns Tokenize key result
+ */
 export function tokenizeKey(key: string): string[] {
   return key
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
@@ -45,6 +51,13 @@ export function tokenizeKey(key: string): string[] {
     .map((word) => word.toUpperCase());
 }
 
+/**
+ * Is sensitive key.
+ *
+ * @param key - Key
+ * @param muraqibKeys - Muraqib keys
+ * @returns Is sensitive key result
+ */
 export function isSensitiveKey(key: string, muraqibKeys: ReadonlySet<string>): boolean {
   if (muraqibKeys.has(key.toUpperCase())) return true;
 
@@ -59,14 +72,32 @@ export function isSensitiveKey(key: string, muraqibKeys: ReadonlySet<string>): b
   return false;
 }
 
+/**
+ * Is placeholder.
+ *
+ * @param value - Value
+ * @returns Is placeholder result
+ */
 export function isPlaceholder(value: string): boolean {
   return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(value));
 }
 
+/**
+ * Is non secret literal.
+ *
+ * @param value - Value
+ * @returns Is non secret literal result
+ */
 export function isNonSecretLiteral(value: string): boolean {
   return /^(?:true|false|yes|no|on|off)$/i.test(value) || /^\d+(?:\.\d+)?$/.test(value);
 }
 
+/**
+ * Try parse url.
+ *
+ * @param value - Value
+ * @returns Try parse url result
+ */
 export function tryParseUrl(value: string): URL | undefined {
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return undefined;
   try {
@@ -76,6 +107,12 @@ export function tryParseUrl(value: string): URL | undefined {
   }
 }
 
+/**
+ * Url carries secret.
+ *
+ * @param url - Url
+ * @returns Url carries secret result
+ */
 export function urlCarriesSecret(url: URL): boolean {
   if (url.password !== "" && !isPlaceholder(decodeURIComponent(url.password))) return true;
   for (const [name, value] of url.searchParams) {
@@ -84,6 +121,12 @@ export function urlCarriesSecret(url: URL): boolean {
   return false;
 }
 
+/**
+ * Shannon entropy.
+ *
+ * @param value - Value
+ * @returns Shannon entropy result
+ */
 export function shannonEntropy(value: string): number {
   const counts = new Map<string, number>();
   for (const ch of value) counts.set(ch, (counts.get(ch) ?? 0) + 1);
@@ -95,6 +138,12 @@ export function shannonEntropy(value: string): number {
   return entropy;
 }
 
+/**
+ * Looks like high entropy secret.
+ *
+ * @param value - Value
+ * @returns Looks like high entropy secret result
+ */
 export function looksLikeHighEntropySecret(value: string): boolean {
   if (value.length < 20 || /\s/.test(value)) return false;
   if (value.includes("://") || /^(?:[A-Za-z]:)?[\\/~.]/.test(value)) return false;
@@ -102,12 +151,26 @@ export function looksLikeHighEntropySecret(value: string): boolean {
   return classes >= 3 && shannonEntropy(value) >= 3.5;
 }
 
+/**
+ * Matches secret pattern.
+ *
+ * @param value - Value
+ * @returns Matches secret pattern result
+ */
 export function matchesSecretPattern(value: string): boolean {
   if (SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value))) return true;
   const url = tryParseUrl(value);
   return url !== undefined && urlCarriesSecret(url);
 }
 
+/**
+ * Is exposed env value.
+ *
+ * @param key - Key
+ * @param rawValue - Raw value
+ * @param muraqibKeys - Muraqib keys
+ * @returns Is exposed env value result
+ */
 export function isExposedEnvValue(key: string, rawValue: string, muraqibKeys: ReadonlySet<string>): boolean {
   const value = rawValue.trim();
   if (value === "" || isPlaceholder(value)) return false;
@@ -119,6 +182,13 @@ export function isExposedEnvValue(key: string, rawValue: string, muraqibKeys: Re
   return looksLikeHighEntropySecret(value);
 }
 
+/**
+ * Is exposed package value.
+ *
+ * @param key - Key
+ * @param rawValue - Raw value
+ * @returns Is exposed package value result
+ */
 export function isExposedPackageValue(key: string, rawValue: string): boolean {
   const value = rawValue.trim();
   if (value === "" || isPlaceholder(value)) return false;

@@ -22,6 +22,11 @@ export class DockerGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const root = this.options.projectRoot ?? process.cwd();
     const project = createProjectContext(root);

@@ -15,6 +15,7 @@ import { auditExitCode } from "../core/audit-exit-code.js";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
 import { shouldUseInteractive } from "./interactive-policy.js";
 import type { ValidationEngineName } from "../scan/guard/core/engine-detector.js";
+import { nonEmpty } from "../utils/defaults.js";
 
 export { formatReport } from "./formatters.js";
 export type { CliOptions, AuditReport, OutputFormat } from "./types.js";
@@ -114,7 +115,7 @@ function parseArgs(args: string[]): ExtendedCliOptions {
     }
 
     if (arg === "--project" || arg === "-p") {
-      options.projectRoot = args[i + 1] || process.cwd();
+      options.projectRoot = nonEmpty(args[i + 1], process.cwd());
       i++;
     }
 
@@ -286,6 +287,12 @@ For more information, visit: https://github.com/Muraqib-Core/muraqib
   }
 }
 
+/**
+ * Create audit report.
+ *
+ * @param options - Options
+ * @returns Create audit report result
+ */
 export async function createAuditReport(
   options: CliOptions & {
     securityUrl?: string | undefined;
@@ -338,6 +345,12 @@ function usesWorkflowFlags(args: string[]): boolean {
   return args.some((a) => a.startsWith("--skip-") || WORKFLOW_FLAGS.has(a));
 }
 
+/**
+ * Run cli.
+ *
+ * @param args - Args
+ * @returns Run cli result
+ */
 export async function runCli(args: string[]): Promise<number> {
   try {
     // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
@@ -356,7 +369,7 @@ export async function runCli(args: string[]): Promise<number> {
     }
 
     const options = parseArgs(args);
-    const command = options.command || "audit";
+    const command = options.command ?? "audit";
 
     if (command !== "context" && command !== "tool-schema") {
       options.projectRoot = resolveProjectRoot(options.projectRoot ?? process.cwd());

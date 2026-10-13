@@ -1,6 +1,12 @@
 import { styleText } from "node:util";
 import type { AuditReport } from "../../core/runner/audit-runner.js";
 
+/**
+ * Format summary text.
+ *
+ * @param report - Report
+ * @returns Format summary text result
+ */
 export function formatSummaryText(report: AuditReport): string {
   let summary = `• Scanned Env Files: ${styleText("cyan", report.scannedEnvFiles.join(", ") || "None")}\n`;
   summary += `• Valid Env Variables: ${styleText("green", String(report.totalParsedLines))}\n`;
