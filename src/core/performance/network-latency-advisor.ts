@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 export interface LatencyAuditResult {
   isOptimized: boolean;
   reports: string[];
@@ -13,13 +11,17 @@ export const performLiveLatencyAudit = async (url: string): Promise<LatencyAudit
     const startTime = Date.now(); 
 
     try {
-        const response = await axios.get(url, { timeout: 10000 });
+        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+        }
+        const body = await response.arrayBuffer();
         const endTime = Date.now();
         const requestTimeMs = endTime - startTime; 
-        const contentLength = response.headers['content-length'] as string | undefined;
-        const payloadSizeKb = contentLength && typeof contentLength === 'string'
+        const contentLength = response.headers.get('content-length');
+        const payloadSizeKb = contentLength
             ? parseInt(contentLength, 10) / 1024
-            : Buffer.byteLength(JSON.stringify(response.data)) / 1024;
+            : body.byteLength / 1024;
         const auditResult = analyzeLatency(requestTimeMs, payloadSizeKb);
 
         console.log(`\n🌐 [Muraqib Network Audit] Results for: ${url}`);
