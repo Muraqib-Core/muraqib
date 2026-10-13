@@ -1,8 +1,8 @@
 // NOTE: scan-layer ValidationEngine implementations. They build the schema
 // themselves from preset rules and validate the runtime env. They are distinct
 // from the public caller-schema wrappers in src/guard/engines (not duplicates).
-import { type } from "arktype";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
+import { loadOptionalDependency } from "../../../utils/optional-dependency.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
 /**
@@ -18,10 +18,11 @@ export class ArkTypeValidationEngine implements ValidationEngine {
    * @param presets - Presets
    * @returns Validate result
    */
-  validate(
+  async validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
+    const { type } = await loadOptionalDependency<typeof import("arktype")>("arktype", "engine 'arktype'");
     const activePresets = presets && presets.length > 0 ? presets : detectPresets(runtimeEnv);
     const shape: Record<string, string> = {};
     const presetKeys = new Set<string>();
@@ -106,6 +107,6 @@ const defaultArktypeEngine = new ArkTypeValidationEngine();
 export function runArktypeValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]
-): ValidationResult {
+): Promise<ValidationResult> {
   return defaultArktypeEngine.validate(runtimeEnv, presets);
 }

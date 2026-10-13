@@ -69,6 +69,18 @@ npx muraqib audit
 
 In CI, pass `--no-interactive` (or run without a TTY) and use `--fail-on-warning` to fail the build on findings.
 
+### Optional peer dependencies
+
+The default install is lightweight. These packages are optional peer dependencies; install only what you use:
+
+| Package | Needed for | Install |
+|---|---|---|
+| `valibot` | `--engine valibot` / `ValibotEngine` | `npm i valibot` |
+| `arktype` | `--engine arktype` / `ArktypeEngine` | `npm i arktype` |
+| `@google/genai` | AI advisor (`--ai-advisory`, Gemini) | `npm i @google/genai` |
+
+`zod` is installed with `muraqib-core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
+
 ---
 
 ## 🧑‍💻 Local development

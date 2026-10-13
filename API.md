@@ -20,6 +20,18 @@ Complete API documentation for Muraqib Core - the comprehensive code auditor for
 npm install muraqib-core
 ```
 
+### Optional peer dependencies
+
+Validation engines and the Gemini AI advisor are loaded lazily and are optional. Install only what you use:
+
+```bash
+npm install valibot         # ValibotEngine / --engine valibot
+npm install arktype         # ArktypeEngine / --engine arktype
+npm install @google/genai   # AI advisor (--ai-advisory)
+```
+
+`zod` ships with `muraqib-core` (used by the built-in environment presets). When an optional package is missing, engines throw `MissingOptionalDependencyError` with a message like `install valibot to use engine 'valibot'`; the AI advisor returns a failed/empty result and prints a one-time warning instead of breaking the audit.
+
 ### Requirements
 - Node.js 18+
 - TypeScript 5.0+

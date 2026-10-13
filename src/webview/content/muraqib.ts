@@ -5,15 +5,11 @@ import type { Block, Card, PageContent, SidebarGroup, TabContent, UiLabels } fro
 /** What each runtime dependency is used for. A unit test fails when a dependency has no entry. */
 export const DEPENDENCY_PURPOSE: Readonly<Record<string, string>> = {
   "@clack/prompts": "Interactive prompts and the terminal spinner",
-  "@google/genai": "Gemini client for the optional AI advisory",
-  arktype: "Environment validation engine (`--engine arktype`)",
-  axios: "HTTP client for network probes and the OSV lookup",
   chalk: "Terminal colours in the text report",
   "cron-parser": "Validation of cron schedules",
   glob: "Project file discovery",
   ignore: "`.dockerignore`-style path filtering",
   semver: "Version and peer-dependency comparison",
-  valibot: "Environment validation engine (`--engine valibot`)",
   yaml: "Parsing Docker Compose and YAML configuration",
   zod: "Environment validation engine (`--engine zod`) and internal schemas",
 };
