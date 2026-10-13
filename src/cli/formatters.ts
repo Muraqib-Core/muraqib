@@ -5,6 +5,12 @@ import { scanCoverageLines } from "./scan-coverage.js";
 import { escapeHtml } from "../webview/render/escape.js";
 import type { AuditReport } from "./types.js";
 
+/**
+ * Format json.
+ *
+ * @param report - Report
+ * @returns Format json result
+ */
 export function formatJson(report: AuditReport): string {
   return JSON.stringify(report, null, 2);
 }
@@ -47,6 +53,12 @@ function formatIssueLines(issues: unknown): string[] {
   return out;
 }
 
+/**
+ * Format text.
+ *
+ * @param report - Report
+ * @returns Format text result
+ */
 export function formatText(report: AuditReport): string {
   const lines: string[] = [];
 
@@ -101,6 +113,12 @@ export function formatText(report: AuditReport): string {
   return lines.join("\n");
 }
 
+/**
+ * Format html.
+ *
+ * @param report - Report
+ * @returns Format html result
+ */
 export function formatHtml(report: AuditReport): string {
   const criticalColor = "#dc2626";
   const errorColor = "#ea580c";
@@ -349,6 +367,12 @@ export function formatHtml(report: AuditReport): string {
   return html;
 }
 
+/**
+ * Format csv.
+ *
+ * @param report - Report
+ * @returns Format csv result
+ */
 export function formatCsv(report: AuditReport): string {
   const lines: string[] = [
     "Module,Severity,Count",
@@ -364,6 +388,13 @@ export function formatCsv(report: AuditReport): string {
   return lines.join("\n");
 }
 
+/**
+ * Format report.
+ *
+ * @param report - Report
+ * @param format - Format
+ * @returns Format report result
+ */
 export function formatReport(
   report: AuditReport,
   format: "json" | "text" | "html" | "csv"

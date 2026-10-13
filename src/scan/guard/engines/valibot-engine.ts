@@ -1,19 +1,31 @@
 // NOTE: scan-layer ValidationEngine implementations. They build the schema
 // themselves from preset rules and validate the runtime env. They are distinct
 // from the public caller-schema wrappers in src/guard/engines (not duplicates).
-import * as v from "valibot";
+import type * as V from "valibot";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
+import { loadOptionalDependency } from "../../../utils/optional-dependency.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
+/**
+ * Valibot validation engine class.
+ */
 export class ValibotValidationEngine implements ValidationEngine {
   readonly name = "valibot";
 
-  validate(
+  /**
+   * Validate.
+   *
+   * @param runtimeEnv - Runtime env
+   * @param presets - Presets
+   * @returns Validate result
+   */
+  async validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
-  ): ValidationResult {
+  ): Promise<ValidationResult> {
+    const v = await loadOptionalDependency<typeof V>("valibot", "engine 'valibot'");
     const activePresets = presets && presets.length > 0 ? presets : detectPresets(runtimeEnv);
-    const shape: Record<string, v.GenericSchema<string | undefined>> = {};
+    const shape: Record<string, V.GenericSchema<string | undefined>> = {};
     const presetKeys = new Set<string>();
 
     activePresets.forEach((preset) => {
@@ -69,9 +81,16 @@ export class ValibotValidationEngine implements ValidationEngine {
 
 const defaultValibotEngine = new ValibotValidationEngine();
 
+/**
+ * Run valibot validation.
+ *
+ * @param runtimeEnv - Runtime env
+ * @param presets - Presets
+ * @returns Run valibot validation result
+ */
 export function runValibotValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]
-): ValidationResult {
+): Promise<ValidationResult> {
   return defaultValibotEngine.validate(runtimeEnv, presets);
 }

@@ -137,6 +137,10 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   };
 }
 
+/**
+ * Async guard class.
+ * Severity levels used: warning, error.
+ */
 export class AsyncGuard extends BaseGuard {
   private options: AsyncAuditOptions;
 
@@ -145,6 +149,11 @@ export class AsyncGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performAsyncAuditInternal(this.options.targetPath);
 

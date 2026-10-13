@@ -11,6 +11,7 @@
  */
 
 import type { Type } from 'arktype';
+import { nonEmpty } from '../../utils/defaults.js';
 
 export interface ValidationIssue {
   field: string;
@@ -167,11 +168,11 @@ export class ArktypeEngine {
 
     return lines.map((line, index) => {
       const fieldMatch = line.match(/(?:at\s)?([a-zA-Z_$][a-zA-Z0-9_$]*)/);
-      const field = fieldMatch?.[1] || `error_${index}`;
+      const field = nonEmpty(fieldMatch?.[1], `error_${index}`);
       const pathArray: (string | number)[] = [field];
 
       return {
-        field: field || `error_${index}`,
+        field,
         message: line.replace(/^at\s/, '').trim(),
         code: 'ARKTYPE_ERROR',
         path: pathArray,

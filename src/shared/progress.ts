@@ -2,6 +2,7 @@
  * Progress indicators and timing metrics for audit operations.
  * Provides visual feedback during long-running tasks.
  */
+import * as logger from "./logger.js";
 
 export type AuditTimer = StepTimer;
 
@@ -20,7 +21,7 @@ class SimpleProgress {
 
   start(): void {
     if (!this.silent) {
-      console.log(`⏳ ${this.title}...`);
+      logger.log(`⏳ ${this.title}...`);
     }
   }
 
@@ -30,7 +31,7 @@ class SimpleProgress {
     if (now - this.lastUpdate >= 500) {
       const duration = ((now - this.startTime) / 1000).toFixed(1);
       const countStr = count !== undefined ? ` (${count} items)` : "";
-      console.log(`  ⚙️  ${message}${countStr} [${duration}s]`);
+      logger.log(`  ⚙️  ${message}${countStr} [${duration}s]`);
       this.lastUpdate = now;
     }
   }
@@ -38,16 +39,16 @@ class SimpleProgress {
   succeed(message?: string, fileCount?: number): void {
     if (!this.silent) {
       const duration = ((Date.now() - this.startTime) / 1000).toFixed(1);
-      const msg = message || "✅ Done";
+      const msg = message ?? "✅ Done";
       const countStr = fileCount !== undefined ? ` (${fileCount} files scanned)` : "";
-      console.log(`✅ ${msg}${countStr} [${duration}s]\n`);
+      logger.log(`✅ ${msg}${countStr} [${duration}s]\n`);
     }
   }
 
   fail(error: string): void {
     if (!this.silent) {
       const duration = ((Date.now() - this.startTime) / 1000).toFixed(1);
-      console.log(`❌ ${error} [${duration}s]\n`);
+      logger.log(`❌ ${error} [${duration}s]\n`);
     }
   }
 
@@ -66,7 +67,7 @@ class StepTimer implements AuditTimer {
 
   start(): void {
     this.startTime = Date.now();
-    if (!this.silent) {
+    if (!this.silent && !logger.isSilentMode()) {
       process.stdout.write(`  ⚡ ${this.name}...`);
     }
   }
@@ -74,7 +75,7 @@ class StepTimer implements AuditTimer {
   end(): string {
     const duration = ((Date.now() - this.startTime) / 1000).toFixed(2);
     if (!this.silent) {
-      console.log(` ✓ (${duration}s)`);
+      logger.log(` ✓ (${duration}s)`);
     }
     return duration;
   }
@@ -84,10 +85,24 @@ class StepTimer implements AuditTimer {
   }
 }
 
+/**
+ * Create progress.
+ *
+ * @param title - Title
+ * @param silent - Silent
+ * @returns Create progress result
+ */
 export function createProgress(title: string, silent = false): SimpleProgress {
   return new SimpleProgress(title, silent);
 }
 
+/**
+ * Create timer.
+ *
+ * @param name - Name
+ * @param silent - Silent
+ * @returns Create timer result
+ */
 export function createTimer(name: string, silent = false): AuditTimer {
   return new StepTimer(name, silent);
 }
@@ -99,6 +114,9 @@ export interface AuditMetrics {
   itemsFound?: number | undefined;
 }
 
+/**
+ * Metrics collector class.
+ */
 export class MetricsCollector {
   private metrics: AuditMetrics[] = [];
   private silent: boolean;
@@ -107,6 +125,14 @@ export class MetricsCollector {
     this.silent = silent;
   }
 
+  /**
+   * Record.
+   *
+   * @param moduleName - Module name
+   * @param duration - Duration
+   * @param filesScanned - Files scanned
+   * @param itemsFound - Items found
+   */
   record(moduleName: string, duration: number, filesScanned?: number, itemsFound?: number): void {
     this.metrics.push({
       moduleName,
@@ -116,11 +142,14 @@ export class MetricsCollector {
     });
   }
 
+  /**
+   * Print summary.
+   */
   printSummary(): void {
     if (this.silent || this.metrics.length === 0) return;
 
-    console.log("\n📊 Audit Performance Metrics:");
-    console.log("────────────────────────────");
+    logger.log("\n📊 Audit Performance Metrics:");
+    logger.log("────────────────────────────");
 
     let totalTime = 0;
     let totalFiles = 0;
@@ -129,16 +158,21 @@ export class MetricsCollector {
       totalTime += m.duration;
       const fileStr = m.filesScanned !== undefined ? ` | ${m.filesScanned} files` : "";
       const itemStr = m.itemsFound !== undefined ? ` | ${m.itemsFound} found` : "";
-      console.log(`  ${m.moduleName.padEnd(20)} ${(m.duration / 1000).toFixed(2)}s${fileStr}${itemStr}`);
+      logger.log(`  ${m.moduleName.padEnd(20)} ${(m.duration / 1000).toFixed(2)}s${fileStr}${itemStr}`);
       if (m.filesScanned) totalFiles += m.filesScanned;
     }
 
-    console.log("────────────────────────────");
-    console.log(`  Total Time: ${(totalTime / 1000).toFixed(2)}s`);
-    if (totalFiles > 0) console.log(`  Total Files: ${totalFiles}`);
-    console.log();
+    logger.log("────────────────────────────");
+    logger.log(`  Total Time: ${(totalTime / 1000).toFixed(2)}s`);
+    if (totalFiles > 0) logger.log(`  Total Files: ${totalFiles}`);
+    logger.log("");
   }
 
+  /**
+   * Get metrics.
+   *
+   * @returns Get metrics result
+   */
   getMetrics(): AuditMetrics[] {
     return [...this.metrics];
   }

@@ -24,6 +24,12 @@ export interface RenderBlockingAuditResult {
   blockingResources: string[];
 }
 
+/**
+ * Perform render blocking audit.
+ *
+ * @param htmlContent - Html content
+ * @returns Perform render blocking audit result
+ */
 export function performRenderBlockingAudit(
   htmlContent: string
 ): RenderBlockingAuditResult {

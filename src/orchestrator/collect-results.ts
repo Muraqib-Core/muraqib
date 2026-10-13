@@ -29,6 +29,12 @@ export interface CollectedResults {
   aiAdvisory: string | null;
 }
 
+/**
+ * Collect audit results.
+ *
+ * @param options - Options
+ * @returns Collect audit results result
+ */
 export async function collectAuditResults(options: CollectOptions): Promise<CollectedResults> {
   const root = options.projectRoot;
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
