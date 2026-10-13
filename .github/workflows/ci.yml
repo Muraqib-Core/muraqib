@@ -17,7 +17,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        # 20.12.0 is the minimum supported version (package.json engines.node)
+        node-version: [20.12.0, 22.x]
 
     steps:
       - name: Checkout code
@@ -142,7 +143,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint-and-build, test-and-coverage, self-audit]
+    needs: [lint-and-build, test-and-coverage, self-audit, package-contents, security-scan]
     if: always()
 
     steps:
@@ -170,6 +171,22 @@ jobs:
           fi
           echo "✓ Self-audit passed"
 
+      - name: Check package contents status
+        run: |
+          if [ "${{ needs.package-contents.result }}" != "success" ]; then
+            echo "❌ Package contents check failed"
+            exit 1
+          fi
+          echo "✓ Package contents passed"
+
+      - name: Check security scan status
+        run: |
+          if [ "${{ needs.security-scan.result }}" != "success" ]; then
+            echo "❌ Security scan failed"
+            exit 1
+          fi
+          echo "✓ Security scan passed"
+
       - name: Create success badge
         if: success()
         run: |
@@ -181,11 +198,10 @@ jobs:
           echo "- Coverage: ✓"
           echo "- Self-audit: ✓"
 
-  security-scan:
-    name: Security Scan
+  package-contents:
+    name: Package Contents
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    continue-on-error: true
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -194,14 +210,49 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20.x
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          CI: true
+
+      - name: Build project
+        run: npm run build
+
+      # Fail if tests/specs or sources leak into the published tarball.
+      - name: Verify npm tarball contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const files = JSON.parse(require("fs").readFileSync("pack.json", "utf8"))[0].files.map((f) => f.path);
+            const leaked = files.filter((p) => /(^|\/)(src|tests?|__tests__)\//.test(p) || /\.(spec|test)\.[cm]?[jt]sx?(\.map)?$/.test(p) || (/\.ts$/.test(p) && !/\.d\.ts$/.test(p)));
+            if (leaked.length > 0) {
+              console.error("Unexpected files in npm tarball:\n" + leaked.join("\n"));
+              process.exit(1);
+            }
+            console.log("Tarball OK: " + files.length + " files, no tests/specs/src.");
+          '
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Security audit
-        run: npm audit --production || true
-
-      - name: Check for vulnerable dependencies
-        run: npm audit --audit-level=moderate || true
+      # Blocking: high/critical advisories in shipped (production) dependencies fail the job.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
