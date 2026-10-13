@@ -4,6 +4,7 @@
  * Helpers wired in from `./helpers`:
  * - `tsconfig-parser`: JSONC-aware, `extends`-aware tsconfig compiler options.
  * - `git-protection`: detects environment files that are committed to version control.
+ * - `env-parser`: counts the variables a committed environment file defines.
  */
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -11,6 +12,8 @@ import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 import { readCompilerOptions } from "./helpers/tsconfig-parser.js";
 import { trackedEnvFiles } from "./helpers/git-protection.js";
+import { parseEnvEntries } from "./helpers/env-parser.js";
+import type { EnvEntry } from "./helpers/env-parser.js";
 
 export interface ConfigIssue {
   type:
@@ -70,17 +73,29 @@ const ENV_FILE_PATTERN = /^\.env(?:\..+)?$/;
 /** Matches templates that are meant to be committed, such as `.env.example`. */
 const ENV_TEMPLATE_PATTERN = /\.(?:example|sample|template|dist|defaults?)$/i;
 
+/** Parses an env file into entries; returns `[]` when it cannot be read. */
+function readEnvEntries(filePath: string): EnvEntry[] {
+  try {
+    return parseEnvEntries(readFileSync(filePath, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Flags environment files (other than templates) that version control tracks.
  * Yields nothing when `root` is not inside a work tree.
  */
 function checkTrackedEnvFiles(root: string, issues: ConfigIssue[], reports: string[]): void {
   for (const file of trackedEnvFiles(root, ENV_FILE_PATTERN, ENV_TEMPLATE_PATTERN)) {
+    const entries = readEnvEntries(join(root, file));
+    // An unreadable or empty env file exposes nothing, so it is not worth a finding.
+    if (entries.length === 0) continue;
     issues.push({
       type: "tracked_env_file",
       file,
       severity: "high",
-      message: `Environment file ${file} is tracked by version control`,
+      message: `Environment file ${file} is tracked by version control and defines ${entries.length} variable(s)`,
       suggestion: `Untrack it ("git rm --cached ${file}"), add it to .gitignore and commit a .env.example template instead`,
     });
     reports.push(`🔴 Tracked environment file: ${file}`);

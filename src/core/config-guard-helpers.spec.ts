@@ -56,6 +56,23 @@ describe("ConfigGuard tsconfig handling (tsconfig-parser)", () => {
       expect(tracked[0]?.severity).toBe("high");
     });
 
+    it("ignores tracked env files that define no variables or are missing on disk", () => {
+      expect(runGit(["init", "-q"], dir).status).toBe(0);
+      writeFileSync(join(dir, ".env"), "# nothing here\n");
+      writeFileSync(join(dir, ".env.gone"), "A=1\n");
+      expect(runGit(["add", ".env", ".env.gone"], dir).status).toBe(0);
+      rmSync(join(dir, ".env.gone"));
+      expect(performConfigAudit(dir).issues.some((i) => i.type === "tracked_env_file")).toBe(false);
+    });
+
+    it("mentions the variable count in the message", () => {
+      expect(runGit(["init", "-q"], dir).status).toBe(0);
+      writeFileSync(join(dir, ".env"), "A=1\nB=2\n");
+      expect(runGit(["add", ".env"], dir).status).toBe(0);
+      const issue = performConfigAudit(dir).issues.find((i) => i.type === "tracked_env_file");
+      expect(issue?.message).toContain("2 variable(s)");
+    });
+
     it("reports nothing outside a repository", () => {
       writeFileSync(join(dir, ".env"), "A=1\n");
       expect(performConfigAudit(dir).issues.some((i) => i.type === "tracked_env_file")).toBe(false);
