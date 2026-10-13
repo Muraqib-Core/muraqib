@@ -1,6 +1,8 @@
 /**
  * Output Formatters for different formats (JSON, Text, HTML, CSV)
  */
+import { scanCoverageLines } from "./scan-coverage.js";
+import { escapeHtml } from "../webview/render/escape.js";
 import type { AuditReport } from "./types.js";
 
 export function formatJson(report: AuditReport): string {
@@ -92,6 +94,8 @@ export function formatText(report: AuditReport): string {
 
   lines.push("");
   lines.push("═══════════════════════════════════════════════");
+  const coverage = scanCoverageLines(report);
+  if (coverage.length) lines.push("Scanner Coverage", ...coverage, "");
   lines.push("End of Report");
 
   return lines.join("\n");
@@ -320,6 +324,7 @@ export function formatHtml(report: AuditReport): string {
         </div>
       </div>
 
+      ${scanCoverageLines(report).length ? `<section><h2>Scanner Coverage</h2><pre>${escapeHtml(scanCoverageLines(report).join("\n"))}</pre></section>` : ""}
       <div class="modules">
         <h2>Module Results</h2>
         ${Object.entries(report.modules)
@@ -353,6 +358,9 @@ export function formatCsv(report: AuditReport): string {
     `Summary,Info,${report.summary.info}`,
   ];
 
+  for (const line of scanCoverageLines(report)) {
+    lines.push(`Scan,Coverage,"${line.replaceAll('"', '""')}"`);
+  }
   return lines.join("\n");
 }
 
