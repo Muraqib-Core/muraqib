@@ -18,6 +18,12 @@ const IGNORE_DIRS = new Set([
   "coverage"
 ]);
 
+/**
+ * Discover docker files.
+ *
+ * @param projectRoot - Project root
+ * @returns Discover docker files result
+ */
 export function discoverDockerFiles(projectRoot: string): DockerDiscoveryResult {
   const dockerfiles: string[] = [];
   const composeFiles: string[] = [];

@@ -142,11 +142,21 @@ export async function withSpinner<T>(label: string, task: () => Promise<T>): Pro
   }
 }
 
+/**
+ * Show intro.
+ *
+ * @param projectRoot - Project root
+ */
 export function showIntro(projectRoot: string): void {
   x.intro("Muraqib audit");
   x.log.info(`Project: ${projectRoot}`);
 }
 
+/**
+ * Show outro.
+ *
+ * @param report - Report
+ */
 export function showOutro(report: AuditReport): void {
   if (report.exitCode === 3) {
     x.outro(chalk.red("A scanner failed; the audit could not complete reliably."));
@@ -161,6 +171,9 @@ export function showOutro(report: AuditReport): void {
   else x.outro(`Passed — ${text}`);
 }
 
+/**
+ * Show cancelled.
+ */
 export function showCancelled(): void {
   x.cancel("Audit cancelled");
 }

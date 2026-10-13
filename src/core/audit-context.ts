@@ -16,6 +16,12 @@ function tryExec(cmd: string, args: string[], cwd: string): string | undefined {
   }
 }
 
+/**
+ * Build audit context.
+ *
+ * @param projectRoot - Project root
+ * @returns Build audit context result
+ */
 export function buildAuditContext(projectRoot: string = process.cwd()): AuditContext {
   const env = process.env.CI ? "ci" : process.env.NODE_ENV === "production" ? "production" : "development";
   return {

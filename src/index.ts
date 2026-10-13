@@ -165,7 +165,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<WorkflowAudi
  * console.log(result.summary);
  * ```
  */
-export async function runGuardAudit(options: { projectRoot?: string; securityUrl?: string } = {}) {
+export async function runGuardAudit(options: { projectRoot?: string; securityUrl?: string } = {}): ReturnType<AuditOrchestrator["execute"]> {
   const root = options.projectRoot ?? process.cwd();
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
     projectRoot: root,

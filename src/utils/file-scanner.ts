@@ -17,6 +17,14 @@ export interface ScanOptions {
   includeTests?: boolean;
 }
 
+/**
+ * Scan project files.
+ *
+ * @param targetPath - Target path
+ * @param fileExtensions - File extensions
+ * @param options - Options
+ * @returns Scan project files result
+ */
 export function scanProjectFiles(
   targetPath: string,
   fileExtensions: string[] = ["ts", "js"],

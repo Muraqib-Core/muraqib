@@ -16,6 +16,12 @@ export interface ProjectContext {
 
 import { discoverDockerFiles } from "./docker-discovery.js";
 
+/**
+ * Create project context.
+ *
+ * @param projectPath - Project path
+ * @returns Create project context result
+ */
 export function createProjectContext(projectPath: string = process.cwd()): ProjectContext {
   let packageManager: ProjectContext["packageManager"] = "npm";
 

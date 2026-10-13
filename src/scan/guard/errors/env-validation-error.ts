@@ -1,5 +1,8 @@
 import type { ValidationError } from "../../core/contracts/validation-engine.js";
 
+/**
+ * Env validation error class.
+ */
 export class EnvValidationError extends Error {
   constructor(
     message: string,

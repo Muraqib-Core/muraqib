@@ -62,6 +62,9 @@ export function parseTrivyReport(input: unknown, imageId: string, scannedAt: str
   return findings.map(createScanIssue);
 }
 
+/**
+ * Docker image scanner class.
+ */
 export class DockerImageScanner {
   constructor(private readonly run: CommandRunner = defaultRunner) {}
 

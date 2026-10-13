@@ -1,5 +1,10 @@
 import { styleText } from "node:util";
 
+/**
+ * Render ai advisory.
+ *
+ * @param adviceText - Advice text
+ */
 export function renderAiAdvisory(adviceText: string | null): void {
   if (!adviceText) return;
 
