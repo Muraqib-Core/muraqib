@@ -11,6 +11,7 @@ import { formatReport } from "./formatters.js";
 import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import { getSystemContext } from "../agent/system-context.js";
 import { AGENT_TOOL_DEFINITIONS } from "../agent/tool-definitions.js";
+import { auditExitCode } from "../core/audit-exit-code.js";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
 import { shouldUseInteractive } from "./interactive-policy.js";
 import type { ValidationEngineName } from "../scan/guard/core/engine-detector.js";
@@ -317,6 +318,7 @@ export async function createAuditReport(
   return {
     timestamp: Date.now(),
     projectRoot: root,
+    exitCode: auditExitCode(scanned, options.failOnWarning),
     summary: {
       total: issues.length,
       critical: count("critical"),
@@ -382,7 +384,7 @@ export async function runCli(args: string[]): Promise<number> {
       const json = JSON.stringify(report, null, 2);
       if (options.output) writeFileSync(resolve(process.cwd(), options.output), json);
       else console.log(json);
-      return report.verdict === "fail" ? 1 : 0;
+      return report.exitCode ?? (report.verdict === "fail" ? 1 : 0);
     }
 
     if (command === "resolve") {
@@ -489,6 +491,7 @@ export async function runCli(args: string[]): Promise<number> {
         console.log("✅ Audit completed successfully");
       }
 
+      if (report.exitCode !== undefined) return report.exitCode;
       const { summary } = report;
       if (summary.critical > 0 || summary.error > 0) return 1;
       if (auditOptions.failOnWarning && summary.warning > 0) return 1;
