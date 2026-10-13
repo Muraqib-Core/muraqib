@@ -5,9 +5,16 @@ import { isWithinSchedule } from "../utils/schedule-validator.js";
 import { loadEnv } from "./loaders.js";
 import type { CreateEnvOptions } from "./options.js";
 import type { InferSchema, IntersectExtension } from "./types.js";
+import * as logger from "../shared/logger.js";
 
 const SKIP_ENV_VALIDATION = process.env.SKIP_ENV_VALIDATION === "true" || process.env.SKIP_ENV_VALIDATION === "1";
 
+/**
+ * Create env.
+ *
+ * @param opts - Opts
+ * @returns Create env result
+ */
 export function createEnv<
   TPrefix extends string = "",
   TServer extends GuardSchema = Record<string, never>,
@@ -26,7 +33,7 @@ export function createEnv<
     const allowedToRun = isWithinSchedule(opts.schedule);
     if (!allowedToRun) {
       if (!opts.silent) {
-        console.warn(`⏳ [Muraqib Scheduler]: Process halted automatically. Current time is outside allowed cron window.`);
+        logger.warn(`⏳ [Muraqib Scheduler]: Process halted automatically. Current time is outside allowed cron window.`);
       }
       return null;
     }
@@ -34,7 +41,7 @@ export function createEnv<
 
   if (opts.skipValidation ?? SKIP_ENV_VALIDATION) {
     if (!opts.silent) {
-      console.log(`⏭️ [Muraqib Guards]: Validation skipped (skipValidation=true).`);
+      logger.log(`⏭️ [Muraqib Guards]: Validation skipped (skipValidation=true).`);
     }
     return process.env as unknown as InferSchema<TServer> & InferSchema<TClient> & IntersectExtension<TExtends>;
   }
@@ -66,7 +73,7 @@ export function createEnv<
   }
 
   if (!opts.silent) {
-    console.log(`🛡️ [Muraqib Guards]: Building and executing runtime environment integrity validations...`);
+    logger.log(`🛡️ [Muraqib Guards]: Building and executing runtime environment integrity validations...`);
   }
 
   const validationResult = combinedSchema.safeParse(processedEnv);
@@ -83,7 +90,7 @@ export function createEnv<
         issues.map((i) => `  • ${i.path}: ${i.message}`).join("\n");
 
     if (!opts.silent) {
-      console.error(formattedMessage);
+      logger.error(formattedMessage);
     }
 
     const error = new Error(formattedMessage);
@@ -101,6 +108,12 @@ export function createEnv<
   return (validatedGuard?.data ?? validatedGuard) as unknown as InferSchema<TServer> & InferSchema<TClient> & IntersectExtension<TExtends>;
 }
 
+/**
+ * Safe create env.
+ *
+ * @param opts - Opts
+ * @returns Safe create env result
+ */
 export function safeCreateEnv<
   TPrefix extends string = "",
   TServer extends GuardSchema = Record<string, never>,

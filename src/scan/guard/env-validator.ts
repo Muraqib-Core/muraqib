@@ -3,7 +3,20 @@ import { detectPresets } from "./rules/preset-rules.js";
 import { EnvValidationError } from "./errors/env-validation-error.js";
 import type { GuardOptions } from "../types/interface.js";
 
-export async function createEnv(opts: GuardOptions) {
+/** Result of a successful environment validation. */
+export interface ValidatedEnv {
+  env: Record<string, string>;
+  unknownKeys: string[];
+  engine: string;
+}
+
+/**
+ * Create env.
+ *
+ * @param opts - Opts
+ * @returns Create env result
+ */
+export async function createEnv(opts: GuardOptions): Promise<ValidatedEnv> {
   const processedEnv = { ...(opts.runtimeEnvStrict ?? opts.runtimeEnv ?? {}) };
 
   // Sanitize empty strings
@@ -22,7 +35,7 @@ export async function createEnv(opts: GuardOptions) {
   const engine = resolveValidationEngine(opts.engine, opts.projectRoot);
 
   // Execute validation
-  const result = engine.validate(processedEnv, activePresets);
+  const result = await engine.validate(processedEnv, activePresets);
 
   // Raise typed domain errors if validation fails
   if (result.errors.length > 0) {

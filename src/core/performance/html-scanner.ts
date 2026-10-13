@@ -44,6 +44,12 @@ const deprecatedTags = [
   "noframe",
 ];
 
+/**
+ * Scan html.
+ *
+ * @param htmlContent - Html content
+ * @returns Scan html result
+ */
 export function scanHtml(htmlContent: string): HtmlScanResult {
   const issues: HtmlIssue[] = [];
   const reports: string[] = [];

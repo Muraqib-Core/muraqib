@@ -84,6 +84,10 @@ function performImageAuditInternal(targetPath?: string): ImageAuditResult {
 
 export { performImageAuditInternal as runImagePerformanceAudit };
 
+/**
+ * Image guard class.
+ * Severity levels used: warning.
+ */
 export class ImageGuard extends BaseGuard {
   private targetPath?: string | undefined;
 
@@ -92,6 +96,11 @@ export class ImageGuard extends BaseGuard {
     this.targetPath = targetPath;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performImageAuditInternal(this.targetPath);
     const issues: AuditIssue[] = [];

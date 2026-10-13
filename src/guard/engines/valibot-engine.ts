@@ -11,7 +11,15 @@
  */
 
 import type { BaseSchema, BaseIssue } from 'valibot';
-import { safeParse } from 'valibot';
+import { nonEmpty } from '../../utils/defaults.js';
+import { requireOptionalDependency } from '../../utils/optional-dependency.js';
+
+type ValibotModule = typeof import('valibot');
+
+/** Load valibot on first use; the engine API is synchronous so this resolves synchronously. */
+function loadValibot(): ValibotModule {
+  return requireOptionalDependency<ValibotModule>('valibot', "engine 'valibot'");
+}
 
 /** One step of a Valibot issue path (`issue.path`), e.g. an object key or array index. */
 interface PathNode {
@@ -51,6 +59,8 @@ export class ValibotEngine {
    * Validate data against the schema
    */
   validate(data: unknown): ValibotValidationResult {
+    // Outside the try block so a missing dependency surfaces as an actionable error.
+    const { safeParse } = loadValibot();
     try {
       const result = safeParse(this.schema, data);
 
@@ -178,8 +188,8 @@ export class ValibotEngine {
   private parseValibotIssues(issues: BaseIssue<unknown>[]): ValidationIssue[] {
     return issues.map(issue => ({
       field: this.getFieldPath(issue),
-      message: issue.message || 'Validation error',
-      code: (issue as { type?: string }).type || 'VALIDATION_ERROR',
+      message: nonEmpty(issue.message, 'Validation error'),
+      code: nonEmpty((issue as { type?: string }).type, 'VALIDATION_ERROR'),
       path: this.extractPath(issue),
     }));
   }

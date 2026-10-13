@@ -5,6 +5,12 @@ export function toMessage(err: unknown): string {
 
 type MuraqibIssue = { path?: unknown; field?: unknown; message?: string };
 
+/**
+ * Extract env errors.
+ *
+ * @param error - Error
+ * @returns Extract env errors result
+ */
 export function extractEnvErrors(error: unknown): string[] {
   if (
     error !== null &&
@@ -43,6 +49,13 @@ export function extractEnvErrors(error: unknown): string[] {
   return [toMessage(error)];
 }
 
+/**
+ * Get arg.
+ *
+ * @param args - Args
+ * @param flag - Flag
+ * @returns Get arg result
+ */
 export function getArg(args: string[], flag: string): string | undefined {
   const i = args.indexOf(flag);
   if (i >= 0) {

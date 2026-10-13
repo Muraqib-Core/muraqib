@@ -78,10 +78,12 @@ describe("dependency guard", () => {
       expect(performDependencyAudit(dir).isClean).toBe(true);
     });
 
-    test("flags v0.x dependencies", () => {
-      write("package.json", JSON.stringify({ dependencies: { old: "^0.5.0" }, devDependencies: { ok: "^1.0.0" } }));
+    test("does not flag v0.x dependencies as outdated", () => {
+      write("package.json", JSON.stringify({ dependencies: { sharp: "^0.35.4" }, devDependencies: { ok: "^1.0.0" } }));
       const result = performDependencyAudit(dir);
-      expect(result.outdatedPackages).toEqual(["old@^0.5.0 — v0.x may have breaking changes"]);
+      expect(result.outdatedPackages).toEqual([]);
+      expect(result.reports).toEqual([]);
+      expect(result.isClean).toBe(true);
     });
 
     test("flags duplicate versions in a lock file", () => {
@@ -109,7 +111,7 @@ describe("dependency guard", () => {
       const severities = new Map(result.issues.map((i) => [i.message.split(" ")[0], i.severity]));
       expect(severities.get("Circular")).toBe("error");
       expect(severities.get("Deprecated")).toBe("warning");
-      expect(severities.get("Potentially")).toBe("warning");
+      expect(severities.has("Potentially")).toBe(false);
       expect(result.issues[0]?.code.startsWith("DEPENDENCY_")).toBe(true);
     });
   });

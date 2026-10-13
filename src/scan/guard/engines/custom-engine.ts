@@ -4,9 +4,19 @@
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
+/**
+ * Custom validation engine class.
+ */
 export class CustomValidationEngine implements ValidationEngine {
   readonly name = "custom";
 
+  /**
+   * Validate.
+   *
+   * @param runtimeEnv - Runtime env
+   * @param presets - Presets
+   * @returns Validate result
+   */
   validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
@@ -53,6 +63,13 @@ export class CustomValidationEngine implements ValidationEngine {
 
 const defaultEngine = new CustomValidationEngine();
 
+/**
+ * Run custom validation.
+ *
+ * @param runtimeEnv - Runtime env
+ * @param presets - Presets
+ * @returns Run custom validation result
+ */
 export function runCustomValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]

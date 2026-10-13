@@ -9,10 +9,22 @@ export interface VariableMetadata {
 const SENSITIVE_KEY_PATTERN =
   /(key|secret|token|password|passwd|credential|private|auth|cert|access)/i;
 
+/**
+ * Is sensitive key.
+ *
+ * @param key - Key
+ * @returns Is sensitive key result
+ */
 export function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_PATTERN.test(key);
 }
 
+/**
+ * Is sensitive value.
+ *
+ * @param value - Value
+ * @returns Is sensitive value result
+ */
 export function isSensitiveValue(value: string): boolean {
   if (!value) return false;
 
@@ -34,6 +46,13 @@ export function isSensitiveValue(value: string): boolean {
   return false;
 }
 
+/**
+ * Redact value.
+ *
+ * @param key - Key
+ * @param value - Value
+ * @returns Redact value result
+ */
 export function redactValue(key: string, value: string): string {
   if (isSensitiveKey(key) || isSensitiveValue(value)) {
     return "[REDACTED]";
@@ -41,6 +60,13 @@ export function redactValue(key: string, value: string): string {
   return value;
 }
 
+/**
+ * Extract safe metadata.
+ *
+ * @param key - Key
+ * @param value - Value
+ * @returns Extract safe metadata result
+ */
 export function extractSafeMetadata(key: string, value: string): VariableMetadata {
   const hasCredentials = isSensitiveKey(key) || isSensitiveValue(value);
   let classification = "custom-string";
