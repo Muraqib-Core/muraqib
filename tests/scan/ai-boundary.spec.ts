@@ -5,7 +5,7 @@ import {
   isSensitiveValue,
   redactValue,
   extractSafeMetadata,
-} from "../../src/scan/ai/secret-detector.js";
+} from "../../src/ai/safe-metadata.js";
 
 test("AI Boundary: detects sensitive variable names", () => {
   assert.ok(isSensitiveKey("JWT_SECRET"));
