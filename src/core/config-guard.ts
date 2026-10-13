@@ -76,7 +76,8 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
         issues.push({
           type: "missing_config",
           file: config,
-          severity: "high",
+          // .eslintignore is only a convenience for legacy eslintrc setups, never a blocker
+          severity: config === ".eslintignore" ? "medium" : "high",
           message: `Critical configuration file missing: ${config}`,
           suggestion: `Create or copy ${config} to project root`,
         });
