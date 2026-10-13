@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { performConfigAudit } from "./config-guard.js";
+import { ConfigGuard, performConfigAudit } from "./config-guard.js";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 
@@ -30,6 +30,19 @@ describe("Config Guard", () => {
   it("requires .eslintignore when there is no flat ESLint config", () => {
     const result = performConfigAudit(tempDir);
     expect(result.configFiles.missing).toContain(".eslintignore");
+  });
+
+  it("reports a missing .eslintignore as a warning-level issue, not an error", async () => {
+    const issue = performConfigAudit(tempDir).issues.find((i) => i.file === ".eslintignore");
+    expect(issue?.severity).toBe("medium");
+    const result = await new ConfigGuard({ projectRoot: tempDir }).execute();
+    const mapped = result.issues.find((i) => i.title.includes(".eslintignore"));
+    expect(mapped?.severity).toBe("warning");
+  });
+
+  it("keeps other missing critical configs at error severity", async () => {
+    const result = await new ConfigGuard({ projectRoot: tempDir }).execute();
+    expect(result.issues.find((i) => i.title.includes("tsconfig.json"))?.severity).toBe("error");
   });
 
   it.each(["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"])(
