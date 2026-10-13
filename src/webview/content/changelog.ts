@@ -7,6 +7,26 @@ export interface ChangelogRelease {
 
 /** Newest first. Keep the top entry in sync with `package.json` (a unit test enforces it). */
 export const CHANGELOG: readonly ChangelogRelease[] = [
+   {
+    version: "1.0.3-beta.1",
+    date: "2026-10-13",
+    groups: [
+      {
+        title: "Fixed",
+        items: [
+          "Preserve build/prod scan policies and scanner failure exit codes",
+          "Retain scanner coverage and diagnostics in unified and agent reports",
+          "Repair dependency lockfile entries for clean installs",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Prepare @muraqib/core for publishing under the beta dist-tag",
+        ],
+      },
+    ],
+  },
   {
     version: "1.0.2",
     date: "2026-10-12",
