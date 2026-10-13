@@ -372,9 +372,11 @@ src/
 │   └── performance/               # Performance-specific guards
 │
 ├── rules/                         # Quality and security rules
-├── ai/                            # AI-powered modules
+├── ai/                            # AI-powered modules (single AI implementation)
+├── env/                           # Environment validation (createEnv, loaders, presets)
+├── guard/engines/                 # Public schema-engine wrappers
+├── scan/                          # Scan layer (OSV, Docker, resolution)
 ├── cli/                           # Command-line interface
-├── env.ts                         # Environment handling
 ├── index.ts                       # Public API exports
 └── utils/                         # Shared utilities
 ```
@@ -554,3 +556,11 @@ Muraqib Core has two cooperating layers plus a bridge:
 - `DockerGuard` is an adapter over `DockerScanner`; `CompatibilityGuard` adds the scan `CompatibilityEngine` rules to its node/deprecation checks.
 - AI: `src/ai` is the single implementation (`GEMINI_API_KEY`, `GOOGLE_API_KEY` legacy alias, secret redaction before every call).
 - Upgrade orchestrator lives in `src/core/upgrade-orchestrator.ts` (separate from `AuditOrchestrator`).
+- Shims removed: `src/scan/ai/*` (re-exports of `src/ai`; `AuditRunner` now imports `src/ai` directly), `src/env.ts` (re-export of `src/env/index.ts`) and the empty `src/presets/*` stubs. `src/presets.ts` moved to `src/env/preset-map.ts`, beside `createEnvWithPresets` which is its only consumer.
+
+### Deliberately kept separate (genuinely different behaviour)
+- `src/guard/engines/*` vs `src/scan/guard/engines/*`: the first are the public wrappers around a caller-supplied schema (exported from `src/index.ts`); the second implement the scan `ValidationEngine` contract and build schemas from preset rules. They share no logic.
+- `src/config/presets.ts` vs `src/env/preset-map.ts`: the first is the package-upgrade preset catalogue (`PackageGroup`, remote fetch) used by the upgrade orchestrator; the second is per-platform env schemas (Vercel, Railway, ...). Different concerns that only share a name.
+- `src/ai/secret-detector.ts` vs `src/core/helpers/secret-detector.ts`: the first scans free text for known secret patterns and is public API; the second is a key-name/value heuristic (`isExposedEnvValue`, entropy, placeholder filtering) for env and package values. Different detection models, so they are not merged.
+- `src/scan/core/parsers/env-parser.ts` vs `src/core/helpers/env-parser.ts`: `parseEnvFile` reads a file and reports per-line syntax findings; `parseEnvEntries` parses a string into key/value pairs including multi-line quoted values. Their line and quote semantics differ and `parseEnvFile` is covered by tests, so both stay.
+- Note: nothing currently imports `src/core/helpers/*`; it is kept because removing unreferenced files was outside this consolidation. Remove it or wire it into `ConfigGuard` in a follow-up.

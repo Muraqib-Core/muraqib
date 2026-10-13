@@ -419,8 +419,8 @@ src/
 ├── rules/                 # cache, bundle budget, dead code, HTTP/1 advisor
 ├── orchestrator/          # Unified audit pipeline (audit.ts)
 ├── guard/engines/         # Schema engines: zod, valibot, arktype, custom
-├── presets/ + config/     # Validation presets
-├── env/ + env.ts          # Environment validation engine
+├── config/                # Package upgrade presets (not env presets)
+├── env/                   # Environment validation engine (+ platform presets)
 ├── ai/                    # Secret detector and AI advisor (guard layer)
 ├── cli/                   # CLI entry (index.ts), audit workflow, formatters
 ├── renderers/ + shared/   # Output renderers, logger, progress, constants
