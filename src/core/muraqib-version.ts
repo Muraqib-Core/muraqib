@@ -9,6 +9,11 @@ export interface MuraqibVersionConfig { // muraqib-ignore-dead: auto-suppressed 
   packageName?: string;     
 }
 
+/**
+ * Get muraqib new version value.
+ *
+ * @returns Get muraqib new version value result
+ */
 export function getMuraqibNewVersionValue({
   currentVersion,
   newVersion,

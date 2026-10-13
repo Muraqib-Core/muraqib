@@ -7,7 +7,11 @@ import type {
   ResolutionDirection,
 } from "./resolution-plan.js";
 import { DependencyGraph } from "./dependency-graph.js";
+import { nonEmpty } from "../../../utils/defaults.js";
 
+/**
+ * Resolution engine class.
+ */
 export class ResolutionEngine {
   private graph: DependencyGraph;
 
@@ -26,7 +30,7 @@ export class ResolutionEngine {
 
     for (const finding of dependencyFindings) {
       const problem = finding.dependencyProblem!;
-      const fixedVersions = problem.fixedVersions || [];
+      const fixedVersions = problem.fixedVersions ?? [];
       if (fixedVersions.length === 0) {
         continue;
       }
@@ -88,7 +92,7 @@ export class ResolutionEngine {
         for (const relName of relatedPackages) {
           const relPkg = this.graph.getPackage(relName);
           if (relPkg) {
-            const relCurrent = relPkg.installedVersion || relPkg.declaredVersion;
+            const relCurrent = nonEmpty(relPkg.installedVersion, relPkg.declaredVersion);
             // Coordinated target: matching target major or compatible version
             const relTarget = selectedCandidate;
             coordinatedChanges.push({

@@ -40,7 +40,17 @@ export interface AuditReport {
   exitCode: number;
 }
 
+/**
+ * Audit runner class.
+ */
 export class AuditRunner {
+  /**
+   * Run.
+   *
+   * @param context - Context
+   * @param options - Options
+   * @returns Run result
+   */
   async run(context: ProjectContext, options: AuditOptions = {}): Promise<AuditReport> {
     const collector = new FindingCollector();
     const envMetaDataRegistry: Record<string, { fileName: string; line: number }> = {};

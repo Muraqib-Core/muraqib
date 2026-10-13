@@ -7,6 +7,13 @@ import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
 
+/**
+ * Run git.
+ *
+ * @param args - Args
+ * @param cwd - Cwd
+ * @returns Run git result
+ */
 export function runGit(args: string[], cwd: string): { status: number | null; stdout: string } {
   const result = spawnSync("git", args, {
     cwd,
@@ -17,6 +24,12 @@ export function runGit(args: string[], cwd: string): { status: number | null; st
   return { status: result.error ? null : result.status, stdout: result.stdout ?? "" };
 }
 
+/**
+ * Glob to reg exp.
+ *
+ * @param glob - Glob
+ * @returns Glob to reg exp result
+ */
 export function globToRegExp(glob: string): RegExp {
   let source = "";
   for (let i = 0; i < glob.length; i++) {
@@ -42,6 +55,14 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${source}$`);
 }
 
+/**
+ * Is ignored by gitignore file.
+ *
+ * @param _root - _root
+ * @param relativePath - Relative path
+ * @param gitignorePath - Gitignore path
+ * @returns Is ignored by gitignore file result
+ */
 export function isIgnoredByGitignoreFile(_root: string, relativePath: string, gitignorePath: string): boolean {
   let content: string;
   try {
@@ -69,6 +90,13 @@ export function isIgnoredByGitignoreFile(_root: string, relativePath: string, gi
   return ignored;
 }
 
+/**
+ * Is git ignored.
+ *
+ * @param root - Root
+ * @param relativePath - Relative path
+ * @returns Is git ignored result
+ */
 export function isGitIgnored(root: string, relativePath: string): boolean {
   const { status } = runGit(["check-ignore", "-q", "--no-index", "--", relativePath], root);
   if (status === 0) return true;
@@ -76,6 +104,14 @@ export function isGitIgnored(root: string, relativePath: string): boolean {
   return isIgnoredByGitignoreFile(root, relativePath, path.join(root, ".gitignore"));
 }
 
+/**
+ * Tracked env files.
+ *
+ * @param root - Root
+ * @param envFilePattern - Env file pattern
+ * @param envTemplatePattern - Env template pattern
+ * @returns Tracked env files result
+ */
 export function trackedEnvFiles(root: string, envFilePattern: RegExp, envTemplatePattern: RegExp): string[] {
   const { status, stdout } = runGit(["ls-files", "-z"], root);
   if (status !== 0) return [];

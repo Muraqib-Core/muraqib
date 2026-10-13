@@ -12,6 +12,7 @@
 
 import type { BaseSchema, BaseIssue } from 'valibot';
 import { safeParse } from 'valibot';
+import { nonEmpty } from '../../utils/defaults.js';
 
 /** One step of a Valibot issue path (`issue.path`), e.g. an object key or array index. */
 interface PathNode {
@@ -178,8 +179,8 @@ export class ValibotEngine {
   private parseValibotIssues(issues: BaseIssue<unknown>[]): ValidationIssue[] {
     return issues.map(issue => ({
       field: this.getFieldPath(issue),
-      message: issue.message || 'Validation error',
-      code: (issue as { type?: string }).type || 'VALIDATION_ERROR',
+      message: nonEmpty(issue.message, 'Validation error'),
+      code: nonEmpty((issue as { type?: string }).type, 'VALIDATION_ERROR'),
       path: this.extractPath(issue),
     }));
   }

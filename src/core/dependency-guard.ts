@@ -181,6 +181,10 @@ function performDependencyAuditInternal(targetPath: string): DependencyAuditResu
   };
 }
 
+/**
+ * Dependency guard class.
+ * Severity levels used: warning, error.
+ */
 export class DependencyGuard extends BaseGuard {
   private options: DependencyAuditOptions;
 
@@ -189,6 +193,11 @@ export class DependencyGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performDependencyAuditInternal(this.options.targetPath);
 

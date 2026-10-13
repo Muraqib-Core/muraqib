@@ -223,6 +223,10 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   return { isHealthy, reports, issues, configFiles };
 }
 
+/**
+ * Config guard class.
+ * Severity levels used: critical, warning, error.
+ */
 export class ConfigGuard extends BaseGuard {
   private options: ConfigAuditOptions;
 
@@ -231,6 +235,11 @@ export class ConfigGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performConfigAuditInternal(this.options.projectRoot);
 

@@ -102,14 +102,29 @@ function sourceMatches(source: string, candidate: string): boolean {
   return false;
 }
 
+/**
+ * Docker scanner class.
+ */
 export class DockerScanner implements ScannerEngine {
   readonly name = "docker";
   constructor(private readonly docker: DockerCommand = defaultDocker, private readonly nativeValidation = false) {}
 
+  /**
+   * Supports.
+   *
+   * @param context - Context
+   * @returns Supports result
+   */
   supports(context: ScanContext): boolean {
     return Boolean(context.dockerfiles?.length || context.composeFiles?.length);
   }
 
+  /**
+   * Scan.
+   *
+   * @param context - Context
+   * @returns Scan result
+   */
   async scan(context: ScanContext): Promise<ScanResult> {
     const findings: ScanIssueInput[] = [];
     const diagnostics: string[] = [];
