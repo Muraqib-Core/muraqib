@@ -1,3 +1,5 @@
+import type { ScanAuditMetadata } from "../core/types.js";
+
 /**
  * Agent-facing report model: a small, stable, deterministic JSON contract that LLM agents
  * (Claude Code, Cursor, MCP clients, custom pipelines) can parse without scraping terminal text.
@@ -26,6 +28,7 @@ export interface AgentModuleSummary {
   name: string;
   status: "ok" | "issues" | "warning" | "error";
   issueCount: number;
+  scan?: ScanAuditMetadata;
 }
 
 export interface AgentReport {
@@ -34,6 +37,7 @@ export interface AgentReport {
   ok: boolean;
   /** "fail" when any critical/error issue exists (or any warning with `failOnWarning`). */
   verdict: "pass" | "fail";
+  exitCode?: 0 | 1 | 3;
   projectRoot: string;
   summary: Record<AgentSeverity, number> & { total: number };
   modules: AgentModuleSummary[];

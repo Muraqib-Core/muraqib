@@ -4,7 +4,7 @@
  */
 import type { AuditIssue, AuditResult } from "../core/types.js";
 import semver from "semver";
-import type { DependencyProblemData, OsvAdvisoryData } from "./core/findings/finding.js";
+import { createScanIssue, type DependencyProblemData, type OsvAdvisoryData } from "./core/findings/finding.js";
 import type { ValidationEngineName } from "./guard/core/engine-detector.js";
 import { createProjectContext } from "./core/context/project-context.js";
 import { AuditRunner, type AuditReport as ScanReport } from "./core/runner/audit-runner.js";
@@ -82,16 +82,38 @@ export interface ScanAuditOutcome {
 export async function runScanAudit(projectRoot: string, options: ScanAuditOptions = {}): Promise<ScanAuditOutcome> {
   const started = Date.now();
   const context = createProjectContext(projectRoot);
-  const report = await new AuditRunner().run(context, {
-    mode: options.mode ?? "build",
-    enableAi: options.enableAi ?? false,
-    dockerNative: options.dockerNative ?? false,
-    ...(options.engine ? { engine: options.engine } : {}),
-  });
+  let report: ScanReport;
+  try {
+    report = await new AuditRunner().run(context, {
+      mode: options.mode ?? "build",
+      enableAi: options.enableAi ?? false,
+      dockerNative: options.dockerNative ?? false,
+      ...(options.engine ? { engine: options.engine } : {}),
+    });
+  } catch (error) {
+    const diagnostic = error instanceof Error ? error.message : String(error);
+    report = {
+      mode: options.mode ?? "build",
+      engine: options.engine ?? "custom",
+      findings: [createScanIssue({
+        id: "scan-execution-failed", title: "Scan execution failed", message: diagnostic,
+        severity: "high", category: "reliability", source: "audit-runner", confidence: "confirmed",
+      })],
+      totalParsedLines: 0,
+      scannedEnvFiles: [],
+      aiAdvisory: null,
+      hasBlockingIssues: true,
+      exitCode: 3,
+      scannerCoverage: [{
+        scanner: "audit-runner", status: "failed", scannedInputs: [],
+        skippedInputs: context.envFiles, diagnostics: [diagnostic],
+      }],
+    };
+  }
   const issues = report.findings.map(enrichIssue);
   const failed = report.exitCode === 3;
   const result: AuditResult = {
-    status: failed ? "error" : issues.length === 0 ? "ok" : issues.some((i) => i.severity === "critical" || i.severity === "error") ? "issues" : "warning",
+    status: failed ? "error" : report.hasBlockingIssues ? "issues" : issues.length === 0 ? "ok" : issues.some((i) => i.severity === "critical" || i.severity === "error") ? "issues" : "warning",
     module: "scan",
     issues,
     message: failed
@@ -99,6 +121,12 @@ export async function runScanAudit(projectRoot: string, options: ScanAuditOption
       : `Scan layer: ${issues.length} finding(s) across ${report.scannerCoverage.length} scanner(s)`,
     timestamp: Date.now(),
     duration: Date.now() - started,
+    scan: {
+      mode: report.mode,
+      exitCode: report.exitCode,
+      hasBlockingIssues: report.hasBlockingIssues,
+      scannerCoverage: report.scannerCoverage,
+    },
   };
   return { result, report };
 }
