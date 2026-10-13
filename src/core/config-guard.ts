@@ -3,12 +3,14 @@
  *
  * Helpers wired in from `./helpers`:
  * - `tsconfig-parser`: JSONC-aware, `extends`-aware tsconfig compiler options.
+ * - `git-protection`: detects environment files that are committed to version control.
  */
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 import { readCompilerOptions } from "./helpers/tsconfig-parser.js";
+import { trackedEnvFiles } from "./helpers/git-protection.js";
 
 export interface ConfigIssue {
   type:
@@ -17,7 +19,8 @@ export interface ConfigIssue {
     | "unsafe_setting"
     | "missing_dependency"
     | "conflicting_config"
-    | "outdated_config";
+    | "outdated_config"
+    | "tracked_env_file";
   file: string;
   setting?: string;
   severity: "critical" | "high" | "medium" | "low";
@@ -61,6 +64,28 @@ const optionalConfigs = [
   "vitest.config.ts",
   "vite.config.ts",
 ];
+
+/** Matches `.env`, `.env.local`, `.env.production`, ... */
+const ENV_FILE_PATTERN = /^\.env(?:\..+)?$/;
+/** Matches templates that are meant to be committed, such as `.env.example`. */
+const ENV_TEMPLATE_PATTERN = /\.(?:example|sample|template|dist|defaults?)$/i;
+
+/**
+ * Flags environment files (other than templates) that version control tracks.
+ * Yields nothing when `root` is not inside a work tree.
+ */
+function checkTrackedEnvFiles(root: string, issues: ConfigIssue[], reports: string[]): void {
+  for (const file of trackedEnvFiles(root, ENV_FILE_PATTERN, ENV_TEMPLATE_PATTERN)) {
+    issues.push({
+      type: "tracked_env_file",
+      file,
+      severity: "high",
+      message: `Environment file ${file} is tracked by version control`,
+      suggestion: `Untrack it ("git rm --cached ${file}"), add it to .gitignore and commit a .env.example template instead`,
+    });
+    reports.push(`🔴 Tracked environment file: ${file}`);
+  }
+}
 
 function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   const root = projectRoot || process.cwd();
@@ -218,6 +243,8 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
       // Already caught in JSON validation
     }
   }
+
+  checkTrackedEnvFiles(root, issues, reports);
 
   const isHealthy =
     issues.filter((i) => i.severity === "critical" || i.severity === "high")
