@@ -1,5 +1,12 @@
 import { CronExpressionParser } from 'cron-parser';
+import * as logger from "../shared/logger.js";
 
+/**
+ * Is within schedule.
+ *
+ * @param scheduleString - Schedule string
+ * @returns Is within schedule result
+ */
 export function isWithinSchedule(scheduleString?: string): boolean {
   if (!scheduleString || scheduleString.trim() === '') {
     return true;
@@ -22,7 +29,7 @@ export function isWithinSchedule(scheduleString?: string): boolean {
     }
     return false;
   } catch {
-    console.warn(`⚠️  [Muraqib Schedule]: Invalid cron expression [${scheduleString}]. Defaulting to run immediately.`);
+    logger.warn(`⚠️  [Muraqib Schedule]: Invalid cron expression [${scheduleString}]. Defaulting to run immediately.`);
     return true;
   }
 }

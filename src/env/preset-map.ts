@@ -1,4 +1,4 @@
-// src/presets.ts
+// src/env/preset-map.ts: platform preset schemas for createEnvWithPresets
 import { z } from "zod";
 
 export interface VercelEnv {

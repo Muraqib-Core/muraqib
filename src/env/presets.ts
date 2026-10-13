@@ -1,9 +1,17 @@
 import { z } from "zod";
-import { presetsMap } from "../presets.js";
-import type { PresetInput } from "../presets.js";
+import { presetsMap } from "./preset-map.js";
+import type { PresetInput } from "./preset-map.js";
 import { createEnv } from "./core.js";
 import type { CreateEnvOptions } from "./options.js";
+import * as logger from "../shared/logger.js";
 
+/**
+ * Create env with presets.
+ *
+ * @param userSchema - User schema
+ * @param options - Options
+ * @returns Create env with presets result
+ */
 export function createEnvWithPresets<T extends Record<string, z.ZodTypeAny>>(
   userSchema: T,
   options: {
@@ -27,11 +35,11 @@ export function createEnvWithPresets<T extends Record<string, z.ZodTypeAny>>(
       const preset = presetsMap[presetName];
       if (preset) {
         if (!options.silent) {
-          console.log(`📦 [Muraqib Presets]: Injecting centralized validation schema for [${presetName}].`);
+          logger.log(`📦 [Muraqib Presets]: Injecting centralized validation schema for [${presetName}].`);
         }
         Object.assign(serverSchema, preset);
       } else if (!options.silent) {
-        console.warn(`⚠️ [Muraqib Presets]: Unknown preset [${presetName}] — skipped.`);
+        logger.warn(`⚠️ [Muraqib Presets]: Unknown preset [${presetName}] — skipped.`);
       }
     }
   }

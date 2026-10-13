@@ -12,6 +12,9 @@ import { DependencyGraph } from "./dependency-graph.js";
 import type { PackageManifest } from "./dependency-graph.js";
 import { runVerification } from "./resolution-verifier.js";
 
+/**
+ * Resolution applier class.
+ */
 export class ResolutionApplier {
   private graph: DependencyGraph;
 
@@ -129,10 +132,10 @@ export class ResolutionApplier {
     }
 
     const allDeps: Record<string, string> = {
-      ...(pkg.dependencies || {}),
-      ...(pkg.devDependencies || {}),
-      ...(pkg.peerDependencies || {}),
-      ...(pkg.optionalDependencies || {}),
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.devDependencies ?? {}),
+      ...(pkg.peerDependencies ?? {}),
+      ...(pkg.optionalDependencies ?? {}),
     };
 
     for (const change of plan.changes) {

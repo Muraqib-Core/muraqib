@@ -7,7 +7,8 @@ function reply(headers: Record<string, string>, body: string, init: { ok?: boole
   return new Response(body, { status: init.status ?? 200, headers });
 }
 
-import { analyzeLatency, performLiveLatencyAudit } from "../../../src/core/performance/network-latency-advisor.js";
+import { GuardFactory } from "../../../src/core/guard-factory.js";
+import { analyzeLatency, NetworkLatencyGuard, performLiveLatencyAudit } from "../../../src/core/performance/network-latency-advisor.js";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", get);
@@ -66,5 +67,48 @@ describe("performLiveLatencyAudit", () => {
     expect(r.reachable).toBe(false);
     expect(r.reports[0]).toContain("HTTP 503");
     expect(get.mock.calls[0]?.[1]).toMatchObject({ signal: expect.any(AbortSignal) });
+  });
+});
+
+describe("NetworkLatencyGuard", () => {
+  it("returns ok for an optimized target", async () => {
+    get.mockResolvedValue(reply({ "content-length": "1024" }, "x"));
+    const res = await new NetworkLatencyGuard({ targetUrl: "http://x" }).run();
+    expect(res.module).toBe("network-latency-guard");
+    expect(res.status).toBe("ok");
+  });
+
+  it("reports payload and latency warnings with Arabic messages", async () => {
+    get.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 320));
+      return reply({ "content-length": String(40 * 1024) }, "x");
+    });
+    const res = await new NetworkLatencyGuard({ targetUrl: "http://x" }).run();
+    expect(res.status).toBe("warning");
+    expect(res.issues.map((i) => i.code)).toEqual(["NETWORK_002", "NETWORK_003"]);
+    expect(res.issues[0]?.message).toContain("14KB");
+  });
+
+  it("reports an unreachable target as an error issue", async () => {
+    get.mockRejectedValue(new Error("ECONNREFUSED"));
+    const res = await new NetworkLatencyGuard({ targetUrl: "http://x" }).run();
+    expect(res.status).toBe("issues");
+    expect(res.issues[0]?.code).toBe("NETWORK_001");
+    expect(res.issues[0]?.message).toContain("ECONNREFUSED");
+  });
+
+  it("is created by the GuardFactory and included when networkTargetUrl is set", () => {
+    const factory = GuardFactory.create({
+      projectRoot: "/p",
+      timestamp: 0,
+      environment: "development",
+      nodeVersion: process.version,
+      npmVersion: "9",
+      gitBranch: "main",
+      gitCommit: "abc",
+    });
+    expect(factory.createNetworkLatencyGuard("http://x")).toBeInstanceOf(NetworkLatencyGuard);
+    const guards = factory.createAllGuards({ networkTargetUrl: "http://x" });
+    expect(guards.some((g) => g instanceof NetworkLatencyGuard)).toBe(true);
   });
 });

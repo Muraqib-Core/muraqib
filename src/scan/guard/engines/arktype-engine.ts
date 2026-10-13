@@ -5,9 +5,19 @@ import type { ValidationEngine, ValidationResult, ValidationError } from "../../
 import { loadOptionalDependency } from "../../../utils/optional-dependency.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
+/**
+ * Ark type validation engine class.
+ */
 export class ArkTypeValidationEngine implements ValidationEngine {
   readonly name = "arktype";
 
+  /**
+   * Validate.
+   *
+   * @param runtimeEnv - Runtime env
+   * @param presets - Presets
+   * @returns Validate result
+   */
   async validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
@@ -87,6 +97,13 @@ export class ArkTypeValidationEngine implements ValidationEngine {
 
 const defaultArktypeEngine = new ArkTypeValidationEngine();
 
+/**
+ * Run arktype validation.
+ *
+ * @param runtimeEnv - Runtime env
+ * @param presets - Presets
+ * @returns Run arktype validation result
+ */
 export function runArktypeValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]

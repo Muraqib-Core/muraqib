@@ -6,12 +6,20 @@ import { ValibotValidationEngine } from "../engines/valibot-engine.js";
 import { ArkTypeValidationEngine } from "../engines/arktype-engine.js";
 import { CustomValidationEngine } from "../engines/custom-engine.js";
 
+/**
+ * Default validation engine resolver class.
+ */
 export class DefaultValidationEngineResolver implements ValidationEngineResolver {
   constructor(
     private readonly preferredEngine?: ValidationEngineName,
     private readonly projectRoot?: string
   ) {}
 
+  /**
+   * Resolve.
+   *
+   * @returns Resolve result
+   */
   resolve(): ValidationEngine {
     const engineName = this.preferredEngine ?? detectValidationEngine(this.projectRoot);
 
@@ -29,6 +37,13 @@ export class DefaultValidationEngineResolver implements ValidationEngineResolver
   }
 }
 
+/**
+ * Resolve validation engine.
+ *
+ * @param preferredEngine - Preferred engine
+ * @param projectRoot - Project root
+ * @returns Resolve validation engine result
+ */
 export function resolveValidationEngine(
   preferredEngine?: ValidationEngineName,
   projectRoot?: string

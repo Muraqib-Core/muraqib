@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
-import { performDeadCodeAudit } from "./dead-code-guard";
+import { DeadCodeGuard, performDeadCodeAudit } from "./dead-code-guard";
 
 describe("performDeadCodeAudit", () => {
   let testDir: string;
@@ -282,5 +282,57 @@ export function guard(x: number): number {
     const result = performDeadCodeAudit(testDir);
 
     expect(result.emptyFunctions.length).toBe(0);
+  });
+
+  it("ignores type-only exports that the declaring file still uses", () => {
+    fs.writeFileSync(
+      path.join(testDir, "types-used.ts"),
+      "export interface Options { a: number }\nexport type Mode = 'x' | 'y';\nexport function run(o: Options, m: Mode): number { return o.a + m.length; }\n"
+    );
+    fs.writeFileSync(path.join(testDir, "consumer.ts"), 'import { run } from "./types-used";\nrun({ a: 1 }, "x");\n');
+
+    expect(performDeadCodeAudit(testDir).unusedExports).toEqual([]);
+  });
+
+  it("still flags type-only exports that nothing references at all", () => {
+    fs.writeFileSync(path.join(testDir, "dangling.ts"), "export interface Dangling { a: number }\n");
+
+    expect(performDeadCodeAudit(testDir).unusedExports.some((u) => u.includes("Dangling"))).toBe(true);
+  });
+
+  it("treats files declared in package.json exports as public API", () => {
+    fs.mkdirSync(path.join(testDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(testDir, "package.json"),
+      JSON.stringify({ name: "p", exports: { ".": { types: "./dist/api.d.ts", import: "./dist/api.js" } } })
+    );
+    fs.writeFileSync(path.join(testDir, "src", "api.ts"), "export function entryOnly() { return 1; }\n");
+
+    expect(performDeadCodeAudit(testDir).unusedExports).toEqual([]);
+  });
+
+  it("treats files re-exported through `export *` from an index barrel as public API", () => {
+    fs.mkdirSync(path.join(testDir, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(testDir, "lib", "index.ts"), 'export * from "./shapes.js";\n');
+    fs.writeFileSync(path.join(testDir, "lib", "shapes.ts"), "export function circle() { return 1; }\nexport interface Shape { r: number }\n");
+
+    expect(performDeadCodeAudit(testDir).unusedExports).toEqual([]);
+  });
+
+  it("aggregates unused exports into one summary per file", async () => {
+    fs.writeFileSync(
+      path.join(testDir, "many.ts"),
+      "export function alpha() { return 1; }\nexport function beta() { return 2; }\nexport const gamma = 3;\n"
+    );
+    fs.writeFileSync(path.join(testDir, "other.ts"), "export function delta() { return 4; }\n");
+
+    const result = performDeadCodeAudit(testDir);
+    expect(result.unusedExports).toHaveLength(2);
+    const many = result.unusedExports.find((u) => u.startsWith("many.ts"));
+    expect(many).toContain("alpha, beta, gamma");
+    expect(result.reports.filter((r) => r.includes("many.ts"))).toHaveLength(1);
+
+    const guardResult = await new DeadCodeGuard(testDir).execute();
+    expect(guardResult.issues.filter((i) => i.severity === "info")).toHaveLength(2);
   });
 });

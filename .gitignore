@@ -48,5 +48,9 @@ Thumbs.db
 examples/node_modules/
 .claude/
 
+# VS Code extension build output
+extension/dist/
+extension/*.vsix
+
 # CLI shim must be committed
 !bin/*.js

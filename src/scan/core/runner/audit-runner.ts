@@ -8,8 +8,8 @@ import { EnvValidationError } from "../../guard/errors/env-validation-error.js";
 import { OsvScanner } from "../../scanners/dependency/osv-engine.js";
 import { CompatibilityEngine } from "../../scanners/compatibility/compatibility-engine.js";
 import { DockerScanner } from "../../scanners/docker/docker-engine.js";
-import { analyzeUnknownVariablesWithAi } from "../../ai/fallback.js";
-import { generateAdvisory } from "../../ai/advisor.js";
+import { analyzeUnknownVariablesWithAi } from "../../../ai/fallback.js";
+import { generateFindingsAdvisory } from "../../../ai/advisor.js";
 import type { ValidationEngineName } from "../../guard/core/engine-detector.js";
 import type { ScanStatus } from "../contracts/scanner-engine.js";
 
@@ -40,7 +40,17 @@ export interface AuditReport {
   exitCode: number;
 }
 
+/**
+ * Audit runner class.
+ */
 export class AuditRunner {
+  /**
+   * Run.
+   *
+   * @param context - Context
+   * @param options - Options
+   * @returns Run result
+   */
   async run(context: ProjectContext, options: AuditOptions = {}): Promise<AuditReport> {
     const collector = new FindingCollector();
     const envMetaDataRegistry: Record<string, { fileName: string; line: number }> = {};
@@ -64,7 +74,7 @@ export class AuditRunner {
         collector.addMany(result.findings);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to read environment file ${file}: ${msg}`);
+        throw new Error(`Failed to read environment file ${file}: ${msg}`, { cause: err });
       }
     }
 
@@ -106,7 +116,7 @@ export class AuditRunner {
           }
         } else {
           const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`Environment validation execution failed: ${msg}`);
+          throw new Error(`Environment validation execution failed: ${msg}`, { cause: err });
         }
       }
     }
@@ -253,7 +263,7 @@ export class AuditRunner {
     let aiAdvisory: string | null = null;
     const securityFindings = collector.getByCategory("security");
     if (securityFindings.length > 0 && canUseAi) {
-      aiAdvisory = await generateAdvisory(securityFindings, {
+      aiAdvisory = await generateFindingsAdvisory(securityFindings, {
         ...context.dependencies,
         ...context.devDependencies,
       });

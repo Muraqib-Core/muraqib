@@ -6,6 +6,7 @@
 import { GuardFactory } from './guard-factory.js';
 import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult } from './types.js';
 import type { GuardConfig } from './guard-factory.js';
+import * as logger from "../shared/logger.js";
 
 export interface OrchestratorConfig extends GuardConfig {
   parallel?: boolean;
@@ -20,6 +21,9 @@ const SEVERITY_LEVELS: Record<string, number> = {
   info: 4,
 };
 
+/**
+ * Audit orchestrator class.
+ */
 export class AuditOrchestrator {
   private context: AuditContext;
   private factory: GuardFactory;
@@ -173,21 +177,21 @@ export class AuditOrchestrator {
   printSummary(result: UnifiedAuditResult): void {
     const { summary } = result;
 
-    console.log('\n=== Muraqib Audit Summary ===');
-    console.log(`✓ Timestamp: ${new Date(summary.timestamp).toISOString()}`);
-    console.log(`✓ Duration: ${this.formatDuration(summary.duration)}`);
-    console.log(`✓ Total Issues: ${summary.totalIssues}`);
-    console.log(`  🔴 Critical: ${summary.critical}`);
-    console.log(`  ⚠️  Errors: ${summary.errors}`);
-    console.log(`  ⚡ Warnings: ${summary.warnings}`);
+    logger.log('\n=== Muraqib Audit Summary ===');
+    logger.log(`✓ Timestamp: ${new Date(summary.timestamp).toISOString()}`);
+    logger.log(`✓ Duration: ${this.formatDuration(summary.duration)}`);
+    logger.log(`✓ Total Issues: ${summary.totalIssues}`);
+    logger.log(`  🔴 Critical: ${summary.critical}`);
+    logger.log(`  ⚠️  Errors: ${summary.errors}`);
+    logger.log(`  ⚡ Warnings: ${summary.warnings}`);
 
     if (summary.totalIssues === 0) {
-      console.log('\n✅ All audits passed!');
+      logger.log('\n✅ All audits passed!');
     } else {
-      console.log(`\n📋 Found ${summary.totalIssues} issue(s) to address.`);
+      logger.log(`\n📋 Found ${summary.totalIssues} issue(s) to address.`);
     }
 
-    console.log('============================\n');
+    logger.log('============================\n');
   }
 
   /**

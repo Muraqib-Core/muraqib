@@ -4,11 +4,23 @@ const { RESET, RED, GREEN, YELLOW, CYAN, DIM, BOLD } = COLORS;
 
 let isSilent = false;
 
-export function setSilent(silent: boolean) {
+/**
+ * Set silent.
+ *
+ * @param silent - Silent
+ */
+export function setSilent(silent: boolean): void {
   isSilent = silent;
 }
 
-export function log(title: string, status: "pass" | "fail" | "warn", message?: string) {
+/**
+ * Log.
+ *
+ * @param title - Title
+ * @param status - Status
+ * @param message - Message
+ */
+export function log(title: string, status: "pass" | "fail" | "warn", message?: string): void {
   if (isSilent) return;
   const icon = status === "pass"
     ? `${GREEN}[PASS]${RESET}`
@@ -18,14 +30,24 @@ export function log(title: string, status: "pass" | "fail" | "warn", message?: s
   console.log(`  ${icon} ${title}${message ? `: ${message}` : ""}`);
 }
 
-export function section(name: string) {
+/**
+ * Section.
+ *
+ * @param name - Name
+ */
+export function section(name: string): void {
   if (isSilent) return;
   console.log(`
 ${CYAN}${BOLD}${name}${RESET}`);
   console.log(`${DIM}${"-".repeat(60)}${RESET}`);
 }
 
-export function box(lines: string[]) {
+/**
+ * Box.
+ *
+ * @param lines - Lines
+ */
+export function box(lines: string[]): void {
   if (isSilent) return;
   const width = Math.max(...lines.map((l) => l.length), 40);
   console.log(`  ${DIM}┌${"─".repeat(width + 2)}┐${RESET}`);
@@ -35,7 +57,12 @@ export function box(lines: string[]) {
   console.log(`  ${DIM}└${"─".repeat(width + 2)}┘${RESET}`);
 }
 
-export function renderHeader(targetPath: string) {
+/**
+ * Render header.
+ *
+ * @param targetPath - Target path
+ */
+export function renderHeader(targetPath: string): void {
   if (isSilent) return;
   console.log(`
 ${CYAN}${BOLD}╔════════════════════════════════════════════════════════════╗${RESET}`);
@@ -45,7 +72,15 @@ ${CYAN}${BOLD}╔═════════════════════
 `);
 }
 
-export function renderSummary(allOk: boolean, skippedCount: number, criticalCount: number, warningCount: number) {
+/**
+ * Render summary.
+ *
+ * @param allOk - All ok
+ * @param skippedCount - Skipped count
+ * @param criticalCount - Critical count
+ * @param warningCount - Warning count
+ */
+export function renderSummary(allOk: boolean, skippedCount: number, criticalCount: number, warningCount: number): void {
   if (allOk) {
     box(
       skippedCount > 0
@@ -67,6 +102,12 @@ export function renderSummary(allOk: boolean, skippedCount: number, criticalCoun
   }
 }
 
+/**
+ * Format colorized status.
+ *
+ * @param status - Status
+ * @returns Format colorized status result
+ */
 export function formatColorizedStatus(status: "pass" | "fail" | "warn" | "skip"): string {
   switch (status) {
     case "pass":
@@ -80,6 +121,14 @@ export function formatColorizedStatus(status: "pass" | "fail" | "warn" | "skip")
   }
 }
 
+/**
+ * Get detail color.
+ *
+ * @param status - Status
+ * @param skipped - Skipped
+ * @param count - Count
+ * @returns Get detail color result
+ */
 export function getDetailColor(status: boolean, skipped: boolean, count: number): { color: string; text: string } {
   if (skipped) return { color: DIM, text: "not run" };
   if (status) return { color: GREEN, text: "clean" };

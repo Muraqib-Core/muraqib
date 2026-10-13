@@ -14,9 +14,10 @@ import { runPerformanceAudit as runPerformanceAuditCore } from "../core/performa
 import { analyzeHttpProfile } from "../core/performance/optimizer-engine.js";
 import { probeHttp } from "../core/performance/http-probe.js";
 import { cachePerformanceSchema } from "../rules/cache-guard.js";
-import { createEnvWithPresets, safeCreateEnv } from "../env.js";
+import { createEnvWithPresets, safeCreateEnv } from "../env/index.js";
 import { runMuraqibUpgradeOrchestrator } from "../core/upgrade-orchestrator.js";
 import { toMessage, extractEnvErrors } from "../shared/utils.js";
+import * as logger from "../shared/logger.js";
 
 /**
  * Options for comprehensive project audit
@@ -141,6 +142,12 @@ export async function runBundleAudit(targetPath: string): Promise<ModuleResult> 
   }
 }
 
+/**
+ * Run network audit.
+ *
+ * @param latencyUrl - Latency url
+ * @returns Run network audit result
+ */
 export async function runNetworkAudit(latencyUrl: string): Promise<ModuleResult> {
   try {
     const net = await performLiveLatencyAudit(latencyUrl);
@@ -153,6 +160,11 @@ export async function runNetworkAudit(latencyUrl: string): Promise<ModuleResult>
   }
 }
 
+/**
+ * Run memory audit.
+ *
+ * @returns Run memory audit result
+ */
 export async function runMemoryAudit(): Promise<ModuleResult> {
   try {
     const mem = performMemoryAudit();
@@ -199,6 +211,12 @@ export async function runDeadCodeAudit(targetPath: string): Promise<ModuleResult
   }
 }
 
+/**
+ * Run dependency audit.
+ *
+ * @param targetPath - Target path
+ * @returns Run dependency audit result
+ */
 export async function runDependencyAudit(targetPath: string): Promise<ModuleResult> {
   try {
     const dep = performDependencyAudit(targetPath);
@@ -211,6 +229,12 @@ export async function runDependencyAudit(targetPath: string): Promise<ModuleResu
   }
 }
 
+/**
+ * Run async audit.
+ *
+ * @param targetPath - Target path
+ * @returns Run async audit result
+ */
 export async function runAsyncAudit(targetPath: string): Promise<ModuleResult> {
   try {
     const async = performAsyncAudit(targetPath);
@@ -223,6 +247,12 @@ export async function runAsyncAudit(targetPath: string): Promise<ModuleResult> {
   }
 }
 
+/**
+ * Run config audit.
+ *
+ * @param targetPath - Target path
+ * @returns Run config audit result
+ */
 export async function runConfigAudit(targetPath: string): Promise<ModuleResult> {
   try {
     const cfg = performConfigAudit(targetPath);
@@ -261,9 +291,9 @@ export async function runEnvAudit(
       runtimeEnv: process.env as Record<string, string | undefined>,
       isServer: true,
       silent: true,
-      ...(options.presets ? { presets: options.presets as import("../presets.js").PresetInput[] } : {}),
+      ...(options.presets ? { presets: options.presets as import("../env/preset-map.js").PresetInput[] } : {}),
       ...(options.schedule ? { schedule: options.schedule } : {}),
-    } as unknown as import("../env.js").CreateEnvOptions;
+    } as unknown as import("../env/index.js").CreateEnvOptions;
 
     if (options.safe) {
       const envResult = safeCreateEnv(envOptions);
@@ -284,11 +314,16 @@ export async function runEnvAudit(
   }
 }
 
+/**
+ * Run performance audit.
+ *
+ * @returns Run performance audit result
+ */
 export async function runPerformanceAudit(): Promise<ModuleResult> {
   try {
     const perf = runPerformanceAuditCore();
     if (typeof perf === "object" && perf !== null && "isOptimized" in perf && !perf.isOptimized) {
-      return { ok: false, errors: perf.reports || ["Performance cache issues detected"] };
+      return { ok: false, errors: perf.reports ?? ["Performance cache issues detected"] };
     }
     return { ok: true, errors: [] };
   } catch (err: unknown) {
@@ -296,6 +331,13 @@ export async function runPerformanceAudit(): Promise<ModuleResult> {
   }
 }
 
+/**
+ * Run optimizer audit.
+ *
+ * @param targetPath - Target path
+ * @param url - Url
+ * @returns Run optimizer audit result
+ */
 export async function runOptimizerAudit(targetPath: string, url: string): Promise<ModuleResult> {
   try {
     const probe = await probeHttp(url);
@@ -343,6 +385,12 @@ export async function runOptimizerAudit(targetPath: string, url: string): Promis
 }
 
 
+/**
+ * Run render blocking audit.
+ *
+ * @param targetPath - Target path
+ * @returns Run render blocking audit result
+ */
 export async function runRenderBlockingAudit(targetPath: string): Promise<ModuleResult> {
   try {
     let htmlContent = "";
@@ -387,6 +435,11 @@ export async function runRenderBlockingAudit(targetPath: string): Promise<Module
   }
 }
 
+/**
+ * Run upgrade packages.
+ *
+ * @param targetPath - Target path
+ */
 export async function runUpgradePackages(targetPath: string): Promise<void> {
   const pkgPath = path.join(targetPath, "package.json");
   if (!fs.existsSync(pkgPath)) {
@@ -419,6 +472,6 @@ export async function runUpgradePackages(targetPath: string): Promise<void> {
   }
 
   if (upgraded === 0) {
-    console.log("[Muraqib] No packages required upgrading.");
+    logger.log("[Muraqib] No packages required upgrading.");
   }
 }

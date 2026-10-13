@@ -12,7 +12,7 @@ Thank you for your interest in contributing to Muraqib Core! This document provi
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20.12+
 - TypeScript 5.0+
 - npm or yarn
 
