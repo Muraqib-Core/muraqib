@@ -1,5 +1,10 @@
 import type { AuditReport } from "../../core/runner/audit-runner.js";
 
+/**
+ * Render json report.
+ *
+ * @param report - Report
+ */
 export function renderJsonReport(report: AuditReport): void {
   const output = {
     schemaVersion: "2.0",

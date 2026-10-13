@@ -3,6 +3,12 @@ import * as path from "node:path";
 
 export type ValidationEngineName = "zod" | "valibot" | "arktype" | "custom";
 
+/**
+ * Detect validation engine.
+ *
+ * @param projectRoot - Project root
+ * @returns Detect validation engine result
+ */
 export function detectValidationEngine(projectRoot: string = process.cwd()): ValidationEngineName {
   const pkgPath = path.join(projectRoot, "package.json");
 

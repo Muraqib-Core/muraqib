@@ -4,6 +4,7 @@ import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 import { CompatibilityEngine } from "../scan/scanners/compatibility/compatibility-engine.js";
 import { enrichIssue } from "../scan/bridge.js";
+import { nonEmpty } from "../utils/defaults.js";
 
 export interface CompatibilityAuditResult {
   isCompatible: boolean;
@@ -31,7 +32,7 @@ const deprecatedPackages: Record<
 function performCompatibilityAuditInternal(
   projectRoot?: string
 ): CompatibilityAuditResult {
-  const root = projectRoot || process.cwd();
+  const root = nonEmpty(projectRoot, process.cwd());
   const packageJsonPath = join(root, "package.json");
 
   const reports: string[] = [];
@@ -113,6 +114,10 @@ function performCompatibilityAuditInternal(
 
 export { performCompatibilityAuditInternal as performCompatibilityAudit };
 
+/**
+ * Compatibility guard class.
+ * Severity levels used: error.
+ */
 export class CompatibilityGuard extends BaseGuard {
   private projectRoot?: string | undefined;
 
@@ -121,6 +126,11 @@ export class CompatibilityGuard extends BaseGuard {
     this.projectRoot = projectRoot;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performCompatibilityAuditInternal(this.projectRoot);
     const auditIssues: AuditIssue[] = [];

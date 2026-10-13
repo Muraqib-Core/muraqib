@@ -10,12 +10,13 @@ import { GoogleGenAI } from "@google/genai";
 import os from "node:os";
 import type { AuditResult, AuditIssue } from "../core/types.js";
 import { redactSecretsInText } from "./safe-metadata.js";
+import { firstNonEmpty } from "../utils/defaults.js";
 
 /**
  * Resolve the API key. GEMINI_API_KEY is the documented name; GOOGLE_API_KEY is kept for backward compatibility.
  */
 export function resolveApiKey(explicit?: string): string | undefined {
-  return explicit || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || undefined;
+  return firstNonEmpty(explicit, process.env.GEMINI_API_KEY, process.env.GOOGLE_API_KEY);
 }
 
 export const ADVISOR_SYSTEM_PROMPT = `You are Muraqib (مراقب), a Senior DevSecOps & Build Performance Expert.

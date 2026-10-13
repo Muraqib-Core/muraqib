@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import * as logger from "../shared/logger.js";
+import { nonEmpty } from "../utils/defaults.js";
 
 export interface LoadEnvOptions {
   cwd?: string;
@@ -8,6 +10,12 @@ export interface LoadEnvOptions {
   verbose?: boolean;
 }
 
+/**
+ * Load env.
+ *
+ * @param options - Options
+ * @returns Load env result
+ */
 export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
   const cwd = options.cwd ?? process.cwd();
   const nodeEnv = process.env.NODE_ENV ?? "development";
@@ -35,7 +43,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
           if (!line.endsWith("\\")) {
             loaded[pendingKey] = pendingValue;
             if (options.verbose) {
-              console.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
+              logger.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
             }
             pendingKey = null;
           }
@@ -62,7 +70,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
         if (!line.endsWith("\\")) {
           loaded[key] = rawValue;
           if (options.verbose) {
-            console.log(`📄 [Muraqib Loader]: Loaded ${key} from ${file}`);
+            logger.log(`📄 [Muraqib Loader]: Loaded ${key} from ${file}`);
           }
           pendingKey = null;
         }
@@ -71,11 +79,11 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
       if (pendingKey !== null) {
         loaded[pendingKey] = pendingValue;
         if (options.verbose) {
-          console.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
+          logger.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
         }
       }
     } catch {
-      console.warn(`⚠️ [Muraqib Loader]: Failed to load ${filePath}`);
+      logger.warn(`⚠️ [Muraqib Loader]: Failed to load ${filePath}`);
     }
   }
 
@@ -89,9 +97,9 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
     }
   }
 
-  process.env.PORT = process.env.PORT || "3000";
-  process.env.STATIC_ASSETS_CACHE_MAX_AGE = process.env.STATIC_ASSETS_CACHE_MAX_AGE || "86400";
-  process.env.ENABLE_SERVER_COMPRESSION = process.env.ENABLE_SERVER_COMPRESSION || "true";
+  process.env.PORT = nonEmpty(process.env.PORT, "3000");
+  process.env.STATIC_ASSETS_CACHE_MAX_AGE = nonEmpty(process.env.STATIC_ASSETS_CACHE_MAX_AGE, "86400");
+  process.env.ENABLE_SERVER_COMPRESSION = nonEmpty(process.env.ENABLE_SERVER_COMPRESSION, "true");
 
   return loaded;
 }
@@ -131,7 +139,7 @@ function expandVariables(value: string, env: Record<string, string | undefined>)
   return value.replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}?/g, (_, name, def) => {
     const expanded = env[name];
     if (expanded && isSensitiveVariable(name)) {
-      console.warn(`⚠️  [Muraqib Security]: Sensitive environment variable "${name}" was expanded in configuration. Ensure this value is not exposed.`);
+      logger.warn(`⚠️  [Muraqib Security]: Sensitive environment variable "${name}" was expanded in configuration. Ensure this value is not exposed.`);
     }
     return expanded ?? def ?? "";
   });

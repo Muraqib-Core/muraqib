@@ -1,6 +1,11 @@
 import { styleText } from "node:util";
 import type { ScanIssue } from "../../core/findings/finding.js";
 
+/**
+ * Render findings.
+ *
+ * @param findings - Findings
+ */
 export function renderFindings(findings: ScanIssue[]): void {
   if (findings.length === 0) return;
 

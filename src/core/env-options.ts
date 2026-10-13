@@ -28,6 +28,11 @@ function toEnvKey(optionName: string): string {
   return `MURAQIB_${optionName.replace(/([A-Z])/g, "_$1").toUpperCase()}`;
 }
  // muraqib-ignore-dead: auto-suppressed by script for getMuraqibEnvMap
+/**
+ * Get muraqib env map.
+ *
+ * @returns Get muraqib env map result
+ */
 export function getMuraqibEnvMap(): Record<string, MuraqibOptionInfo> {
   const map: Record<string, MuraqibOptionInfo> = {};
 
@@ -42,6 +47,11 @@ export function getMuraqibEnvMap(): Record<string, MuraqibOptionInfo> {
   return map;
 }
 
+/**
+ * Get sensitive muraqib env keys.
+ *
+ * @returns Get sensitive muraqib env keys result
+ */
 export function getSensitiveMuraqibEnvKeys(): string[] {
   return Object.entries(getMuraqibEnvMap())
     .filter(([, info]) => info.isSensitive)

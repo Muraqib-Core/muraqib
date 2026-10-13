@@ -84,6 +84,13 @@ function parseJsonc(input: string): unknown {
   return JSON.parse(stripJsonCommentsAndTrailingCommas(input));
 }
 
+/**
+ * Read compiler options.
+ *
+ * @param configPath - Config path
+ * @param depth - Depth
+ * @returns Read compiler options result
+ */
 export function readCompilerOptions(configPath: string, depth = 0): Record<string, unknown> | undefined {
   const parsed = parseJsonc(fs.readFileSync(configPath, "utf-8"));
   const config = isRecord(parsed) ? parsed : {};

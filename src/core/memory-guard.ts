@@ -84,6 +84,10 @@ function performMemoryAuditInternal(options: MemoryAuditOptions = {}): MemoryAud
   };
 }
 
+/**
+ * Memory guard class.
+ * Severity levels used: warning, critical, error.
+ */
 export class MemoryGuard extends BaseGuard {
   private options: MemoryAuditOptions;
 
@@ -92,6 +96,11 @@ export class MemoryGuard extends BaseGuard {
     this.options = options;
   }
 
+  /**
+   * Execute.
+   *
+   * @returns Execute result
+   */
   async execute(): Promise<AuditResult> {
     const result = performMemoryAuditInternal(this.options);
 

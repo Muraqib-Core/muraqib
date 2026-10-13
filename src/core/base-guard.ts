@@ -32,7 +32,12 @@
  */
 
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import * as logger from "../shared/logger.js";
 
+/**
+ * Base guard class.
+ * Severity levels used: warning, error, critical, info.
+ */
 export abstract class BaseGuard {
   protected module: string;
   protected startTime: number = 0;
@@ -174,7 +179,7 @@ export abstract class BaseGuard {
    * @param message - Message to log
    */
   protected log(message: string): void {
-    console.log(`[${this.module}] ${message}`);
+    logger.log(`[${this.module}] ${message}`);
   }
 
   /**
@@ -182,7 +187,7 @@ export abstract class BaseGuard {
    * @param message - Message to log
    */
   protected warn(message: string): void {
-    console.warn(`[${this.module}] ⚠️  ${message}`);
+    logger.warn(`[${this.module}] ⚠️  ${message}`);
   }
 
   /**
@@ -190,7 +195,7 @@ export abstract class BaseGuard {
    * @param message - Message to log
    */
   protected error(message: string): void {
-    console.error(`[${this.module}] ❌ ${message}`);
+    logger.error(`[${this.module}] ❌ ${message}`);
   }
 
   /**

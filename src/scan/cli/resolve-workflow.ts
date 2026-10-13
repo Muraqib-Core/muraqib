@@ -7,6 +7,11 @@ import { ResolutionApplier } from "../core/resolution/resolution-applier.js";
 import type { ApprovalDecision } from "../core/resolution/resolution-plan.js";
 import { AuditRunner } from "../core/runner/audit-runner.js";
 
+/**
+ * Run resolve workflow.
+ *
+ * @param context - Context
+ */
 export async function runResolveWorkflow(context: ProjectContext): Promise<void> {
   console.log(styleText("dim", "────────────────────────────────────────────"));
   console.log(styleText(["bold", "cyan"], "Muraqib Dependency Resolution 🛡️"));

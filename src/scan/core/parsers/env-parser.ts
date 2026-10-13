@@ -39,6 +39,12 @@ function stripInlineComment(value: string): string {
   return value;
 }
 
+/**
+ * Parse env file.
+ *
+ * @param filePath - File path
+ * @returns Parse env file result
+ */
 export function parseEnvFile(filePath: string): ParseEnvResult {
   const parsedLines: parsedLine[] = [];
   const issues: syntaxIssue[] = [];
