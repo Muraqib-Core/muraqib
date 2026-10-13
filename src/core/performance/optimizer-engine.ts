@@ -5,6 +5,14 @@ export interface HttpProfileAnalysis {
   notes: string[];
 }
 
+/**
+ * Analyze http profile.
+ *
+ * @param resourceCount - Resource count
+ * @param protocol - Protocol
+ * @param cookiesSize - Cookies size
+ * @returns Analyze http profile result
+ */
 export const analyzeHttpProfile = (
   resourceCount: number,
   protocol: string,

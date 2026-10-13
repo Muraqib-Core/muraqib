@@ -2,9 +2,37 @@ import { loadEnv } from "../env.js";
 import { getArg } from "../shared/utils.js";
 import { CLI_FLAGS } from "../shared/constants.js";
 import { runAuditWorkflow } from "./workflow.js";
-import { type AuditOptions } from "../orchestrator/audit.js";
+import type { AuditOptions, AuditResult } from "../orchestrator/audit.js";
 
-export function parseCliArgs(args: string[]) {
+/** Options parsed from the raw CLI argument vector. */
+export interface ParsedCliArgs {
+  skipEnv: boolean;
+  skipNetwork: boolean;
+  skipMemory: boolean;
+  skipSecurity: boolean;
+  skipDeadCode: boolean;
+  skipDependencies: boolean;
+  skipAsync: boolean;
+  skipConfig: boolean;
+  skipPerformance: boolean;
+  skipOptimizer: boolean;
+  skipRenderBlocking: boolean;
+  silent: boolean;
+  safe: boolean;
+  upgrade: boolean;
+  targetPath: string | undefined;
+  latencyUrl: string | undefined;
+  securityUrl: string | undefined;
+  schedule: string | undefined;
+  presets: string[] | undefined;
+}
+
+/**
+ * Parse the CLI argument vector into audit options.
+ * @param args - Raw arguments (typically `process.argv.slice(2)`)
+ * @returns Parsed flags and string options
+ */
+export function parseCliArgs(args: string[]): ParsedCliArgs {
   return {
     skipEnv: args.includes(CLI_FLAGS.SKIP_ENV),
     skipNetwork: args.includes(CLI_FLAGS.SKIP_NETWORK),
@@ -28,7 +56,11 @@ export function parseCliArgs(args: string[]) {
   };
 }
 
-export async function run() {
+/**
+ * Entry point for the audit CLI: loads the environment, parses arguments and runs the audit workflow.
+ * @returns The aggregated audit result
+ */
+export async function run(): Promise<AuditResult> {
   loadEnv({ verbose: false });
   const args = process.argv.slice(2);
   const opts: AuditOptions = {

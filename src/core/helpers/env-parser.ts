@@ -20,6 +20,12 @@ function findClosingQuote(text: string, quote: string): number {
   return -1;
 }
 
+/**
+ * Parse env entries.
+ *
+ * @param content - Content
+ * @returns Parse env entries result
+ */
 export function parseEnvEntries(content: string): EnvEntry[] {
   const entries: EnvEntry[] = [];
   const lines = content.split(/\r?\n/);

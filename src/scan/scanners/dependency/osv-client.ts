@@ -38,6 +38,13 @@ export type OsvQueryResult =
   | { status: "unavailable"; error: string }
   | { status: "error"; error: string };
 
+/**
+ * Query osv.
+ *
+ * @param packageName - Package name
+ * @param version - Version
+ * @returns Query osv result
+ */
 export function queryOsv(
   packageName: string,
   version: string

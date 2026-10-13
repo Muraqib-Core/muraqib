@@ -5,9 +5,19 @@ import { z, type ZodTypeAny } from "zod";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
 
+/**
+ * Zod validation engine class.
+ */
 export class ZodValidationEngine implements ValidationEngine {
   readonly name = "zod";
 
+  /**
+   * Validate.
+   *
+   * @param runtimeEnv - Runtime env
+   * @param presets - Presets
+   * @returns Validate result
+   */
   validate(
     runtimeEnv: Record<string, string>,
     presets?: string[]
@@ -65,6 +75,13 @@ export class ZodValidationEngine implements ValidationEngine {
 
 const defaultZodEngine = new ZodValidationEngine();
 
+/**
+ * Run zod validation.
+ *
+ * @param runtimeEnv - Runtime env
+ * @param presets - Presets
+ * @returns Run zod validation result
+ */
 export function runZodValidation(
   runtimeEnv: Record<string, string>,
   presets?: string[]
