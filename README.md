@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔍 Muraqib Core
+#  Muraqib Core
 
 **Unified Developer Environment Guardian & Performance Auditor**
 
@@ -16,15 +16,15 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 
 ---
 
-## ✨ Features
+##  Features
 
-### 🔐 Security Auditing
+###  Security Auditing
 - **Injection Prevention**: SQL/XSS detection and prevention
 - **Secret Detection**: API keys, passwords, tokens, credentials
 - **Auth/Crypto Validation**: Security protocols and cryptographic best practices
 - **Security Headers Analysis**: HTTP security header validation
 
-### 🚀 Performance (13+ Modules)
+###  Performance (13+ Modules)
 - **Memory Management**: Heap leak detection and memory profile analysis
 - **Bundle Optimization**: Size monitoring and budget enforcement (14 KB default)
 - **Network Analysis**: Latency measurement and optimization recommendations
@@ -36,13 +36,13 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 - **Render Blocking**: Render-blocking resource detection
 - **HTTP/2 Support**: Protocol and compression optimization
 
-### 🏗️ Architecture Validation
+###  Architecture Validation
 - **Configuration Validation**: Environment variables and config file validation
 - **Docker Best Practices**: Containerization checks and recommendations
 - **Compatibility Checking**: Node.js version and peer dependency validation
 - **AI-Powered Recommendations**: Context-aware issue resolution suggestions
 
-### 🤖 AI Integration
+###  AI Integration
 - **AI-Complementary**: Works with AI-generated code to catch issues
 - **Secret Detection**: Advanced pattern matching for sensitive data
 - **Intelligent Recommendations**: AI-powered fix suggestions
@@ -90,7 +90,7 @@ npm test
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Run full audit on current project
@@ -117,7 +117,7 @@ npm run type-check
 
 ---
 
-## 📖 Documentation Web View
+##  Documentation Web View
 
 `npm run build` also writes a self-contained documentation page (Details, Features, Installation, Configuration, Requirements, Changelog tabs) to `dist/webview/index.html`. It has no server and no network access: open the file directly in a browser.
 
@@ -137,7 +137,7 @@ The page text lives in `src/webview/content/` as typed data, so adding a tab or 
 
 ---
 
-## 🖥️ CLI Usage
+##  CLI Usage
 
 After `npm run build`, the `muraqib` binary (`bin/muraqib.js`) exposes four commands.
 
@@ -173,7 +173,7 @@ muraqib audit --fail-on-warning            # exit 1 on warnings too
 | `--no-interactive` | Disable the spinner and prompts in a terminal |
 | `-v, --verbose` | Verbose logging |
 
-Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
+Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The unified report includes `exitCode` and `modules.scan.scan`, which retains the scan policy, blocking decision and per-scanner coverage (`status`, scanned/skipped inputs and diagnostics). Text, HTML, CSV and interactive reports display these coverage details too. `-e prod` blocks medium scan findings even though their displayed severity stays `warning`; `build` blocks high and critical findings. A scanner failure takes precedence and returns exit code `3`. Agent module summaries also retain scan metadata; scanner failures set `ok: false`, `verdict: "fail"` and `exitCode: 3`. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
 
 ### `resolve`
 
@@ -193,12 +193,12 @@ muraqib runtime --container my-app [--json]
 
 `image` requires the `trivy` binary and only scans images that already exist locally. `runtime` inspects the container read-only; it never starts, stops or modifies it.
 
-### 🤖 AI agents (Claude Code, Cursor, MCP clients)
+###  AI agents (Claude Code, Cursor, MCP clients)
 
 Muraqib is usable as a tool by LLM agents. The agent output is a versioned (`schemaVersion: "1.0"`), deterministic JSON report: no timestamps or durations, issues sorted by severity, and stable issue `id`s so an agent can confirm a fix by re-running.
 
 ```bash
-muraqib agent -p ./my-app --osv --max-issues 50   # AgentReport as JSON; exit 1 when verdict is "fail"
+muraqib agent -p ./my-app --osv --max-issues 50   # AgentReport as JSON; exit 1 on blocking findings, 3 on scanner failure
 muraqib context                                    # capabilities, modules, severity semantics
 muraqib tool-schema                                # tool definitions (MCP / tool-use compatible)
 muraqib audit --json                               # classic report as JSON (shorthand for --format json)
@@ -240,7 +240,7 @@ The exit code is the same as in non-interactive runs (`1` on critical/error, `13
 
 ---
 
-## 📚 Architecture Overview
+##  Architecture Overview
 
 ### Core Components
 
@@ -318,7 +318,7 @@ interface AuditIssue {
 
 ---
 
-## 🧪 Testing
+##  Testing
 
 ### Running Tests
 
@@ -359,7 +359,7 @@ tests/
 
 ---
 
-## 🔄 CI/CD Pipeline
+##  CI/CD Pipeline
 
 GitHub Actions workflow with multi-stage validation:
 
@@ -398,7 +398,7 @@ npm test              # Run all tests
 
 ---
 
-## 📋 Project Structure
+##  Project Structure
 
 The project has two layers that share the unified `AuditIssue` model:
 the **guard layer** (`src/core`, `src/rules`, `src/orchestrator`, ...) runs the
@@ -458,7 +458,7 @@ tests/
 
 ---
 
-## 🔌 API Reference
+##  API Reference
 
 ### BaseGuard Methods
 
@@ -508,7 +508,7 @@ interface AuditContext {
 
 ---
 
-## 🛠️ Development
+##  Development
 
 ### Build
 
@@ -534,7 +534,7 @@ npm run lint -- --fix      # Auto-fix issues
 
 ---
 
-## 📝 Contributing
+##  Contributing
 
 ### Code Standards
 
@@ -566,7 +566,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
 ---
 
-## 📊 Performance Targets
+##  Performance Targets
 
 | Metric | Target |
 |--------|--------|
@@ -578,7 +578,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
 ---
 
-## 🔗 Related Documentation
+##  Related Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture guide
 - [API.md](API.md) - Complete API reference
@@ -587,13 +587,13 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
 ---
 
-## 📄 License
+##  License
 
-ISC © [Aya Almadhon](https://github.com/Ayaalmadhon2004) & Jenan
+ISC © [Aya Almadhon](https://github.com/Ayaalmadhon2004) & [Jenan](https://github.com/Jenan04)
 
 ---
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 Built as an **AI-complementary DevTool** to enhance AI-generated code quality, security, and performance.
 

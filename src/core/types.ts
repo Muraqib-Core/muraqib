@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import type { AuditReport as ScanReport } from "../scan/core/runner/audit-runner.js";
 import type {
   DependencyProblemData,
   FindingCategory as ScanCategory,
@@ -67,6 +68,9 @@ export interface AuditIssue {
   imageProblem?: ImageProblemData;
 }
 
+/** Scan policy and coverage retained by unified reports. */
+export type ScanAuditMetadata = Pick<ScanReport, "mode" | "exitCode" | "hasBlockingIssues" | "scannerCoverage">;
+
 export interface AuditResult {
   status: "ok" | "issues" | "warning" | "error";
   module: string;
@@ -74,6 +78,7 @@ export interface AuditResult {
   message: string;
   timestamp: number;
   duration: number;
+  scan?: ScanAuditMetadata;
 }
 
 

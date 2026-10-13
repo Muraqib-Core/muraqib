@@ -1,3 +1,4 @@
+import { auditExitCode } from "../core/audit-exit-code.js";
 import { createHash } from "node:crypto";
 import { collectAuditResults } from "../orchestrator/collect-results.js";
 import type { AuditIssue, AuditResult } from "../core/types.js";
@@ -59,16 +60,17 @@ export function buildAgentReport(
   for (const issue of all) summary[issue.severity] += 1;
 
   const limit = options.maxIssues !== undefined && options.maxIssues >= 0 ? options.maxIssues : all.length;
-  const failing = summary.critical + summary.error > 0 || (options.failOnWarning === true && summary.warning > 0);
+  const exitCode = auditExitCode(results, options.failOnWarning);
 
   const report: AgentReport = {
     schemaVersion: AGENT_REPORT_SCHEMA_VERSION,
-    ok: true,
-    verdict: failing ? "fail" : "pass",
+    ok: exitCode !== 3,
+    verdict: exitCode === 0 ? "pass" : "fail",
+    exitCode,
     projectRoot,
     summary,
     modules: results
-      .map((r) => ({ name: r.module, status: r.status, issueCount: r.issues.length }))
+      .map((r) => ({ name: r.module, status: r.status, issueCount: r.issues.length, ...(r.scan ? { scan: r.scan } : {}) }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     issues: all.slice(0, limit),
     truncated: Math.max(0, all.length - limit),
@@ -103,6 +105,7 @@ export async function runAuditForAgent(options: AgentAuditOptions = {}): Promise
       schemaVersion: AGENT_REPORT_SCHEMA_VERSION,
       ok: false,
       verdict: "fail",
+      exitCode: 3,
       projectRoot,
       summary: { total: 0, critical: 0, error: 0, warning: 0, info: 0 },
       modules: [],

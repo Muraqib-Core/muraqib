@@ -1,3 +1,4 @@
+import { scanCoverageLines } from "./scan-coverage.js";
 /**
  * Interactive (Clack) presentation for the audit command.
  *
@@ -66,6 +67,8 @@ export async function promptSecurityUrl(): Promise<string | undefined | null> {
 export function showReport(report: AuditReport, verbose = false): void {
   const views = getModuleViews(report);
   x.note(renderOverview(views), "Results");
+  const coverage = scanCoverageLines(report);
+  if (coverage.length) x.note(coverage.join("\n"), "Scanner Coverage");
   for (const view of views.filter((v) => v.issues.length > 0)) {
     x.log.message(`${view.name}\n${renderModuleIssues(view, verbose ? Number.POSITIVE_INFINITY : 5)}`);
   }
@@ -145,6 +148,14 @@ export function showIntro(projectRoot: string): void {
 }
 
 export function showOutro(report: AuditReport): void {
+  if (report.exitCode === 3) {
+    x.outro(chalk.red("A scanner failed; the audit could not complete reliably."));
+    return;
+  }
+  if (report.exitCode === 1 && report.summary.critical + report.summary.error === 0) {
+    x.outro(chalk.yellow("Findings block the selected audit policy. Review the report and re-run."));
+    return;
+  }
   const { failed, text } = summarizeReport(report);
   if (failed) x.outro(`Failed — ${text}`);
   else x.outro(`Passed — ${text}`);
