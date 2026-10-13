@@ -24,4 +24,6 @@ export interface AuditReport {
     info: number;
   };
   modules: Record<string, unknown>;
+  /** Effective policy outcome; 3 means a scanner failed. */
+  exitCode?: 0 | 1 | 3;
 }
