@@ -7,7 +7,7 @@
 Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.12+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
@@ -365,7 +365,7 @@ GitHub Actions workflow with multi-stage validation:
 
 ### Jobs
 
-1. **lint-and-build** (Matrix: Node 18.x, 20.x)
+1. **lint-and-build** (Matrix: Node 20.12.0 (minimum), 22.x)
    - Type checking
    - Build compilation
    - ESLint validation
