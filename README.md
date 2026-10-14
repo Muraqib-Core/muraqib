@@ -52,7 +52,7 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 ##  Usage from npm
 
 The npm package is `@muraqib/core`; the CLI command it installs is `muraqib`.
-The beta version will be available after publication:
+The muraqib version will be available after publication:
 
 ```bash
 # Full audit

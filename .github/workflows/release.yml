@@ -38,7 +38,7 @@ jobs:
         run: npm run lint
 
       - name: Publish to npm with provenance
-        run: npm publish --provenance --tag beta --access public
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
