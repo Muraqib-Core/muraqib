@@ -1,6 +1,6 @@
 <div align="center">
 
-#  Muraqib Core
+#  @muraqib/core
 
 **Unified Developer Environment Guardian & Performance Auditor**
 
@@ -49,20 +49,20 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 
 ---
 
-## 📦 Usage from npm
+##  Usage from npm
 
 The npm package is `@muraqib/core`; the CLI command it installs is `muraqib`.
 The beta version will be available after publication:
 
 ```bash
 # Full audit
-npx @muraqib/core@beta audit
+npx @muraqib/core audit
 
 # Guided interactive mode (Clack)
-npx @muraqib/core@beta audit -i
+npx @muraqib/core audit -i
 
 # Install locally, then use the CLI command
-npm install -D @muraqib/core@beta
+npm install -D @muraqib/core
 npx muraqib audit
 ```
 
@@ -84,7 +84,7 @@ The default install is lightweight. These packages are optional peer dependencie
 
 ---
 
-## 🧑‍💻 Local development
+##  Local development
 
 ```bash
 # Clone the repository
