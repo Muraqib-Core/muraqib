@@ -8,7 +8,7 @@ export interface ChangelogRelease {
 /** Newest first. Keep the top entry in sync with `package.json` (a unit test enforces it). */
 export const CHANGELOG: readonly ChangelogRelease[] = [
    {
-    version: "1.0.3-beta.1",
+    version: "1.0.3",
     date: "2026-10-13",
     groups: [
       {

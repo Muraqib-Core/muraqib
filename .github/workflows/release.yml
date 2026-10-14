@@ -47,4 +47,4 @@ jobs:
         with:
           generate_release_notes: true
           draft: false
-          prerelease: true
+          prerelease: false
