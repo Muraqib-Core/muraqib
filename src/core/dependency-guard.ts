@@ -182,7 +182,7 @@ function performDependencyAuditInternal(targetPath: string): DependencyAuditResu
 }
 
 /**
- * Dependency guard class.
+ * Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs.
  * Severity levels used: warning, error.
  */
 export class DependencyGuard extends BaseGuard {

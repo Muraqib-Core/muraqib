@@ -6,11 +6,13 @@
 
 Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+<!-- AUTO:badges:start -->
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20.12+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
+[![Vitest](https://img.shields.io/badge/Vitest-5.x-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/Muraqib-Core/muraqib/ci.yml?branch=main&label=CI%2FCD&logo=github)](https://github.com/Muraqib-Core/muraqib/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+<!-- AUTO:badges:end -->
 
 </div>
 
@@ -74,13 +76,19 @@ In CI, pass `--no-interactive` and use `--fail-on-warning` when warnings should 
 
 The default install is lightweight. These packages are optional peer dependencies; install only what you use:
 
-| Package | Needed for | Install |
-|---|---|---|
-| `valibot` | `--engine valibot` / `ValibotEngine` | `npm i valibot` |
-| `arktype` | `--engine arktype` / `ArktypeEngine` | `npm i arktype` |
-| `@google/genai` | AI advisor (`--ai-advisory`, Gemini) | `npm i @google/genai` |
+Generated from `package.json` (`peerDependencies`):
 
-`zod` is installed with `muraqib-core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
+<!-- AUTO:peer-deps:start -->
+| Package | Range | Kind | Install |
+|---------|-------|------|---------|
+| `@google/genai` | `^2.22.0` | optional | `npm i @google/genai` |
+| `arktype` | `^2.2.0` | optional | `npm i arktype` |
+| `valibot` | `^1.4.0` | optional | `npm i valibot` |
+<!-- AUTO:peer-deps:end -->
+
+Used for: `valibot` → `--engine valibot` / `ValibotEngine`; `arktype` → `--engine arktype` / `ArktypeEngine`; `@google/genai` → AI advisor (`--ai-advisory`, Gemini).
+
+`zod` is installed with `@muraqib/core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
 
 ---
 
@@ -291,17 +299,22 @@ const result = await guard.run();
 
 #### Built-in Guards
 
-| Guard | Purpose | Key Detections |
-|-------|---------|-----------------|
-| **MemoryGuard** | Heap/memory analysis | Memory leaks, heap dumps |
-| **SecurityGuard** | Security scanning | Vulnerabilities, security headers |
-| **DependencyGuard** | Dependency analysis | Circular deps, duplicates, deprecated APIs |
-| **AsyncGuard** | Async pattern validation | Floating promises, missing awaits |
-| **ConfigGuard** | Configuration validation | Missing env vars, invalid settings |
-| **DockerGuard** | Docker best practices | Containerization checks |
-| **CompatibilityGuard** | Version compatibility | Node.js EOL, peer dependencies |
-| **ImageGuard** | Image optimization | Image size, format, optimization |
-| **DeadCodeGuard** | Code quality | Unreachable code, unused exports |
+Generated from every class that `extends BaseGuard` (the purpose comes from its JSDoc):
+
+<!-- AUTO:guards:start -->
+| Guard | Source | Purpose |
+|-------|--------|---------|
+| `AsyncGuard` | `src/core/async-guard.ts` | Detects floating promises, missing `await`, and callback-hell patterns in source files. Severity levels used: warning, error. |
+| `CompatibilityGuard` | `src/core/compatibility-guard.ts` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. |
+| `ConfigGuard` | `src/core/config-guard.ts` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, warning, error. |
+| `DeadCodeGuard` | `src/rules/dead-code-guard.ts` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. |
+| `DependencyGuard` | `src/core/dependency-guard.ts` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. |
+| `DockerGuard` | `src/core/docker-guard.ts` | Guard-layer adapter over the scan layer's DockerScanner (Dockerfile, compose, .dockerignore rules). Replaces the earlier naive string-matching implementation. |
+| `ImageGuard` | `src/core/performance/image-guard.ts` | Audits image assets for oversized files and non-optimal formats. Severity levels used: warning. |
+| `MemoryGuard` | `src/core/memory-guard.ts` | Inspects heap, RSS and external memory usage and flags leak risk against configurable thresholds. Severity levels used: warning, critical, error. |
+| `NetworkLatencyGuard` | `src/core/performance/network-latency-advisor.ts` | NetworkLatencyGuard - measures real response latency and first-payload size of a URL. |
+| `SecurityGuard` | `src/core/security-guard.ts` | Probes a target URL for missing HTTP security headers and common web vulnerabilities. Severity levels used: error, warning, critical. |
+<!-- AUTO:guards:end -->
 
 #### Guard Results
 
@@ -376,30 +389,30 @@ tests/
 
 ##  CI/CD Pipeline
 
-GitHub Actions workflow with multi-stage validation:
+Workflows (generated from `.github/workflows/`):
 
-### Jobs
+<!-- AUTO:workflows:start -->
+| Workflow | File | Triggers | Jobs |
+|----------|------|----------|------|
+| Audit | `.github/workflows/audit.yml` | push, pull_request, workflow_dispatch | `audit` |
+| CI/CD Pipeline | `.github/workflows/ci.yml` | push, pull_request | `lint-and-build`, `test-and-coverage`, `self-audit`, `quality-gate`, `package-contents`, `docs-check`, `security-scan` |
+| Docs | `.github/workflows/docs.yml` | push, schedule, workflow_dispatch | `refresh` |
+| Release | `.github/workflows/release.yml` | push | `release` |
+<!-- AUTO:workflows:end -->
 
-1. **lint-and-build** (Matrix: Node 20.12.0 (minimum), 22.x)
-   - Type checking
-   - Build compilation
-   - ESLint validation
-   - Artifact upload
+### `ci.yml` jobs
 
-2. **test-and-coverage**
-   - Vitest execution
-   - Coverage report generation
-   - Codecov upload
-   - Coverage artifacts
+<!-- AUTO:ci-jobs:start -->
+- **Lint and Build** (`lint-and-build`) (matrix: node-version 20.12.0, 22.x)
+- **Test and Coverage** (`test-and-coverage`)
+- **Self-Audit (muraqib audit)** (`self-audit`)
+- **Quality Gate** (`quality-gate`) - needs: `lint-and-build`, `test-and-coverage`, `self-audit`, `package-contents`, `security-scan`, `docs-check`
+- **Package Contents** (`package-contents`)
+- **Generated Docs** (`docs-check`)
+- **Security Scan** (`security-scan`)
+<!-- AUTO:ci-jobs:end -->
 
-3. **quality-gate**
-   - Validates lint-and-build success
-   - Validates test-and-coverage success
-   - Overall pipeline check
-
-4. **security-scan** (Main branch only)
-   - npm audit --production
-   - Vulnerable dependency detection
+Coverage thresholds (85%) are enforced by `vitest.config.ts`; the `docs-check` job fails a PR when generated documentation is stale, and the `Docs` workflow opens a refresh PR automatically after changes land on `main`/`develop`.
 
 ### Running Locally
 
@@ -409,6 +422,7 @@ npm run type-check    # TypeScript strict check
 npm run build         # Verify compilation
 npm run lint          # ESLint validation
 npm test              # Run all tests
+npm run docs:check    # Generated docs are up to date
 ```
 
 ---
@@ -466,9 +480,13 @@ tests/
 └── fixtures.ts            # Shared test data
 
 .github/workflows/
-├── ci.yml                 # Build, lint, test and coverage
-├── audit.yml              # Runs the audit on push
-└── release.yml            # Creates a GitHub Release on v*.*.* tags
+├── ci.yml                 # Build, lint, test, coverage, self-audit, package + security checks
+├── audit.yml              # Runs the audit and uploads the report
+├── docs.yml               # Verifies and auto-refreshes generated documentation
+└── release.yml            # Publishes to npm and creates a GitHub Release on v*.*.* tags
+
+docs/
+└── REFERENCE.md           # Generated reference (do not edit by hand)
 ```
 
 ---
@@ -595,8 +613,11 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
 ##  Related Documentation
 
+> Facts such as versions, guards, CLI flags, scripts and workflows are **generated** from the source (`npm run docs:generate`). Blocks marked `<!-- AUTO:... -->` and `docs/REFERENCE.md` must not be edited by hand.
+
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture guide
 - [API.md](API.md) - Complete API reference
+- [docs/REFERENCE.md](docs/REFERENCE.md) - Generated reference (guards, public API, CLI, scripts, workflows)
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 

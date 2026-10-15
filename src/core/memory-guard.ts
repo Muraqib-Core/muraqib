@@ -85,7 +85,7 @@ function performMemoryAuditInternal(options: MemoryAuditOptions = {}): MemoryAud
 }
 
 /**
- * Memory guard class.
+ * Inspects heap, RSS and external memory usage and flags leak risk against configurable thresholds.
  * Severity levels used: warning, critical, error.
  */
 export class MemoryGuard extends BaseGuard {
