@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("child_process", () => ({ execSync: vi.fn() }));
+vi.mock("child_process", () => ({ execFile: vi.fn() }));
 vi.mock("../../../src/utils/manager-detector.js", () => ({
   detectProjectPackageManager: vi.fn(),
 }));
@@ -9,10 +9,20 @@ vi.mock("../../../src/config/presets.js", () => ({
   fetchRemoteMuraqibPresets: vi.fn(),
 }));
 
-import { execSync } from "child_process";
+import { execFile } from "child_process";
 import { detectProjectPackageManager } from "../../../src/utils/manager-detector.js";
 import { fetchRemoteMuraqibPresets } from "../../../src/config/presets.js";
 import { runMuraqibUpgradeOrchestrator } from "../../../src/core/upgrade-orchestrator.js";
+
+type Outcome = (command: string, args: string[]) => Error | null;
+const mockExec = (outcome: Outcome = () => null): void => {
+  vi.mocked(execFile).mockImplementation(((command: string, args: string[], _o: unknown, cb: (e: Error | null, so: string, se: string) => void) => {
+    cb(outcome(command, args), "", "");
+    return undefined as never;
+  }) as never);
+};
+const calledWith = (command: string, args?: string[]): boolean =>
+  vi.mocked(execFile).mock.calls.some((c) => c[0] === command && (args === undefined || JSON.stringify(c[1]) === JSON.stringify(args)));
 
 const run = (over: Partial<Parameters<typeof runMuraqibUpgradeOrchestrator>[0]> = {}) =>
   runMuraqibUpgradeOrchestrator({
@@ -27,6 +37,7 @@ describe("upgrade orchestrator flows", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    mockExec();
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -45,17 +56,17 @@ describe("upgrade orchestrator flows", () => {
   test("bumps the version and runs the build for the detected manager", async () => {
     const result = await run();
     expect(result.updatedVersion).toBe("^2.0.0");
-    expect(execSync).toHaveBeenCalledWith("npm run build", { stdio: "ignore", cwd: process.cwd() });
+    expect(calledWith("npm", ["run", "build"])).toBe(true);
   });
 
   test.each([
-    ["yarn", "yarn build"],
-    ["pnpm", "pnpm -w build"],
-    ["unknown", "npm run build"],
-  ])("uses the %s build command", async (manager, command) => {
+    ["yarn", "yarn", ["build"]],
+    ["pnpm", "pnpm", ["-w", "build"]],
+    ["unknown", "npm", ["run", "build"]],
+  ])("uses the %s build command", async (manager, command, args) => {
     vi.mocked(detectProjectPackageManager).mockReturnValue(manager as never);
     await run();
-    expect(execSync).toHaveBeenCalledWith(command, { stdio: "ignore", cwd: process.cwd() });
+    expect(calledWith(command, args)).toBe(true);
   });
 
   test("reports the matching preset group, fetching remote presets when a url is given", async () => {
@@ -76,16 +87,11 @@ describe("upgrade orchestrator flows", () => {
   test("runs the schema migration for a breaking major and records success", async () => {
     const result = await run({ packageName: "tailwindcss", currentValue: "^3.4.0", newVersion: "4.0.0" });
     expect(result.schemaMigrated).toBe(true);
-    expect(execSync).toHaveBeenCalledWith(
-      expect.stringContaining("@tailwindcss/upgrade"),
-      { stdio: "inherit", cwd: process.cwd() }
-    );
+    expect(calledWith("npx", ["@tailwindcss/upgrade@latest", "--yes"])).toBe(true);
   });
 
   test("continues to the build when the migration command fails", async () => {
-    vi.mocked(execSync).mockImplementationOnce(() => {
-      throw new Error("codemod failed");
-    });
+    mockExec((command) => (command === "npx" ? new Error("codemod failed") : null));
     const result = await run({ packageName: "prisma", currentValue: "^5.0.0", newVersion: "6.0.0" });
     expect(result.schemaMigrated).toBe(false);
     expect(result.updatedVersion).toBe("^6.0.0");
@@ -93,9 +99,7 @@ describe("upgrade orchestrator flows", () => {
   });
 
   test("returns the original version when the build fails", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("build failed");
-    });
+    mockExec(() => new Error("build failed"));
     const result = await run();
     expect(result).toEqual({ updatedVersion: "^1.0.0", schemaMigrated: false });
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("Integrity Failure"));
@@ -103,7 +107,7 @@ describe("upgrade orchestrator flows", () => {
 
   test("does nothing when the new version is not newer", async () => {
     const result = await run({ currentValue: "^2.0.0", newVersion: "1.0.0" });
-    expect(execSync).not.toHaveBeenCalled();
+    expect(execFile).not.toHaveBeenCalled();
     expect(result.schemaMigrated).toBe(false);
   });
 

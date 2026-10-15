@@ -39,4 +39,24 @@ describe('Muraqib Env Transformation Engine (SemVer Inspired)', () => {
 
     expect(result).toBe('org:read,repo:status,user:email');
   });
+
+  it('strips matching double and single quotes from both values', () => {
+    expect(getNewEnvValue({ currentValue: '"a"', newValue: "'b'", updateStrategy: 'replace' })).toBe('b');
+    expect(getNewEnvValue({ currentValue: "'a'", newValue: "'b'", updateStrategy: 'keep-both' })).toBe('"a" || "b"');
+  });
+
+  it('does not strip a lone or mismatched quote', () => {
+    expect(getNewEnvValue({ currentValue: 'x', newValue: `"abc`, updateStrategy: 'replace' })).toBe('"abc');
+    expect(getNewEnvValue({ currentValue: 'x', newValue: `it's`, updateStrategy: 'replace' })).toBe("it's");
+    expect(getNewEnvValue({ currentValue: 'x', newValue: `"abc'`, updateStrategy: 'replace' })).toBe(`"abc'`);
+  });
+
+  it('returns the current value for empty or identical new values', () => {
+    expect(getNewEnvValue({ currentValue: 'keep', newValue: '  ', updateStrategy: 'replace' })).toBe('keep');
+    expect(getNewEnvValue({ currentValue: '"same"', newValue: 'same', updateStrategy: 'replace' })).toBe('"same"');
+  });
+
+  it('merges non-list values with a semicolon', () => {
+    expect(getNewEnvValue({ currentValue: 'a', newValue: 'b', updateStrategy: 'merge' })).toBe('a;b');
+  });
 });

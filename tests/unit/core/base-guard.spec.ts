@@ -158,14 +158,14 @@ describe('BaseGuard', () => {
       expect(result.issues).toHaveLength(2);
     });
 
-    it('should set status to issues if only info', () => {
+    it('should set status to ok if only info', () => {
       const guard = new TestGuard('info-guard');
       const issues = [
         guard['createIssue']('INFO1', 'info', 'Info 1', 'msg'),
       ];
       const result = guard['issues'](issues);
 
-      expect(result.status).toBe('warning');
+      expect(result.status).toBe('ok');
       expect(result.issues).toHaveLength(1);
     });
   });

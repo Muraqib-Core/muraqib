@@ -62,7 +62,7 @@ Run `muraqib --help` for the description of each flag.
 |-------|--------|---------|
 | `AsyncGuard` | `src/core/async-guard.ts` | Detects floating promises, missing `await`, and callback-hell patterns in source files. Severity levels used: warning, error. |
 | `CompatibilityGuard` | `src/core/compatibility-guard.ts` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. |
-| `ConfigGuard` | `src/core/config-guard.ts` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, warning, error. |
+| `ConfigGuard` | `src/core/config-guard.ts` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, error, warning, info (config `low` maps to info). |
 | `DeadCodeGuard` | `src/rules/dead-code-guard.ts` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. |
 | `DependencyGuard` | `src/core/dependency-guard.ts` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. |
 | `DockerGuard` | `src/core/docker-guard.ts` | Guard-layer adapter over the scan layer's DockerScanner (Dockerfile, compose, .dockerignore rules). Replaces the earlier naive string-matching implementation. |
@@ -90,7 +90,7 @@ Run `muraqib --help` for the description of each flag.
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
 
-## Public API (`src/index.ts`, 154 exports)
+## Public API (`src/index.ts`, 160 exports)
 
 ### Class (17)
 
@@ -101,7 +101,7 @@ Run `muraqib --help` for the description of each flag.
 | `AuditOrchestrator` | Audit orchestrator class. | `src/core/orchestrator.ts` |
 | `BaseGuard` | Base guard class. Severity levels used: warning, error, critical, info. | `src/core/base-guard.ts` |
 | `CompatibilityGuard` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. | `src/core/compatibility-guard.ts` |
-| `ConfigGuard` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, warning, error. | `src/core/config-guard.ts` |
+| `ConfigGuard` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, error, warning, info (config `low` maps to info). | `src/core/config-guard.ts` |
 | `CustomEngine` | Custom Validation Engine - Flexible validation for user-defined schemas | `src/guard/engines/custom-engine.ts` |
 | `DeadCodeGuard` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. | `src/rules/dead-code-guard.ts` |
 | `DependencyGuard` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. | `src/core/dependency-guard.ts` |
@@ -124,9 +124,9 @@ Run `muraqib --help` for the description of each flag.
 | `cachePerformanceSchema` | - | `src/rules/cache-guard.ts` |
 | `commonValidators` | Common validators for reuse | `src/guard/engines/custom-validators.ts` |
 | `FINDINGS_ADVISORY_LAYOUT` | Plain-text layout rules for the compliance advisory (terminal output). Appended to ADVISOR_SYSTEM_PROMPT by generateFindingsAdvisory only; the JSON suggestion flow keeps the base prompt. | `src/ai/advisor.ts` |
-| `SCHEMA_MIGRATIONS_REGISTRY` | - | `src/core/upgrade-orchestrator.ts` |
+| `SCHEMA_MIGRATIONS_REGISTRY` | Known breaking-major schema migrations. | `src/core/upgrade-orchestrator.ts` |
 
-### Function (63)
+### Function (64)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -166,6 +166,7 @@ Run `muraqib --help` for the description of each flag.
 | `generateFindingsAdvisory` | Generate a plain-text compliance advisory for deterministic findings. Returns null when no key is configured, there are no findings, or the call fails (the advisor is optional and must never break the audit). | `src/ai/advisor.ts` |
 | `getSystemContext` | Static, deterministic description of Muraqib for an LLM's system prompt or tool-discovery step. Does no I/O, so it is free to call at agent start-up. | `src/agent/system-context.ts` |
 | `getWebviewHtml` | Complete HTML for the Muraqib documentation page, ready to assign to a VS Code `webview.html`. Pass the nonce your extension also puts in the webview's CSP; the page's inline style and script carry it. No `vscode` dependency is involved. | `src/webview/index.ts` |
+| `isLocalHostname` | Whether a hostname (as produced by `new URL().hostname`, brackets allowed) is a loopback host: `localhost`, `*.localhost`, `::1` / `[::1]` and the whole `127.0.0.0/8` block. | `src/core/security-guard.ts` |
 | `isSensitiveKey` | Is sensitive key. | `src/ai/safe-metadata.ts` |
 | `isSensitiveValue` | Is sensitive value. | `src/ai/safe-metadata.ts` |
 | `loadEnv` | Load env. | `src/env/loaders.ts` |
@@ -173,7 +174,7 @@ Run `muraqib --help` for the description of each flag.
 | `performCompatibilityAudit` | - | `src/core/compatibility-guard.ts` |
 | `performConfigAudit` | - | `src/core/config-guard.ts` |
 | `performDeadCodeAudit` | - | `src/rules/dead-code-guard.ts` |
-| `performDependencyAudit` | - | `src/core/dependency-guard.ts` |
+| `performDependencyAudit` | Run the dependency audit on a project directory. | `src/core/dependency-guard.ts` |
 | `performLiveLatencyAudit` | Perform a live HTTP request against `url` and measure latency and payload size. An unreachable target is reported as a failed check (`reachable: false`), never as a pass. | `src/core/performance/network-latency-advisor.ts` |
 | `performMemoryAudit` | - | `src/core/memory-guard.ts` |
 | `performRenderBlockingAudit` | Perform render blocking audit. | `src/core/performance/render-blocking.ts` |
@@ -189,12 +190,12 @@ Run `muraqib --help` for the description of each flag.
 | `runComprehensiveBundleAudit` | - | `src/rules/bundle-budget.ts` |
 | `runGuardAudit` | Run the unified guard orchestrator (class-based guards) and return the aggregated result. | `src/index.ts` |
 | `runImagePerformanceAudit` | - | `src/core/performance/image-guard.ts` |
-| `runMuraqibUpgradeOrchestrator` | Orchestrates intelligent package upgrades with schema migrations and build verification. Handles version bumping, automatic codemods for breaking changes (Tailwind, Prisma, Next.js, React, ESLint, Zustand), and validates build integrity after upgrade. Preserves unsaved changes via Git rollback on failure. | `src/core/upgrade-orchestrator.ts` |
+| `runMuraqibUpgradeOrchestrator` | Computes the new version spec for a package, runs the matching breaking-major migration codemod (Tailwind, Prisma, Next.js, React, ESLint, Zustand) and verifies that the project still builds. | `src/core/upgrade-orchestrator.ts` |
 | `runPerformanceAudit` | Checks the cache/compression settings in the given environment. Never exits the process and never assumes a pass: every problem (including a missing variable) is returned as a report. | `src/core/performance/auditor.ts` |
 | `safeCreateEnv` | Safe create env. | `src/env/core.ts` |
 | `scanHtml` | Scan html. | `src/core/performance/html-scanner.ts` |
 
-### Interface (55)
+### Interface (60)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -209,13 +210,15 @@ Run `muraqib --help` for the description of each flag.
 | `AIInsight` | - | `src/core/types.ts` |
 | `ArktypeValidationResult` | - | `src/guard/engines/arktype-engine.ts` |
 | `AsyncAuditResult` | - | `src/core/async-guard.ts` |
+| `AsyncFinding` | A structured async finding. `code` is stable and never derived from the file path or message. | `src/core/async-guard.ts` |
 | `AuditContext` | - | `src/core/types.ts` |
 | `AuditIssue` | - | `src/core/types.ts` |
 | `AuditOptions` | Options for comprehensive project audit | `src/orchestrator/audit.ts` |
 | `AuditReport` | - | `src/cli/types.ts` |
 | `AuditResult` | - | `src/core/types.ts` |
 | `CliOptions` | - | `src/cli/types.ts` |
-| `CompatibilityAuditResult` | - | `src/core/compatibility-guard.ts` |
+| `CompatibilityAuditResult` | Result of a compatibility audit of a project's package.json. | `src/core/compatibility-guard.ts` |
+| `CompatibilityFinding` | A single structured compatibility finding. | `src/core/compatibility-guard.ts` |
 | `ConfigAuditResult` | - | `src/core/config-guard.ts` |
 | `ConfigIssue` | - | `src/core/config-guard.ts` |
 | `CreateEnvOptions` | - | `src/env/options.ts` |
@@ -234,6 +237,7 @@ Run `muraqib --help` for the description of each flag.
 | `LoadEnvOptions` | - | `src/env/loaders.ts` |
 | `MemoryAuditOptions` | - | `src/core/memory-guard.ts` |
 | `MemoryAuditResult` | - | `src/core/memory-guard.ts` |
+| `MemoryFinding` | A structured memory finding. `code` is stable and never derived from message text. | `src/core/memory-guard.ts` |
 | `ModuleResult` | Result of a single audit module | `src/orchestrator/audit.ts` |
 | `NetworkLatencyGuardOptions` | Options for {@link NetworkLatencyGuard}. | `src/core/performance/network-latency-advisor.ts` |
 | `OrchestratorConfig` | Configuration for the package upgrade orchestrator | `src/core/upgrade-orchestrator.ts` |
@@ -243,7 +247,9 @@ Run `muraqib --help` for the description of each flag.
 | `RenderBlockingAuditResult` | - | `src/core/performance/render-blocking.ts` |
 | `RenderBlockingIssue` | Render-Blocking Resource Detector Identifies resources that block initial page rendering (CSS, JS in head) | `src/core/performance/render-blocking.ts` |
 | `SecretDetectionResult` | - | `src/core/types.ts` |
+| `SecurityAuditOptions` | Options accepted by {@link SecurityGuard}. | `src/core/security-guard.ts` |
 | `SecurityAuditResult` | Result of a security audit on an HTTP endpoint | `src/core/security-guard.ts` |
+| `SecurityFinding` | A structured security finding. `code` is stable and never derived from message text. | `src/core/security-guard.ts` |
 | `StandardSchemaV1` | StandardSchemaV1 - Universal schema compatibility | `src/core/types.ts` |
 | `SystemContext` | - | `src/agent/system-context.ts` |
 | `TabContent` | - | `src/webview/content/types.ts` |

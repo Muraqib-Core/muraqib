@@ -29,7 +29,7 @@ describe("memory guard", () => {
   });
 
   test("flags high heap, rss, external and fragmentation with tight limits", () => {
-    const result = performMemoryAudit({ ...TIGHT, externalWarnMb: -1 });
+    const result = performMemoryAudit(TIGHT);
     const text = result.reports.join("\n");
     expect(text).toContain("High heap usage");
     expect(text).toContain("High RSS memory");

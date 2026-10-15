@@ -39,8 +39,9 @@ import * as logger from "../shared/logger.js";
  * Severity levels used: warning, error, critical, info.
  */
 export abstract class BaseGuard {
-  protected module: string;
-  protected startTime: number = 0;
+  protected readonly module: string;
+  /** Fallback start time used when execute() is invoked directly (not through run()). */
+  protected startTime: number;
   protected context?: AuditContext | undefined;
 
   /**
@@ -51,6 +52,20 @@ export abstract class BaseGuard {
   constructor(module: string, context?: AuditContext) {
     this.module = module;
     this.context = context;
+    this.startTime = Date.now();
+  }
+
+  /**
+   * Public name of this guard (the module identifier given to the constructor).
+   * @returns The module name, e.g. 'memory-guard'
+   */
+  getModule(): string {
+    return this.module;
+  }
+
+  /** Readonly alias of {@link getModule}. */
+  get name(): string {
+    return this.module;
   }
 
   /**
@@ -65,12 +80,21 @@ export abstract class BaseGuard {
    * @returns Promise resolving to an AuditResult (even on error)
    */
   async run(): Promise<AuditResult> {
-    this.startTime = Date.now();
+    // Local start: safe when several run() calls overlap on one instance.
+    const start = Date.now();
+    this.startTime = start;
+    let result: AuditResult;
     try {
-      return await this.execute();
+      result = await this.execute();
     } catch (error) {
-      return this.createErrorResult(error);
+      result = this.createErrorResult(error);
     }
+    return { ...result, duration: Math.max(0, Date.now() - start) };
+  }
+
+  /** Copy issues, stamping this guard's module on those lacking one (inputs are never mutated). */
+  private stampModule(issues: readonly AuditIssue[]): AuditIssue[] {
+    return issues.map((issue) => (issue.module === undefined ? { ...issue, module: this.module } : issue));
   }
 
   /**
@@ -85,11 +109,11 @@ export abstract class BaseGuard {
     issues: AuditIssue[],
     message: string
   ): AuditResult {
-    const duration = Date.now() - this.startTime;
+    const duration = Math.max(0, Date.now() - this.startTime);
     return {
       status,
       module: this.module,
-      issues,
+      issues: this.stampModule(issues),
       message,
       timestamp: Date.now(),
       duration,
@@ -115,13 +139,17 @@ export abstract class BaseGuard {
   protected issues(issues: AuditIssue[], message?: string): AuditResult {
     const hasErrors = issues.some((i) => i.severity === "error");
     const hasCritical = issues.some((i) => i.severity === "critical");
-    const status = hasCritical ? "error" : hasErrors ? "issues" : "warning";
+    const hasWarnings = issues.some((i) => i.severity === "warning");
+    const status: AuditResult["status"] = hasCritical
+      ? "error"
+      : hasErrors
+        ? "issues"
+        : hasWarnings
+          ? "warning"
+          : "ok";
+    const fallback = issues.length === 0 ? "No issues found" : `Found ${issues.length} issue(s)`;
 
-    return this.createResult(
-      status,
-      issues,
-      message || `Found ${issues.length} ${status}`
-    );
+    return this.createResult(status, issues, message ?? fallback);
   }
 
   /**
@@ -138,6 +166,7 @@ export abstract class BaseGuard {
       message,
       recommendation: "Check logs for details",
       tags: [],
+      module: this.module,
     };
 
     return this.createResult("error", [issue], message);
@@ -171,6 +200,7 @@ export abstract class BaseGuard {
       location,
       recommendation,
       tags: tags ?? [],
+      module: this.module,
     };
   }
 
@@ -206,7 +236,8 @@ export abstract class BaseGuard {
    */
   protected parseJSON<T>(json: string, fallback: T): T {
     try {
-      return JSON.parse(json);
+      const parsed: unknown = JSON.parse(json);
+      return parsed as T;
     } catch {
       return fallback;
     }
@@ -218,20 +249,24 @@ export abstract class BaseGuard {
    * @returns Formatted string (e.g., "1.25s" or "500ms")
    */
   protected formatDuration(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
+    if (!Number.isFinite(ms) || ms <= 0) return "0ms";
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   }
 
   /**
    * Format bytes as human-readable size
    * @param bytes - Size in bytes
-   * @returns Formatted string (e.g., "1.50 MB")
+   * @returns Formatted string (e.g., "1.50 MB"); "N/A" for NaN/Infinity
    */
   protected formatBytes(bytes: number): string {
+    if (!Number.isFinite(bytes)) return "N/A";
     if (bytes === 0) return "0 B";
+    const sign = bytes < 0 ? "-" : "";
+    const abs = Math.abs(bytes);
     const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+    const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const i = Math.min(sizes.length - 1, Math.max(0, Math.floor(Math.log(abs) / Math.log(k))));
+    return `${sign}${(abs / Math.pow(k, i)).toFixed(2)} ${sizes[i] ?? "B"}`;
   }
 }
