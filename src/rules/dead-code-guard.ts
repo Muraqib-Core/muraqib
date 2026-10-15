@@ -240,6 +240,11 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
 
 export { performDeadCodeAuditInternal as performDeadCodeAudit };
 
+/**
+ * Dead code guard class.
+ * Detects empty functions, unreachable branches and unused exports.
+ * Severity levels used: warning.
+ */
 export class DeadCodeGuard extends BaseGuard {
   private targetPath: string;
 
