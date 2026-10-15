@@ -327,7 +327,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
 }
 
 /**
- * Config guard class.
+ * Validates configuration and environment files: missing or invalid variables and unsafe settings.
  * Severity levels used: critical, warning, error.
  */
 export class ConfigGuard extends BaseGuard {

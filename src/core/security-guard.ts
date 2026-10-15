@@ -157,7 +157,7 @@ async function performSecurityAuditInternal(targetUrl: string): Promise<Security
 }
 
 /**
- * Security guard class.
+ * Probes a target URL for missing HTTP security headers and common web vulnerabilities.
  * Severity levels used: error, warning, critical.
  */
 export class SecurityGuard extends BaseGuard {

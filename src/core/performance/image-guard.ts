@@ -85,7 +85,7 @@ function performImageAuditInternal(targetPath?: string): ImageAuditResult {
 export { performImageAuditInternal as runImagePerformanceAudit };
 
 /**
- * Image guard class.
+ * Audits image assets for oversized files and non-optimal formats.
  * Severity levels used: warning.
  */
 export class ImageGuard extends BaseGuard {
