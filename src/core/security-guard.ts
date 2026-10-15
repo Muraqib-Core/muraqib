@@ -1,8 +1,16 @@
 import https from "https";
 import http from "http";
-import { URL } from "url";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+
+/** A structured security finding. `code` is stable and never derived from message text. */
+export interface SecurityFinding { // muraqib-ignore-dead: structured finding shape of SecurityAuditResult
+  code: string;
+  severity: "critical" | "error" | "warning" | "info";
+  message: string;
+  file?: string;
+  line?: number;
+}
 
 /**
  * Result of a security audit on an HTTP endpoint
@@ -13,11 +21,22 @@ export interface SecurityAuditResult { // muraqib-ignore-dead: auto-suppressed b
   reports: string[];
   headers: Record<string, string | string[] | undefined>;
   score: number; // 0-100
+  /** Structured findings, one per entry in `reports` (same order). */
+  findings: SecurityFinding[];
+  /** URL the headers were read from, after following redirects. */
+  finalUrl: string;
 }
 
-interface SecurityAuditOptions {
+/** Options accepted by {@link SecurityGuard}. */
+export interface SecurityAuditOptions { // muraqib-ignore-dead: public options shape of SecurityGuard
   targetUrl: string;
+  /** Per-request timeout in milliseconds (default 10000). */
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 10000;
+const MAX_REDIRECTS = 5;
+const MIN_HSTS_MAX_AGE = 31536000;
 
 const REQUIRED_HEADERS = [
   "content-security-policy",
@@ -33,127 +52,225 @@ const RECOMMENDED_HEADERS = [
   "cross-origin-opener-policy",
 ];
 
-async function performSecurityAuditInternal(targetUrl: string): Promise<SecurityAuditResult> {
-  const reports: string[] = [];
-  const url = new URL(targetUrl);
-  const hostname = url.hostname;
-  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(hostname);
-  const isHttps = url.protocol === "https:";
+const RECOMMENDED_CSP_DIRECTIVES = ["font-src", "img-src", "style-src", "connect-src", "frame-ancestors"];
 
-  // For remote hosts, warn if connection is not HTTPS. For localhost (dev) allow HTTP.
-  if (!isLocalHost && !isHttps) {
-    reports.push("Connection is not HTTPS — data transmitted in plaintext");
+/** Checks counted by the score: every header, HSTS/CSP/XFO quality and the transport. */
+const TOTAL_CHECKS = REQUIRED_HEADERS.length + RECOMMENDED_HEADERS.length + 3 + 1;
+
+/**
+ * Whether a hostname (as produced by `new URL().hostname`, brackets allowed) is a loopback host:
+ * `localhost`, `*.localhost`, `::1` / `[::1]` and the whole `127.0.0.0/8` block.
+ *
+ * @param hostname - Hostname to classify.
+ * @returns True when plain HTTP to this host is acceptable (local development).
+ */
+export function isLocalHostname(hostname: string): boolean {
+  let host = hostname.trim().toLowerCase();
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+  if (host.endsWith(".")) host = host.slice(0, -1);
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1" || host === "0:0:0:0:0:0:0:1") return true;
+  const octets = /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (octets === null) return false;
+  return octets.slice(1).every((part) => Number(part) <= 255);
+}
+
+type ProbeOutcome =
+  | { kind: "response"; statusCode: number; headers: http.IncomingHttpHeaders }
+  | { kind: "error"; message: string }
+  | { kind: "timeout" };
+
+/** Performs ONE request and settles exactly once, whatever events fire afterwards. */
+function requestOnce(target: string, method: "HEAD" | "GET", timeoutMs: number): Promise<ProbeOutcome> {
+  return new Promise<ProbeOutcome>((resolve) => {
+    let settled = false;
+    const settle = (outcome: ProbeOutcome): void => {
+      if (settled) return;
+      settled = true;
+      resolve(outcome);
+    };
+    let req: http.ClientRequest | undefined;
+    try {
+      const client = target.startsWith("https:") ? https : http;
+      req = client.request(target, { method, timeout: timeoutMs }, (res) => {
+        settle({ kind: "response", statusCode: res.statusCode ?? 0, headers: res.headers });
+        // Only headers matter: never download the body.
+        if (method === "GET" && typeof res.destroy === "function") res.destroy();
+        else if (typeof res.resume === "function") res.resume();
+      });
+      req.on("error", (err: Error) => {
+        settle({ kind: "error", message: err.message });
+      });
+      req.on("timeout", () => {
+        settle({ kind: "timeout" });
+        req?.destroy(new Error("Security audit request timed out"));
+      });
+      req.end();
+    } catch (error) {
+      settle({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+    }
+  });
+}
+
+/** Parses a CSP header into lower-cased directive name -> value tokens. */
+function parseCsp(csp: string): Map<string, string[]> {
+  const directives = new Map<string, string[]>();
+  for (const part of csp.split(";")) {
+    const tokens = part.trim().split(/\s+/).filter((token) => token.length > 0);
+    const name = tokens[0]?.toLowerCase();
+    if (name !== undefined && !directives.has(name)) directives.set(name, tokens.slice(1));
+  }
+  return directives;
+}
+
+/** Findings for the response headers (everything except transport/request problems). */
+function analyzeHeaders(headers: http.IncomingHttpHeaders): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  const lower = new Map<string, string>();
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) continue;
+    lower.set(key.toLowerCase(), Array.isArray(value) ? value.join(", ") : String(value));
   }
 
-  return new Promise((resolve) => {
-    const client = isHttps ? https : http;
-    const req = client.request(
-      targetUrl,
-      { method: "HEAD", timeout: 10000 },
-      (res) => {
-        const headers = res.headers;
-        const headerKeys = Object.keys(headers).map((k) => k.toLowerCase());
+  for (const header of REQUIRED_HEADERS) {
+    if (!lower.has(header)) {
+      findings.push({ code: "SECURITY_MISSING_HEADER", severity: "error", message: `Missing security header: ${header}` });
+    }
+  }
+  for (const header of RECOMMENDED_HEADERS) {
+    if (!lower.has(header)) {
+      findings.push({ code: "SECURITY_MISSING_RECOMMENDED_HEADER", severity: "warning", message: `Missing recommended header: ${header}` });
+    }
+  }
 
-        // Check required headers
-        for (const header of REQUIRED_HEADERS) {
-          if (!headerKeys.includes(header)) {
-            reports.push(`Missing security header: ${header}`);
-          }
-        }
-
-        // Check recommended headers
-        for (const header of RECOMMENDED_HEADERS) {
-          if (!headerKeys.includes(header)) {
-            reports.push(`Missing recommended header: ${header}`);
-          }
-        }
-
-        // Check HSTS
-        if (headers["strict-transport-security"]) {
-          const hsts = String(headers["strict-transport-security"]);
-          const maxAgeMatch = hsts.match(/max-age=(\d+)/);
-          if (maxAgeMatch && maxAgeMatch[1]) {
-            const maxAge = parseInt(maxAgeMatch[1], 10);
-            if (maxAge < 31536000) {
-              reports.push(`HSTS max-age too low: ${maxAge}s (recommended: 31536000s)`);
-            }
-          }
-        }
-
-        // Check CSP
-        if (headers["content-security-policy"]) {
-          const csp = String(headers["content-security-policy"]);
-
-          const unsafeMatches = csp.match(/'unsafe-[^']+'/g) || [];
-          if (unsafeMatches.length > 0) {
-            reports.push(`CSP contains unsafe directives: ${unsafeMatches.join(', ')}`);
-          }
-
-          if (!csp.includes("default-src") && !csp.includes("script-src")) {
-            reports.push("CSP missing default-src or script-src directive");
-          }
-
-          const criticalDirectives = ["font-src", "img-src", "style-src", "connect-src", "frame-ancestors"];
-          const missingDirectives = criticalDirectives.filter(dir => !csp.includes(dir));
-          if (missingDirectives.length > 0) {
-            reports.push(`CSP missing recommended directives: ${missingDirectives.join(', ')}`);
-          }
-
-          if (csp.includes("script-src") && csp.includes("script-src 'none'")) {
-            reports.push("CSP script-src is set to 'none', blocking all scripts");
-          }
-        }
-
-        // Check X-Frame-Options
-        if (headers["x-frame-options"]) {
-          const xfo = String(headers["x-frame-options"]).toLowerCase();
-          if (xfo !== "deny" && xfo !== "sameorigin") {
-            reports.push(`X-Frame-Options has weak value: ${xfo}`);
-          }
-        }
-
-        // Score calculation: each issue costs one point from the total checks
-        const totalChecks = REQUIRED_HEADERS.length + RECOMMENDED_HEADERS.length + 3;
-        const passedChecks = Math.max(0, totalChecks - reports.length);
-        const score = Math.max(0, Math.round((passedChecks / totalChecks) * 100));
-
-        // isSecure is true only when there are NO findings — applies to both
-        // localhost and remote hosts. The previous code always returned
-        // isSecure=true for non-localhost targets, hiding all header violations.
-        const isSecure = reports.length === 0;
-
-        resolve({
-          isSecure,
-          reports,
-          headers,
-          score,
-        });
+  const hsts = lower.get("strict-transport-security");
+  if (hsts !== undefined) {
+    const maxAgeMatch = /max-age\s*=\s*"?(\d+)/i.exec(hsts);
+    if (maxAgeMatch?.[1] !== undefined) {
+      const maxAge = parseInt(maxAgeMatch[1], 10);
+      if (maxAge < MIN_HSTS_MAX_AGE) {
+        findings.push({ code: "SECURITY_HSTS_WEAK", severity: "warning", message: `HSTS max-age too low: ${maxAge}s (recommended: ${MIN_HSTS_MAX_AGE}s)` });
       }
-    );
+    }
+  }
 
-    req.on("error", (err) => {
-      reports.push(`Security audit request failed: ${err.message}`);
-      resolve({
-        isSecure: false,
-        reports,
-        headers: {},
-        score: 0,
-      });
-    });
+  const csp = lower.get("content-security-policy");
+  if (csp !== undefined) {
+    const directives = parseCsp(csp);
+    const unsafe = [...new Set((csp.match(/'unsafe-[^']+'/gi) ?? []).map((token) => token.toLowerCase()))];
+    if (unsafe.length > 0) {
+      findings.push({ code: "SECURITY_CSP_UNSAFE", severity: "warning", message: `CSP contains unsafe directives: ${unsafe.join(", ")}` });
+    }
+    if (!directives.has("default-src") && !directives.has("script-src")) {
+      findings.push({ code: "SECURITY_CSP_MISSING_DIRECTIVE", severity: "warning", message: "CSP missing default-src or script-src directive" });
+    }
+    const missing = RECOMMENDED_CSP_DIRECTIVES.filter((directive) => !directives.has(directive));
+    if (missing.length > 0) {
+      findings.push({ code: "SECURITY_CSP_MISSING_DIRECTIVE", severity: "warning", message: `CSP missing recommended directives: ${missing.join(", ")}` });
+    }
+    const scriptSrc = directives.get("script-src");
+    if (scriptSrc?.some((token) => token.toLowerCase() === "'none'") === true) {
+      findings.push({ code: "SECURITY_CSP_SCRIPT_NONE", severity: "warning", message: "CSP script-src is set to 'none', blocking all scripts" });
+    }
+  }
 
-    req.on("timeout", () => {
-      req.destroy();
-      reports.push("Security audit request timed out");
-      resolve({
-        isSecure: false,
-        reports,
-        headers: {},
-        score: 0,
-      });
-    });
+  const xfoRaw = lower.get("x-frame-options");
+  if (xfoRaw !== undefined) {
+    const xfo = xfoRaw.trim().toLowerCase();
+    if (xfo !== "deny" && xfo !== "sameorigin") {
+      findings.push({ code: "SECURITY_XFO_WEAK", severity: "warning", message: `X-Frame-Options has weak value: ${xfo}` });
+    }
+  }
+  return findings;
+}
 
-    req.end();
-  });
+/** Maps a finding to the score check it belongs to (CSP findings count as one check). */
+function checkKey(finding: SecurityFinding): string {
+  if (finding.code.startsWith("SECURITY_CSP_")) return "csp-quality";
+  if (finding.code === "SECURITY_HSTS_WEAK") return "hsts-quality";
+  if (finding.code === "SECURITY_XFO_WEAK") return "xfo-quality";
+  return finding.code === "SECURITY_NOT_HTTPS" ? "transport" : finding.message;
+}
+
+function buildResult(
+  findings: SecurityFinding[],
+  headers: SecurityAuditResult["headers"],
+  finalUrl: string,
+  requestFailed: boolean
+): SecurityAuditResult {
+  const failed = new Set(findings.map(checkKey)).size;
+  const score = requestFailed ? 0 : Math.min(100, Math.max(0, Math.round(((TOTAL_CHECKS - failed) / TOTAL_CHECKS) * 100)));
+  return {
+    isSecure: findings.length === 0,
+    reports: findings.map((finding) => finding.message),
+    headers,
+    score,
+    findings,
+    finalUrl,
+  };
+}
+
+async function performSecurityAuditInternal(targetUrl: string, timeoutOption?: number): Promise<SecurityAuditResult> {
+  const timeoutMs = timeoutOption !== undefined && Number.isFinite(timeoutOption) && timeoutOption > 0 ? timeoutOption : DEFAULT_TIMEOUT_MS;
+  const findings: SecurityFinding[] = [];
+  const fail = (message: string, code = "SECURITY_REQUEST_FAILED", finalUrl = targetUrl): SecurityAuditResult => {
+    findings.push({ code, severity: "critical", message });
+    return buildResult(findings, {}, finalUrl, true);
+  };
+
+  let current: URL;
+  try {
+    current = new URL(targetUrl);
+  } catch {
+    return fail(`Security audit request failed: invalid URL "${targetUrl}"`);
+  }
+  if (current.protocol !== "http:" && current.protocol !== "https:") {
+    return fail(`Security audit request failed: unsupported protocol ${current.protocol} (only http and https)`);
+  }
+
+  // For remote hosts, warn if connection is not HTTPS. For localhost (dev) allow HTTP.
+  if (!isLocalHostname(current.hostname) && current.protocol !== "https:") {
+    findings.push({ code: "SECURITY_NOT_HTTPS", severity: "critical", message: "Connection is not HTTPS — data transmitted in plaintext" });
+  }
+
+  const visited = new Set<string>();
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    visited.add(current.href);
+    let outcome = await requestOnce(current.href, "HEAD", timeoutMs);
+    if (outcome.kind === "response" && (outcome.statusCode === 405 || outcome.statusCode === 501)) {
+      outcome = await requestOnce(current.href, "GET", timeoutMs);
+    }
+    if (outcome.kind === "timeout") {
+      return fail("Security audit request timed out", "SECURITY_REQUEST_TIMEOUT", current.href);
+    }
+    if (outcome.kind === "error") {
+      return fail(`Security audit request failed: ${outcome.message}`, "SECURITY_REQUEST_FAILED", current.href);
+    }
+
+    const location = outcome.headers.location;
+    const isRedirect = outcome.statusCode >= 300 && outcome.statusCode < 400 && typeof location === "string" && location.length > 0;
+    if (isRedirect) {
+      let next: URL | undefined;
+      try {
+        next = new URL(location, current);
+      } catch {
+        return fail(`Security audit request failed: invalid redirect location "${location}"`, "SECURITY_REQUEST_FAILED", current.href);
+      }
+      const downgrade = current.protocol === "https:" && next.protocol === "http:";
+      if ((next.protocol === "http:" || next.protocol === "https:") && !downgrade) {
+        if (visited.has(next.href) || hop === MAX_REDIRECTS) {
+          return fail("Security audit request failed: too many redirects", "SECURITY_REQUEST_FAILED", current.href);
+        }
+        current = next;
+        continue;
+      }
+      // Redirect to a downgraded/foreign scheme: audit the redirect response itself.
+    }
+
+    findings.push(...analyzeHeaders(outcome.headers));
+    return buildResult(findings, outcome.headers, current.href, false);
+  }
+  return fail("Security audit request failed: too many redirects", "SECURITY_REQUEST_FAILED", current.href);
 }
 
 /**
@@ -174,29 +291,18 @@ export class SecurityGuard extends BaseGuard {
    * @returns Execute result
    */
   async execute(): Promise<AuditResult> {
-    const result = await performSecurityAuditInternal(this.options.targetUrl);
+    const result = await performSecurityAuditInternal(this.options.targetUrl, this.options.timeoutMs);
 
-    const issues: AuditIssue[] = [];
-
-    for (const report of result.reports) {
-      let severity: AuditIssue["severity"] = "warning";
-      if (report.includes("not HTTPS") || report.includes("failed") || report.includes("timed out")) {
-        severity = "critical";
-      } else if (report.includes("Missing security header")) {
-        severity = "error";
-      }
-
-      issues.push(
-        this.createIssue(
-          `SECURITY_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
-          severity,
-          "Security Header Issue",
-          report,
-          undefined,
-          "Configure the security header as recommended"
-        )
-      );
-    }
+    const issues: AuditIssue[] = result.findings.map((finding) =>
+      this.createIssue(
+        finding.code,
+        finding.severity,
+        "Security Header Issue",
+        finding.message,
+        finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
+        "Configure the security header as recommended"
+      )
+    );
 
     if (issues.length === 0) {
       return this.ok(`Security headers audit passed with score ${result.score}/100`);
@@ -209,6 +315,6 @@ export class SecurityGuard extends BaseGuard {
 /**
  * @deprecated Use SecurityGuard class instead
  */
-export async function performSecurityAudit(targetUrl: string): Promise<SecurityAuditResult> {
-  return performSecurityAuditInternal(targetUrl);
+export async function performSecurityAudit(targetUrl: string, timeoutMs?: number): Promise<SecurityAuditResult> {
+  return performSecurityAuditInternal(targetUrl, timeoutMs);
 }
