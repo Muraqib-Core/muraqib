@@ -728,8 +728,9 @@ db.query('SELECT', (err, result) => {
 
       const result = await guard.execute();
 
-      // Should find multiple issues (unhandled promise, floating promise, missing await, callback hell)
-      expect(result.issues.length).toBeGreaterThanOrEqual(3);
+      // Unhandled promise + floating fetch. `db.query(sql, cb)` is a callback-style member call,
+      // not a promise, and is intentionally no longer reported as floating.
+      expect(result.issues.length).toBeGreaterThanOrEqual(2);
     });
   });
 

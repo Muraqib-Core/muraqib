@@ -14,6 +14,8 @@ export interface AsyncAuditResult { // muraqib-ignore-dead: auto-suppressed by s
   missingAwait: string[];
   callbackHell: string[];
   floatingPromises: string[];
+  /** Structured findings, one per entry in `reports` (same order), with file and line. */
+  findings: AsyncFinding[];
 }
 
 interface AsyncAuditOptions {
@@ -63,8 +65,48 @@ function chainHandlesRejection(source: string, thenIndex: number): boolean {
   }
 }
 
+/** Files that implement the audit itself: they quote the patterns they look for. */
+const SELF_SKIP = /(?:^|\/)core\/(?:async|security)-guard(?:\.|$)/;
+
+/** A structured async finding. `code` is stable and never derived from the file path or message. */
+export interface AsyncFinding { // muraqib-ignore-dead: structured finding shape of AsyncAuditResult
+  code: string;
+  severity: "critical" | "error" | "warning" | "info";
+  message: string;
+  file?: string;
+  line?: number;
+}
+
+/** Previous line ends mid-expression, so the next line is not a statement of its own. */
+const CONTINUATION_END = /(?:[=(,?:|&+\-<>!]|\b(?:return|await|void|yield|else|typeof))$/;
+
+/** Statement that is a bare promise-returning call: `fetch(`, `axios(`, `axios.get(`, `window.fetch(`, `query(`. */
+const FLOATING_START = /^(?:(?:window|globalThis|self)\.)?(?:fetch|request|query)\s*\(|^axios(?:\.[A-Za-z_$][\w$]*)?\s*\(/;
+
+/** Method/function declaration header such as `query(sql: string): Row[] {`. */
+const DECLARATION_END = /\)\s*(?::\s*[^=;{]+)?\s*\{\s*$/;
+
+/** Names of async functions and of async methods/properties declared in (masked) `source`. */
+function collectAsyncNames(source: string): { functions: Set<string>; methods: Set<string> } {
+  const functions = new Set<string>();
+  const methods = new Set<string>();
+  for (const match of source.matchAll(/\basync\s+function\s*\*?\s*([A-Za-z_$][\w$]*)/g)) {
+    if (match[1] !== undefined) functions.add(match[1]);
+  }
+  for (const match of source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*async\b/g)) {
+    if (match[1] !== undefined) functions.add(match[1]);
+  }
+  for (const match of source.matchAll(/^[ \t]*(?:(?:public|private|protected|static|override|readonly)\s+)*async\s+([A-Za-z_$][\w$]*)\s*[(<]/gm)) {
+    if (match[1] !== undefined && match[1] !== "function") methods.add(match[1]);
+  }
+  for (const match of source.matchAll(/^[ \t]*(?:(?:public|private|protected|static|override|readonly)\s+)*([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*async\b/gm)) {
+    if (match[1] !== undefined) methods.add(match[1]);
+  }
+  return { functions, methods };
+}
+
 function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
-  const reports: string[] = [];
+  const findings: AsyncFinding[] = [];
   const unhandledPromises: string[] = [];
   const missingAwait: string[] = [];
   const callbackHell: string[] = [];
@@ -75,15 +117,19 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
 
   for (const scannedFile of scannedFiles) {
     const { relativePath } = scannedFile;
+    // Skip scanning the guard and related guards themselves to avoid self-matching callback patterns
+    if (SELF_SKIP.test(relativePath.replace(/\\/g, "/"))) continue;
     // Strings, template text and comments are data, not executed code (e.g. a browser script
     // embedded in a template literal); mask them so only real statements are inspected.
     const content = maskLiteralsAndComments(scannedFile.content);
-    // Skip scanning the guard and related guards themselves to avoid self-matching callback patterns
-    if (/core[\\/]async-guard/.test(relativePath) || /core[\\/]security-guard/.test(relativePath)) {
-      continue;
-    }
     const lines = content.split("\n");
+    const asyncNames = collectAsyncNames(content);
     let lineStart = 0;
+    let previous = "";
+
+    const add = (code: string, severity: AsyncFinding["severity"], lineNum: number, message: string): void => {
+      findings.push({ code, severity, message, file: relativePath, line: lineNum });
+    };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -92,48 +138,57 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
       if (line === undefined) continue;
       const lineNum = i + 1;
       const trimmed = line.trim();
+      const isContinuation = CONTINUATION_END.test(previous);
+      if (trimmed.length > 0) previous = trimmed;
+      if (trimmed.length === 0) continue;
       const nextWindow = lines.slice(i, Math.min(i + 5, lines.length)).join(" ");
 
       if (/new\s+Promise\s*\(/.test(trimmed) && !FULFIL_ONLY_EXECUTOR.test(trimmed) && !nextWindow.includes(".catch(")) {
         unhandledPromises.push(`${relativePath}:${lineNum}`);
-        reports.push(`Unhandled Promise at ${relativePath}:${lineNum} — add .catch() or try/catch`);
+        add("ASYNC_UNHANDLED_PROMISE", "error", lineNum, `Unhandled Promise at ${relativePath}:${lineNum} — add .catch() or try/catch`);
       }
 
-      const asyncCallMatch = trimmed.match(/([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?\s*$/);
-      if (asyncCallMatch && asyncCallMatch[1]) {
-        const funcName = asyncCallMatch[1];
-        const funcDeclRegex = new RegExp(`(?:async\\s+function|const\\s+${funcName}\\s*=\\s*async)\\s+${funcName}`);
-        const functionExists = funcDeclRegex.test(content);
-        if (functionExists && !trimmed.includes("await") && !trimmed.includes("return") && !trimmed.startsWith("if ") && !trimmed.startsWith("for ") && !trimmed.startsWith("while ")) {
+      // Missing await: a statement that is only `name();` / `this.name();` for an async function in this file.
+      const callMatch = /^(this\.)?([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?$/.exec(trimmed);
+      if (callMatch?.[2] !== undefined && !isContinuation) {
+        const funcName = callMatch[2];
+        const isAsync = callMatch[1] === undefined ? asyncNames.functions.has(funcName) : asyncNames.methods.has(funcName);
+        if (isAsync) {
           missingAwait.push(`${relativePath}:${lineNum}`);
-          reports.push(`Missing await for async call: ${relativePath}:${lineNum} — ${funcName}() returns a Promise`);
+          add("ASYNC_MISSING_AWAIT", "warning", lineNum, `Missing await for async call: ${relativePath}:${lineNum} — ${funcName}() returns a Promise`);
         }
       }
 
-      const callbackDepth = (trimmed.match(/\)/g) || []).length;
+      const callbackDepth = (trimmed.match(/\)/g) ?? []).length;
       if (callbackDepth >= 3 && (trimmed.includes("callback") || /\bcb\b/.test(trimmed))) {
         callbackHell.push(`${relativePath}:${lineNum}`);
-        reports.push(`Potential callback hell: ${relativePath}:${lineNum} — consider async/await`);
+        add("ASYNC_CALLBACK_HELL", "warning", lineNum, `Potential callback hell: ${relativePath}:${lineNum} — consider async/await`);
       }
 
-      if (/\b(?:fetch|axios|request|query)\s*\(/.test(trimmed) && !trimmed.includes("await") && !trimmed.includes("return") && !trimmed.startsWith("const ") && !trimmed.startsWith("let ") && !trimmed.startsWith("var ") && !trimmed.startsWith("if ") && !trimmed.startsWith("for ")) {
-        floatingPromises.push(`${relativePath}:${lineNum}`);
-        reports.push(`Floating Promise: ${relativePath}:${lineNum} — Promise result is ignored`);
+      // Floating promise: the statement itself starts with the call (so never `const x = fetch(`,
+      // `return`, `await`, `void`, `.then(` ...), is not a method declaration and is not chained.
+      if (FLOATING_START.test(trimmed) && !isContinuation && !DECLARATION_END.test(trimmed) && !trimmed.includes(".catch(")) {
+        const following = lines.slice(i + 1).find((candidate) => candidate.trim().length > 0)?.trim() ?? "";
+        if (!/^\.(?:then|catch|finally)\b/.test(following)) {
+          floatingPromises.push(`${relativePath}:${lineNum}`);
+          add("ASYNC_FLOATING_PROMISE", "error", lineNum, `Floating Promise: ${relativePath}:${lineNum} — Promise result is ignored`);
+        }
       }
 
       if (trimmed.includes(".then(") && !nextWindow.includes(".catch(") && !chainHandlesRejection(content, offset + line.indexOf(".then("))) {
-        reports.push(`Promise chain without .catch(): ${relativePath}:${lineNum}`);
+        add("ASYNC_THEN_WITHOUT_CATCH", "warning", lineNum, `Promise chain without .catch(): ${relativePath}:${lineNum}`);
       }
     }
   }
 
   return {
-    isClean: reports.length === 0,
-    reports,
+    isClean: findings.length === 0,
+    reports: findings.map((finding) => finding.message),
     unhandledPromises,
     missingAwait,
     callbackHell,
     floatingPromises,
+    findings,
   };
 }
 
@@ -159,19 +214,14 @@ export class AsyncGuard extends BaseGuard {
 
     const issues: AuditIssue[] = [];
 
-    for (const report of result.reports) {
-      let severity: AuditIssue["severity"] = "warning";
-      if (report.includes("Unhandled Promise") || report.includes("Floating Promise")) {
-        severity = "error";
-      }
-
+    for (const finding of result.findings) {
       issues.push(
         this.createIssue(
-          `ASYNC_${report.split(":")[0]?.toUpperCase().replace(/\s+/g, "_") || "UNKNOWN"}`,
-          severity,
+          finding.code,
+          finding.severity,
           "Async Pattern Issue",
-          report,
-          undefined,
+          finding.message,
+          finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
           "Use async/await and proper error handling"
         )
       );
