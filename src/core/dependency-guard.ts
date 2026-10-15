@@ -152,7 +152,7 @@ function performDependencyAuditInternal(targetPath: string): DependencyAuditResu
     const edges = new Set<string>();
     graph.set(file.posix, edges);
 
-    const specifiers = extractImportSpecifiers(file.content);
+    const specifiers = extractImportSpecifiers(file.content, { includeTypeOnly: false });
     for (const specifier of specifiers) {
       const resolved = resolveImportTarget(file.path, specifier, (candidate) =>
         relativeByAbsolute.has(path.normalize(candidate))

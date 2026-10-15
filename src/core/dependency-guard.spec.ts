@@ -32,7 +32,7 @@ describe("dependency-guard (import graph, lock files, patterns)", () => {
 
     test("detects a cycle through a multi-line import", () => {
       write("src/a.ts", `import {\n  x,\n  y,\n} from "./b.js";\nexport const a = 1;\n`);
-      write("src/b.ts", `import type {\n  a\n} from "./a.js";\nexport const x = 1;\n`);
+      write("src/b.ts", `import {\n  a\n} from "./a.js";\nexport const x = a;\n`);
       expect(performDependencyAudit(dir).circularDependencies).toHaveLength(1);
     });
 
@@ -99,6 +99,36 @@ describe("dependency-guard (import graph, lock files, patterns)", () => {
       expect(extractImportSpecifiers(source).sort()).toEqual(
         ["./a", "./dyn", "./ns", "./side", "./star", "./types", "./x", "./y"].sort()
       );
+    });
+  });
+
+  describe("type-only imports", () => {
+    test("extractImportSpecifiers can drop import type / export type statements", () => {
+      const source = [
+        `import type { T } from "./types";`,
+        `export type { U } from "./u";`,
+        `import type from "./default-named-type";`,
+        `import { type V, w } from "./inline";`,
+        `import { run } from "./runtime";`,
+      ].join("\n");
+      expect(extractImportSpecifiers(source, { includeTypeOnly: false }).sort()).toEqual(
+        ["./default-named-type", "./inline", "./runtime"].sort()
+      );
+      expect(extractImportSpecifiers(source)).toHaveLength(5);
+    });
+
+    test("a cycle closed only by import type is not reported", async () => {
+      write("src/a.ts", `import type { B } from "./b.js";\nexport interface A { b: B }\n`);
+      write("src/b.ts", `import { x } from "./a.js";\nexport interface B { a: typeof x }\n`);
+      const result = await new DependencyGuard({ targetPath: dir }).run();
+      expect(result.issues.filter((i) => i.code === "DEPENDENCY_CIRCULAR")).toHaveLength(0);
+    });
+
+    test("a cycle through runtime imports is still reported", async () => {
+      write("src/a.ts", `import { b } from "./b.js";\nexport const a = b;\n`);
+      write("src/b.ts", `import { a } from "./a.js";\nexport const b = a;\n`);
+      const result = await new DependencyGuard({ targetPath: dir }).run();
+      expect(result.issues.filter((i) => i.code === "DEPENDENCY_CIRCULAR")).toHaveLength(1);
     });
   });
 
