@@ -9,6 +9,11 @@ permissions:
   contents: write
   id-token: write
 
+# Never run two releases for the same tag at once, and never cancel a publish midway.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -25,8 +30,23 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - name: Verify tag matches package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag v$tag does not match package.json version $version"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Verify generated documentation
+        run: npm run docs:check
 
       - name: Build project
         run: npm run build
