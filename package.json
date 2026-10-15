@@ -4,9 +4,9 @@
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
   "publishConfig": {
-  "access": "public",
-  "tag": "latest",
-  "registry": "https://registry.npmjs.org/"
+    "access": "public",
+    "tag": "latest",
+    "registry": "https://registry.npmjs.org/"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -43,7 +43,9 @@
     "audit:ci": "tsx scripts/collect-audit.ts",
     "self-audit": "node bin/muraqib.js audit --project . --no-interactive",
     "prepublishOnly": "npm run build && npm test",
-    "muraqib": "tsx src/cli/index.ts audit -i"
+    "muraqib": "tsx src/cli/index.ts audit -i",
+    "docs:generate": "node scripts/generate-docs.mjs",
+    "docs:check": "node scripts/generate-docs.mjs --check"
   },
   "keywords": [
     "audit",

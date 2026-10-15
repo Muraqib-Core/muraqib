@@ -138,7 +138,7 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
 }
 
 /**
- * Async guard class.
+ * Detects floating promises, missing `await`, and callback-hell patterns in source files.
  * Severity levels used: warning, error.
  */
 export class AsyncGuard extends BaseGuard {
