@@ -115,7 +115,7 @@ function performCompatibilityAuditInternal(
 export { performCompatibilityAuditInternal as performCompatibilityAudit };
 
 /**
- * Compatibility guard class.
+ * Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies.
  * Severity levels used: error.
  */
 export class CompatibilityGuard extends BaseGuard {
