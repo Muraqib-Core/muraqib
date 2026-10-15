@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { execSync } from "child_process";
+import { execFile } from "child_process";
 import { detectProjectPackageManager } from "../utils/manager-detector.js";
 import { runMuraqibUpgradeOrchestrator, type OrchestratorConfig } from "./upgrade-orchestrator";
 
@@ -7,9 +7,23 @@ vi.mock("child_process");
 vi.mock("../utils/manager-detector.js");
 vi.mock("../config/presets.js");
 
+type ExecCb = (err: Error | null, stdout: string, stderr: string) => void;
+
+/** Makes the mocked execFile call back; `outcome` returns an Error (failure) or null (success) per invocation. */
+function mockExec(outcome: (command: string, args: string[]) => Error | null, output = { stdout: "", stderr: "" }): void {
+  vi.mocked(execFile).mockImplementation(((command: string, args: string[], _opts: unknown, cb: ExecCb) => {
+    cb(outcome(command, args), output.stdout, output.stderr);
+    return undefined as never;
+  }) as never);
+}
+
 describe("runMuraqibUpgradeOrchestrator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    mockExec(() => null);
   });
 
   afterEach(() => {
@@ -206,7 +220,6 @@ describe("runMuraqibUpgradeOrchestrator", () => {
   });
   it("runs detection, migration and build inside the given cwd", async () => {
     vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
-    vi.mocked(execSync).mockReturnValue(Buffer.from(""));
 
     const result = await runMuraqibUpgradeOrchestrator({
       packageName: "react",
@@ -218,11 +231,15 @@ describe("runMuraqibUpgradeOrchestrator", () => {
 
     expect(result.schemaMigrated).toBe(true);
     expect(detectProjectPackageManager).toHaveBeenCalledWith("/projects/other");
-    const calls = vi.mocked(execSync).mock.calls;
+    const calls = vi.mocked(execFile).mock.calls;
     expect(calls).toHaveLength(2);
     for (const call of calls) {
-      expect(call[1]).toMatchObject({ cwd: "/projects/other" });
+      expect(call[2]).toMatchObject({ cwd: "/projects/other", timeout: expect.any(Number) });
     }
+    expect(calls[0]?.[0]).toBe("npx");
+    expect(calls[0]?.[1]).toEqual(["react-codemod@latest", "update-react-imports", "--force"]);
+    expect(calls[1]?.[0]).toBe("npm");
+    expect(calls[1]?.[1]).toEqual(["run", "build"]);
   });
 
   it("does not run anything when the version does not change", async () => {
@@ -236,6 +253,76 @@ describe("runMuraqibUpgradeOrchestrator", () => {
       cwd: "/projects/other",
     });
 
-    expect(execSync).not.toHaveBeenCalled();
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
+  it.each(["latest", "next", "*", "beta"])("does not throw and skips for dist-tag newVersion %s", async (tag) => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "react",
+      currentValue: "^18.0.0",
+      newVersion: tag,
+      rangeStrategy: "replace",
+    });
+    expect(result).toEqual({ updatedVersion: null, schemaMigrated: false, skipReason: "invalid-new-version" });
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
+  it("runs the two prisma steps sequentially without a shell and stops on the first failure", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    mockExec((_c, args) => (args[0] === "prisma" && args[1] === "format" ? new Error("boom") : null));
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "prisma",
+      currentValue: "^5.0.0",
+      newVersion: "6.0.0",
+      rangeStrategy: "bump",
+    });
+    const argv = vi.mocked(execFile).mock.calls.map((c) => [c[0], ...(c[1] as string[])].join(" "));
+    expect(argv).toEqual(["npx prisma format", "npm run build"]);
+    expect(result).toEqual({ updatedVersion: "^6.0.0", schemaMigrated: false });
+  });
+
+  it("skips migration codemods when runMigrations is false", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "react",
+      currentValue: "^18.0.0",
+      newVersion: "19.0.0",
+      rangeStrategy: "replace",
+      runMigrations: false,
+    });
+    const argv = vi.mocked(execFile).mock.calls.map((c) => c[0]);
+    expect(argv).toEqual(["npm"]);
+    expect(result.schemaMigrated).toBe(false);
+    expect(result.updatedVersion).toBe("^19.0.0");
+  });
+
+  it("treats 'bump' like replace and 'widen' as keep-both", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
+    const bump = await runMuraqibUpgradeOrchestrator({ packageName: "x", currentValue: "~1.0.0", newVersion: "1.2.0", rangeStrategy: "bump" });
+    const widen = await runMuraqibUpgradeOrchestrator({ packageName: "x", currentValue: "~1.0.0", newVersion: "1.2.0", rangeStrategy: "widen" });
+    expect(bump.updatedVersion).toBe("~1.2.0");
+    expect(widen.updatedVersion).toBe("~1.0.0 || ~1.2.0");
+  });
+
+  it("logs the tail of the build output and returns the current value on build failure", async () => {
+    vi.mocked(detectProjectPackageManager).mockReturnValue("pnpm");
+    const lines = Array.from({ length: 30 }, (_v, n) => `err line ${n + 1}`).join("\n");
+    mockExec(() => new Error("failed"), { stdout: "", stderr: lines });
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "lodash",
+      currentValue: "^1.0.0",
+      newVersion: "2.0.0",
+      rangeStrategy: "replace",
+    });
+    expect(result).toEqual({ updatedVersion: "^1.0.0", schemaMigrated: false });
+    const logged = vi.mocked(console.error).mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("err line 30");
+    expect(logged).toContain("err line 11");
+    expect(logged).not.toContain("err line 10\n");
+    expect(vi.mocked(execFile).mock.calls[0]?.[0]).toBe("pnpm");
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual(["-w", "build"]);
+    const warned = vi.mocked(console.log).mock.calls.map((c) => String(c[0])).join("\n");
+    expect(warned).not.toContain("has been applied");
   });
 });

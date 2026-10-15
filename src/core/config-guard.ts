@@ -155,13 +155,58 @@ function checkEnvFiles(root: string, issues: ConfigIssue[], reports: string[]): 
   }
 }
 
+/** Extracts a message from an unknown thrown value. */
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** True when the directory holds at least one `.ts`/`.tsx` file directly inside it. */
+function hasTypeScriptFiles(dir: string): boolean {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).some((d) => d.isFile() && /\.tsx?$/.test(d.name));
+  } catch {
+    return false;
+  }
+}
+
+/** A project is considered TypeScript when package.json lists `typescript` or `.ts`/`.tsx` files exist in the root or `src`. */
+function hasTypeScriptSignals(root: string, pkg: Record<string, unknown> | undefined): boolean {
+  for (const field of ["dependencies", "devDependencies"] as const) {
+    const deps = pkg?.[field];
+    if (isRecord(deps) && "typescript" in deps) return true;
+  }
+  return hasTypeScriptFiles(root) || hasTypeScriptFiles(join(root, "src"));
+}
+
+type CompilerOptions = ReturnType<typeof readCompilerOptions>;
+
 function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
-  const root = projectRoot || process.cwd();
+  const root = projectRoot !== undefined && projectRoot.trim() !== "" ? projectRoot : process.cwd();
   const issues: ConfigIssue[] = [];
   const reports: string[] = [];
   const configFiles = { found: [] as string[], missing: [] as string[] };
 
   const usesFlatEslintConfig = ESLINT_FLAT_CONFIGS.some((name) => existsSync(join(root, name)));
+
+  // package.json and tsconfig.json are each parsed exactly once and reused below.
+  let pkg: Record<string, unknown> | undefined;
+  let compilerOptions: CompilerOptions | undefined;
+
+  // package.json is read up front: the TypeScript signals decide how severe a missing tsconfig is.
+  const packagePath = join(root, "package.json");
+  let packageParseError: string | undefined;
+  if (existsSync(packagePath)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(packagePath, "utf-8"));
+      if (isRecord(parsed)) pkg = parsed;
+    } catch (e) {
+      packageParseError = errorMessage(e);
+    }
+  }
 
   // Check critical configs
   for (const config of criticalConfigs) {
@@ -169,17 +214,26 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
     const configPath = join(root, config);
     if (!existsSync(configPath)) {
       configFiles.missing.push(config);
-      if (config !== ".gitignore") {
+      if (config === "tsconfig.json" && !hasTypeScriptSignals(root, pkg)) {
         issues.push({
           type: "missing_config",
           file: config,
-          // .eslintignore is only a convenience for legacy eslintrc setups, never a blocker
-          severity: config === ".eslintignore" ? "medium" : "high",
-          message: `Critical configuration file missing: ${config}`,
-          suggestion: `Create or copy ${config} to project root`,
+          severity: "low",
+          message: `No ${config} found (no TypeScript signals detected, so this is only informational)`,
+          suggestion: "Add a tsconfig.json if you adopt TypeScript or use editor type-checking (checkJs)",
         });
-        reports.push(`❌ Missing critical config: ${config}`);
+        reports.push(`ℹ️ No ${config} (project does not appear to use TypeScript)`);
+        continue;
       }
+      issues.push({
+        type: "missing_config",
+        file: config,
+        // .eslintignore is only a convenience for legacy eslintrc setups, never a blocker
+        severity: config === ".eslintignore" ? "medium" : config === ".gitignore" ? "medium" : "high",
+        message: `Critical configuration file missing: ${config}`,
+        suggestion: `Create or copy ${config} to project root`,
+      });
+      reports.push(`❌ Missing critical config: ${config}`);
     } else {
       configFiles.found.push(config);
 
@@ -188,8 +242,10 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
         try {
           if (config === "tsconfig.json") {
             // tsconfig is JSONC (comments, trailing commas) and may extend other files.
-            readCompilerOptions(configPath);
-          } else {
+            compilerOptions = readCompilerOptions(configPath);
+          } else if (packageParseError !== undefined) {
+            throw new Error(packageParseError);
+          } else if (config !== "package.json") {
             JSON.parse(readFileSync(configPath, "utf-8"));
           }
           reports.push(`✅ Valid JSON: ${config}`);
@@ -198,7 +254,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
             type: "invalid_json",
             file: config,
             severity: "critical",
-            message: `Invalid JSON in ${config}: ${(e as Error).message}`,
+            message: `Invalid JSON in ${config}: ${errorMessage(e)}`,
             suggestion: "Fix JSON syntax errors in the configuration file",
           });
           reports.push(`🔴 Invalid JSON in ${config}`);
@@ -216,100 +272,87 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
     }
   }
 
-  // Validate tsconfig.json settings
-  const tsconfigPath = join(root, "tsconfig.json");
-  if (existsSync(tsconfigPath)) {
-    try {
-      const compilerOptions = readCompilerOptions(tsconfigPath);
+  // Validate tsconfig.json settings (parsed once above; unreadable files were already reported as invalid JSON)
+  if (compilerOptions !== undefined) {
+    if (!compilerOptions?.strict) {
+      issues.push({
+        type: "unsafe_setting",
+        file: "tsconfig.json",
+        setting: "strict",
+        severity: "medium",
+        message: "TypeScript strict mode is disabled",
+        suggestion: 'Enable strict mode: "strict": true in compilerOptions',
+      });
+      reports.push("⚠️ TypeScript strict mode disabled");
+    }
 
-      // Check strict mode
-      if (!compilerOptions?.strict) {
-        issues.push({
-          type: "unsafe_setting",
-          file: "tsconfig.json",
-          setting: "strict",
-          severity: "medium",
-          message: "TypeScript strict mode is disabled",
-          suggestion: 'Enable strict mode: "strict": true in compilerOptions',
-        });
-        reports.push("⚠️ TypeScript strict mode disabled");
-      }
-
-      // Check for noImplicitAny
-      if (compilerOptions?.noImplicitAny === false) {
-        issues.push({
-          type: "unsafe_setting",
-          file: "tsconfig.json",
-          setting: "noImplicitAny",
-          severity: "high",
-          message: "Implicit 'any' types allowed",
-          suggestion:
-            'Set "noImplicitAny": true to catch type errors early',
-        });
-        reports.push("⚠️ Implicit any types allowed in TypeScript");
-      }
-    } catch {
-      // Already caught in JSON validation
+    if (compilerOptions?.noImplicitAny === false) {
+      issues.push({
+        type: "unsafe_setting",
+        file: "tsconfig.json",
+        setting: "noImplicitAny",
+        severity: "high",
+        message: "Implicit 'any' types allowed",
+        suggestion:
+          'Set "noImplicitAny": true to catch type errors early',
+      });
+      reports.push("⚠️ Implicit any types allowed in TypeScript");
     }
   }
 
-  // Validate package.json
-  const packagePath = join(root, "package.json");
-  if (existsSync(packagePath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(packagePath, "utf-8"));
+  // Validate package.json fields (parsed once above; a parse failure was already reported as invalid JSON)
+  if (pkg !== undefined) {
+    const scripts = isRecord(pkg["scripts"]) ? pkg["scripts"] : undefined;
+    const engines = isRecord(pkg["engines"]) ? pkg["engines"] : undefined;
 
-      if (!pkg.description) {
-        issues.push({
-          type: "missing_config",
-          file: "package.json",
-          setting: "description",
-          severity: "low",
-          message: "Missing package description",
-          suggestion: "Add a description field to package.json",
-        });
-      }
+    if (!pkg["description"]) {
+      issues.push({
+        type: "missing_config",
+        file: "package.json",
+        setting: "description",
+        severity: "low",
+        message: "Missing package description",
+        suggestion: "Add a description field to package.json",
+      });
+    }
 
-      if (!pkg.license) {
-        issues.push({
-          type: "missing_config",
-          file: "package.json",
-          setting: "license",
-          severity: "low",
-          message: "Missing license field",
-          suggestion:
-            'Add a license field (e.g., "MIT", "ISC", "Apache-2.0")',
-        });
-      }
+    if (!pkg["license"]) {
+      issues.push({
+        type: "missing_config",
+        file: "package.json",
+        setting: "license",
+        severity: "low",
+        message: "Missing license field",
+        suggestion:
+          'Add a license field (e.g., "MIT", "ISC", "Apache-2.0")',
+      });
+    }
 
-      if (!pkg.engines?.node) {
-        issues.push({
-          type: "missing_config",
-          file: "package.json",
-          setting: "engines.node",
-          severity: "medium",
-          message: "Node.js version not specified",
-          suggestion:
-            'Add "engines": { "node": ">=18.0.0" } to package.json',
-        });
-      }
+    if (!engines?.["node"]) {
+      issues.push({
+        type: "missing_config",
+        file: "package.json",
+        setting: "engines.node",
+        severity: "medium",
+        message: "Node.js version not specified",
+        suggestion:
+          'Add "engines": { "node": ">=18.0.0" } to package.json',
+      });
+    }
 
-      // Check for test script
-      if (!pkg.scripts?.test) {
-        issues.push({
-          type: "missing_config",
-          file: "package.json",
-          setting: "scripts.test",
-          severity: "medium",
-          message: "No test script defined",
-          suggestion: 'Add "test" script to scripts section',
-        });
-        reports.push("⚠️ No test script in package.json");
-      } else {
-        reports.push(`✅ Test script found: ${pkg.scripts.test}`);
-      }
-    } catch {
-      // Already caught in JSON validation
+    // Check for test script
+    if (!scripts?.["test"]) {
+      issues.push({
+        type: "missing_config",
+        file: "package.json",
+        setting: "scripts.test",
+        severity: "medium",
+        message: "No test script defined",
+        suggestion: 'Add "test" script to scripts section',
+      });
+      reports.push("⚠️ No test script in package.json");
+    } else {
+      reports.push(`✅ Test script found: ${String(scripts["test"])}`);
     }
   }
 
@@ -326,9 +369,27 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   return { isHealthy, reports, issues, configFiles };
 }
 
+function toAuditSeverity(severity: ConfigIssue["severity"]): AuditIssue["severity"] {
+  switch (severity) {
+    case "critical":
+      return "critical";
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    case "low":
+      return "info";
+    default: {
+      const exhaustive: never = severity;
+      void exhaustive;
+      return "warning";
+    }
+  }
+}
+
 /**
  * Validates configuration and environment files: missing or invalid variables and unsafe settings.
- * Severity levels used: critical, warning, error.
+ * Severity levels used: critical, error, warning, info (config `low` maps to info).
  */
 export class ConfigGuard extends BaseGuard {
   private options: ConfigAuditOptions;
@@ -349,10 +410,7 @@ export class ConfigGuard extends BaseGuard {
     const issues: AuditIssue[] = [];
 
     for (const configIssue of result.issues) {
-      let severity: AuditIssue["severity"] = "warning";
-      if (configIssue.severity === "critical") severity = "critical";
-      else if (configIssue.severity === "high") severity = "error";
-      else if (configIssue.severity === "medium") severity = "warning";
+      const severity = toAuditSeverity(configIssue.severity);
 
       issues.push(
         this.createIssue(
@@ -362,7 +420,7 @@ export class ConfigGuard extends BaseGuard {
           configIssue.message,
           { file: configIssue.file },
           configIssue.suggestion,
-          configIssue.setting ? [configIssue.setting] : []
+          ["config", configIssue.type, ...(configIssue.setting ? [configIssue.setting] : [])]
         )
       );
     }
