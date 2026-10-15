@@ -19,15 +19,31 @@ const SIDE_EFFECT_IMPORT = /(?<![.\w$])import\s*(['"])/g;
 /** Matches dynamic imports and CommonJS requires with a literal specifier. */
 const CALL_IMPORT = /(?<![.\w$])(?:import|require)\s*\(\s*(['"])/g;
 
+/** `import type ...` / `export type ...` (but not a default import that is literally named `type`). */
+const TYPE_ONLY_CLAUSE = /^(?:import|export)\s+type\b(?!\s*(?:,|from\b))/;
+
+/** Options for {@link extractImportSpecifiers}. */
+export interface ExtractImportOptions {
+  /**
+   * Keep `import type` / `export type` statements (default `true`). Type-only statements are erased
+   * at compile time, so they cannot take part in a runtime import cycle.
+   */
+  includeTypeOnly?: boolean;
+}
+
 /**
  * Extract every module specifier referenced by static imports, re-exports, side-effect imports,
  * dynamic `import("x")` and `require("x")` calls. Comments are ignored. Detection runs on a
  * masked copy of the source (same length), and the specifier text is read back from the original.
+ * Only statement-level `import type` / `export type` is treated as type-only; inline
+ * `import { type X }` stays a runtime edge because it can survive compilation.
  *
  * @param source - Source code of a TypeScript/JavaScript file
+ * @param options - Extraction options
  * @returns Specifiers in order of appearance, without duplicates
  */
-export function extractImportSpecifiers(source: string): string[] {
+export function extractImportSpecifiers(source: string, options: ExtractImportOptions = {}): string[] {
+  const includeTypeOnly = options.includeTypeOnly ?? true;
   const masked = maskLiteralsAndComments(source);
   const found = new Set<string>();
 
@@ -36,6 +52,7 @@ export function extractImportSpecifiers(source: string): string[] {
       const quote = match[1];
       if (quote === undefined) continue;
       const open = match.index + match[0].length - 1;
+      if (!includeTypeOnly && regex === FROM_CLAUSE && TYPE_ONLY_CLAUSE.test(match[0])) continue;
       const close = masked.indexOf(quote, open + 1);
       if (close === -1) continue;
       const specifier = source.slice(open + 1, close);
