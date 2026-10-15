@@ -653,8 +653,6 @@ describe('SecurityGuard', () => {
     });
 
     it('should handle IPv6 localhost addresses', async () => {
-      // Note: URL API parses [::1] with brackets, which doesn't match the ::1 check
-      // This test documents the current behavior
       const guard = new SecurityGuard({ targetUrl: 'http://[::1]:8080' });
 
       mockResponse.headers = {
@@ -677,9 +675,9 @@ describe('SecurityGuard', () => {
 
       const result = await guard.execute();
 
-      // IPv6 addresses in brackets are treated as remote hosts due to URL parsing
-      // This is a known limitation - they trigger HTTPS warning
-      expect(result.status).toBe('error');
+      // [::1] is loopback: brackets are normalised, so plain HTTP is not flagged
+      expect(result.issues.some((i) => i.code === 'SECURITY_NOT_HTTPS')).toBe(false);
+      expect(result.status).toBe('warning');
     });
   });
 
@@ -854,7 +852,8 @@ describe('SecurityGuard', () => {
       const guard = new SecurityGuard({ targetUrl: 'https://example.com' });
 
       mockResponse.headers = {
-        'Content-Security-Policy': "default-src 'self'",
+        // Mixed-case headers are now analysed too, so the CSP must be complete
+        'Content-Security-Policy': "default-src 'self'; font-src 'self'; img-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'",
         'X-Frame-Options': 'DENY',
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'strict-origin-when-cross-origin',

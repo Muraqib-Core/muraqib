@@ -56,6 +56,8 @@ export interface AuditIssue {
   } | undefined;
   recommendation?: string | undefined;
   tags: string[];
+  /** Name of the guard/module that produced this issue (e.g. 'memory-guard'). */
+  module?: string;
   /** Five-level severity from the scan layer; `severity` is its guard-level view. */
   level?: ScanLevel;
   category?: ScanCategory;
@@ -115,6 +117,8 @@ export interface UnifiedAuditResult {
   results: AuditResult[];
   /** Every guard issue, sorted per the orchestrator configuration. */
   issues: AuditIssue[];
+  /** Set only when the orchestration itself crashed (success === false). */
+  error?: string;
   aiInsights?: AIInsight[];
   secretsFound?: SecretDetectionResult;
   summary: {
@@ -122,6 +126,8 @@ export interface UnifiedAuditResult {
     critical: number;
     errors: number;
     warnings: number;
+    /** Count of info-level issues. */
+    info?: number;
     duration: number;
     timestamp: number;
   };

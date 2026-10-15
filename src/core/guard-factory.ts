@@ -22,11 +22,33 @@ export interface GuardConfig {
   configProjectRoot?: string;
   dependencyTargetPath?: string;
   dockerProjectRoot?: string;
-  memoryOptions?: Record<string, unknown>;
+  memoryOptions?: MemoryAuditOptions | Record<string, unknown>;
   securityTargetUrl?: string | undefined;
   imageTargetPath?: string;
   deadCodeTargetPath?: string;
   networkTargetUrl?: string;
+}
+
+const MEMORY_OPTION_KEYS = [
+  "heapWarnMb",
+  "heapCriticalMb",
+  "rssWarnMb",
+  "externalWarnMb",
+  "heapRatioWarn",
+] as const;
+
+/**
+ * Narrow an untyped options bag to MemoryAuditOptions, keeping only known finite numeric keys.
+ */
+function toMemoryOptions(options: MemoryAuditOptions | Record<string, unknown> | undefined): MemoryAuditOptions {
+  const out: MemoryAuditOptions = {};
+  if (!options) return out;
+  const bag: Record<string, unknown> = { ...options };
+  for (const key of MEMORY_OPTION_KEYS) {
+    const value = bag[key];
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+  }
+  return out;
 }
 
 /**
@@ -105,8 +127,8 @@ export class GuardFactory {
    * @param options - Options
    * @returns Create memory guard result
    */
-  createMemoryGuard(options?: Record<string, unknown>): MemoryGuard {
-    return new MemoryGuard(options as unknown as MemoryAuditOptions, this.context);
+  createMemoryGuard(options?: MemoryAuditOptions | Record<string, unknown>): MemoryGuard {
+    return new MemoryGuard(toMemoryOptions(options), this.context);
   }
 
   /**
