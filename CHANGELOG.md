@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Dynamic documentation: `npm run docs:generate` (`scripts/generate-docs.mjs`) derives `docs/REFERENCE.md` and the `<!-- AUTO:... -->` blocks in README.md, API.md and CONTRIBUTING.md (versions, badges, requirements, guards, CLI flags, npm scripts, public API, CI workflows) from the source, `package.json` and `.github/workflows/`. `npm run docs:check` fails when they are stale; the new `docs-check` CI job enforces it and the `Docs` workflow opens a refresh PR automatically.
 - VS Code extension in `extension/` (separate package, built against the repository's `muraqib-core`): `Muraqib: Run Audit`, `Show Documentation` and `Show Last Report` commands; an audit report webview grouped by severity and module with scanner coverage, a strict nonce CSP, validated `postMessage` messages and an "open file at line" action restricted to the workspace; Problems-panel diagnostics; a status bar issue counter; and `muraqib.*` settings. Arabic/RTL friendly.
+
+### Changed
+
+- CI/CD hardening: least-privilege `permissions`, `type-check:tests` in CI, no full-history checkouts, audit workflow limited to `main`/`develop`/PRs with concurrency control, and the release workflow now verifies that the tag matches `package.json`, type-checks and checks generated docs before publishing.
+- Documentation corrected to match the code: package name (`@muraqib/core`), Node/TypeScript/Vitest versions, CI job list, guard descriptions.
 
 ### Fixed
 

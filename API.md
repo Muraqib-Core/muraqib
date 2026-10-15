@@ -17,7 +17,7 @@ Complete API documentation for Muraqib Core - the comprehensive code auditor for
 ## Installation
 
 ```bash
-npm install muraqib-core
+npm install @muraqib/core
 ```
 
 ### Optional peer dependencies
@@ -30,11 +30,15 @@ npm install arktype         # ArktypeEngine / --engine arktype
 npm install @google/genai   # AI advisor (--ai-advisory)
 ```
 
-`zod` ships with `muraqib-core` (used by the built-in environment presets). When an optional package is missing, engines throw `MissingOptionalDependencyError` with a message like `install valibot to use engine 'valibot'`; the AI advisor returns a failed/empty result and prints a one-time warning instead of breaking the audit.
+`zod` ships with `@muraqib/core` (used by the built-in environment presets). When an optional package is missing, engines throw `MissingOptionalDependencyError` with a message like `install valibot to use engine 'valibot'`; the AI advisor returns a failed/empty result and prints a one-time warning instead of breaking the audit.
 
 ### Requirements
-- Node.js 18+
-- TypeScript 5.0+
+
+<!-- AUTO:requirements:start -->
+- Node.js 20.12.0+ (see `engines.node` in `package.json`)
+- npm 9.0.0+
+- TypeScript 6.x for development (the published package ships compiled JavaScript and `.d.ts` files)
+<!-- AUTO:requirements:end -->
 
 ---
 
@@ -45,7 +49,7 @@ npm install @google/genai   # AI advisor (--ai-advisory)
 Detects memory leaks and heap usage anomalies.
 
 ```typescript
-import { performMemoryAudit } from "muraqib-core";
+import { performMemoryAudit } from "@muraqib/core";
 
 const result = performMemoryAudit({
   heapWarnMb: 512,
@@ -70,7 +74,7 @@ const result = performMemoryAudit({
 Analyzes code for security vulnerabilities (XSS, SQL injection, etc.).
 
 ```typescript
-import { performSecurityAudit } from "muraqib-core";
+import { performSecurityAudit } from "@muraqib/core";
 
 const result = performSecurityAudit(targetPath);
 // Returns: { isClean, reports, xssIssues, sqlInjectionIssues, ... }
@@ -81,7 +85,7 @@ const result = performSecurityAudit(targetPath);
 Detects circular dependencies, duplicates, and deprecated APIs.
 
 ```typescript
-import { performDependencyAudit } from "muraqib-core";
+import { performDependencyAudit } from "@muraqib/core";
 
 const result = performDependencyAudit(targetPath);
 // Returns: { isClean, reports, circularDeps, deprecatedApis, ... }
@@ -92,7 +96,7 @@ const result = performDependencyAudit(targetPath);
 Detects floating promises, missing awaits, and callback hell patterns.
 
 ```typescript
-import { performAsyncAudit } from "muraqib-core";
+import { performAsyncAudit } from "@muraqib/core";
 
 const result = performAsyncAudit(targetPath);
 // Returns: { isClean, reports, unhandledPromises, missingAwait, ... }
@@ -103,7 +107,7 @@ const result = performAsyncAudit(targetPath);
 Validates Dockerfile security and best practices.
 
 ```typescript
-import { performDockerAudit } from "muraqib-core";
+import { performDockerAudit } from "@muraqib/core";
 
 const result = performDockerAudit(projectRoot);
 // Returns: { isSecure, reports, criticalIssues, blockingResources }
@@ -121,7 +125,7 @@ const result = performDockerAudit(projectRoot);
 Audits Node.js and package compatibility.
 
 ```typescript
-import { performCompatibilityAudit } from "muraqib-core";
+import { performCompatibilityAudit } from "@muraqib/core";
 
 const result = performCompatibilityAudit(projectRoot);
 // Returns: { isCompatible, reports, issues, configFiles }
@@ -137,7 +141,7 @@ const result = performCompatibilityAudit(projectRoot);
 Validates project configuration files.
 
 ```typescript
-import { performConfigAudit } from "muraqib-core";
+import { performConfigAudit } from "@muraqib/core";
 
 const result = performConfigAudit(projectRoot);
 // Returns: { isHealthy, reports, issues, configFiles }
@@ -157,7 +161,7 @@ const result = performConfigAudit(projectRoot);
 Enforces bundle size budget (default: 14KB).
 
 ```typescript
-import { performBundleBudgetAudit } from "muraqib-core";
+import { performBundleBudgetAudit } from "@muraqib/core";
 
 const result = performBundleBudgetAudit(projectRoot, { budgetKb: 14 });
 // Returns: { status, issues, message, timestamp, duration }
@@ -168,7 +172,7 @@ const result = performBundleBudgetAudit(projectRoot, { budgetKb: 14 });
 Detects oversized and unoptimized images.
 
 ```typescript
-import { performImageAudit } from "muraqib-core";
+import { performImageAudit } from "@muraqib/core";
 
 const result = performImageAudit(projectRoot, { limit: 500 }); // KB
 // Returns: { reports, violations, suggestions }
@@ -179,7 +183,7 @@ const result = performImageAudit(projectRoot, { limit: 500 }); // KB
 Measures network performance and latency issues.
 
 ```typescript
-import { performNetworkAudit } from "muraqib-core";
+import { performNetworkAudit } from "@muraqib/core";
 
 const result = await performNetworkAudit("http://localhost:3000");
 // Returns: { latencyMs, dnsMs, tcpMs, tlsMs, ttfbMs }
@@ -190,7 +194,7 @@ const result = await performNetworkAudit("http://localhost:3000");
 Analyzes HTTP/2, cookies, and resource optimization.
 
 ```typescript
-import { performOptimizerAudit } from "muraqib-core";
+import { performOptimizerAudit } from "@muraqib/core";
 
 const result = performOptimizerAudit(projectRoot);
 // Returns: { recommendations, http2Support, cookies, ... }
@@ -201,7 +205,7 @@ const result = performOptimizerAudit(projectRoot);
 Identifies resources that block initial page render.
 
 ```typescript
-import { performRenderBlockingAudit } from "muraqib-core";
+import { performRenderBlockingAudit } from "@muraqib/core";
 
 const result = performRenderBlockingAudit(htmlContent);
 // Returns: { isOptimized, reports, criticalIssues, blockingResources }
@@ -212,7 +216,7 @@ const result = performRenderBlockingAudit(htmlContent);
 Comprehensive HTML quality analysis.
 
 ```typescript
-import { scanHtml } from "muraqib-core";
+import { scanHtml } from "@muraqib/core";
 
 const result = scanHtml(htmlContent);
 // Returns: { isValid, reports, issues, statistics }
@@ -236,7 +240,7 @@ const result = scanHtml(htmlContent);
 Detects unused functions, exports, and unreachable code.
 
 ```typescript
-import { performDeadCodeAudit } from "muraqib-core";
+import { performDeadCodeAudit } from "@muraqib/core";
 
 const result = performDeadCodeAudit(targetPath);
 // Returns: { isClean, reports, emptyFunctions, unreachableBranches, ... }
@@ -247,7 +251,7 @@ const result = performDeadCodeAudit(targetPath);
 Validates cache strategy optimization.
 
 ```typescript
-import { performCacheAudit } from "muraqib-core";
+import { performCacheAudit } from "@muraqib/core";
 
 const result = performCacheAudit(projectRoot);
 // Returns: { isOptimized, reports, issues }
@@ -262,7 +266,7 @@ const result = performCacheAudit(projectRoot);
 Detects sensitive information in code (API keys, tokens, etc.).
 
 ```typescript
-import { detectSecrets } from "muraqib-core";
+import { detectSecrets } from "@muraqib/core";
 
 const result = await detectSecrets(codeContent);
 // Returns: { found, secrets: [{ type, line, severity, details }] }
@@ -279,7 +283,7 @@ const result = await detectSecrets(codeContent);
 Provides AI-powered recommendations for detected issues.
 
 ```typescript
-import { getAIRecommendation } from "muraqib-core";
+import { getAIRecommendation } from "@muraqib/core";
 
 const recommendation = await getAIRecommendation("memory_leak", details);
 // Returns: { issue, recommendation, examples, confidence }
@@ -397,7 +401,7 @@ import {
   performDependencyAudit,
   performAsyncAudit,
   performBundleBudgetAudit,
-} from "muraqib-core";
+} from "@muraqib/core";
 
 async function runFullAudit(projectRoot: string) {
   const results = await Promise.all([
