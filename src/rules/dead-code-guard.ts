@@ -92,6 +92,52 @@ function bracketDelta(line: string): number {
   return delta;
 }
 
+const MAX_STATEMENT_LINES = 40;
+
+const isBlankOrLineComment = (line: string): boolean => line === "" || line.startsWith("//");
+
+/** `if (x)\n  return y;` has no braces: the jump only guards that branch, so nothing after it is dead. */
+function isGuardedJump(lines: string[], index: number): boolean {
+  let p = index - 1;
+  while (p >= 0 && isBlankOrLineComment((lines[p] ?? "").trim())) p--;
+  const previous = p >= 0 ? stripStringsAndComments(lines[p] ?? "").trim() : "";
+  return previous.endsWith(")") || previous === "else" || previous.endsWith("=>");
+}
+
+/** Index of the line where the (possibly multi-line) jump statement starting at `start` ends, or -1. */
+function jumpStatementEnd(lines: string[], start: number): number {
+  let depth = 0;
+  for (let j = start; j < Math.min(lines.length, start + MAX_STATEMENT_LINES); j++) {
+    depth += bracketDelta(lines[j] ?? "");
+    const code = stripStringsAndComments(lines[j] ?? "").trim();
+    if (depth <= 0 && (code.endsWith(";") || /^(?:break|continue|return|throw)$/.test(code) || depth < 0)) {
+      return depth < 0 ? -1 : j;
+    }
+  }
+  return -1;
+}
+
+/** Index of the first line at or after `from` that is code (not blank or a comment). */
+function nextCodeIndex(lines: string[], from: number): number {
+  let n = from;
+  while (n < lines.length) {
+    const next = (lines[n] ?? "").trim();
+    if (next !== "" && !next.startsWith("//") && !next.startsWith("*") && !next.startsWith("/*")) break;
+    n++;
+  }
+  return n;
+}
+
+/** Whether `next` (the line after a jump) is normal code: a block end, `case`/`default`/`else`, or a hoisted function. */
+function isReachableAfterJump(next: string): boolean {
+  return (
+    next === "" ||
+    /^[}\])]/.test(next) ||
+    /^(?:case\b|default\s*:|else\b)/.test(next) ||
+    /^(?:async\s+)?function\b/.test(next)
+  );
+}
+
 /**
  * Returns the 1-based line numbers of statements that sit directly after a complete
  * `return`/`throw`/`break`/`continue` statement inside the same block.
@@ -99,42 +145,16 @@ function bracketDelta(line: string): number {
  */
 export function findUnreachableLines(lines: string[]): number[] {
   const found: number[] = [];
-  const MAX_STATEMENT_LINES = 40;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = (lines[i] ?? "").trim();
-    if (!JUMP_STATEMENT_REGEX.test(line)) continue;
+    if (!JUMP_STATEMENT_REGEX.test((lines[i] ?? "").trim()) || isGuardedJump(lines, i)) continue;
 
-    // `if (x)\n  return y;` has no braces: the jump only guards that branch
-    let p = i - 1;
-    while (p >= 0 && ((lines[p] ?? "").trim() === "" || (lines[p] ?? "").trim().startsWith("//"))) p--;
-    const previous = p >= 0 ? stripStringsAndComments(lines[p] ?? "").trim() : "";
-    if (previous.endsWith(")") || previous === "else" || previous.endsWith("=>")) continue;
-
-    // Find where the (possibly multi-line) statement ends
-    let depth = 0;
-    let end = -1;
-    for (let j = i; j < Math.min(lines.length, i + MAX_STATEMENT_LINES); j++) {
-      depth += bracketDelta(lines[j] ?? "");
-      const code = stripStringsAndComments(lines[j] ?? "").trim();
-      if (depth <= 0 && (code.endsWith(";") || /^(?:break|continue|return|throw)$/.test(code) || depth < 0)) {
-        end = depth < 0 ? -1 : j;
-        break;
-      }
-    }
+    const end = jumpStatementEnd(lines, i);
     if (end === -1) continue;
 
-    let n = end + 1;
-    while (n < lines.length) {
-      const next = (lines[n] ?? "").trim();
-      if (next !== "" && !next.startsWith("//") && !next.startsWith("*") && !next.startsWith("/*")) break;
-      n++;
-    }
+    const n = nextCodeIndex(lines, end + 1);
     const next = n < lines.length ? (lines[n] ?? "").trim() : "";
-    if (next === "" || /^[}\])]/.test(next) || /^(?:case\b|default\s*:|else\b)/.test(next)) continue;
-    if (/^(?:async\s+)?function\b/.test(next)) continue; // hoisted declarations stay reachable
-
-    found.push(n + 1);
+    if (!isReachableAfterJump(next)) found.push(n + 1);
   }
   return found;
 }
