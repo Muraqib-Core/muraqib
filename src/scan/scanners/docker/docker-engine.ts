@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import yaml from "yaml";
-import ignore from "ignore";
+import ignore, { type Ignore } from "ignore";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
 import { createScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 
@@ -127,6 +127,63 @@ function composeMembers(file: string, allCompose: string[]): string[] {
   const override = allCompose.filter(other => path.dirname(other) === path.dirname(file) &&
     new RegExp(`^${prefix}\\.override\\.ya?ml$`).test(path.basename(other).toLowerCase()));
   return [file, ...override];
+}
+
+/** Outcome of one build-analysis step: a value, or the diagnostic explaining why the service was skipped. */
+type Step<T> = { value: T } | { skip: string };
+
+/** Records a diagnostic and reports "incomplete". */
+function skipped(diagnostics: string[], message: string): true {
+  diagnostics.push(message);
+  return true;
+}
+
+/** Resolves the service's local build context directory, which must exist inside the project. */
+async function resolveBuildContext(build: unknown, file: string, root: string, service: string): Promise<Step<string>> {
+  const rawContext = typeof build === "string" ? build : (build as { context?: unknown }).context;
+  if (typeof rawContext !== "string" || !rawContext || /^(https?:|git@|docker-image:)/i.test(rawContext)) {
+    return { skip: `Local build context for service ${service} is unsupported or unresolved.` };
+  }
+  const contextPath = path.resolve(path.dirname(path.resolve(root, file)), rawContext);
+  let contextReal: string;
+  try { contextReal = await fs.realpath(contextPath); }
+  catch { return { skip: `Local build context inaccessible for service ${service}.` }; }
+  if (!within(root, contextReal)) return { skip: `Build context outside project skipped for service ${service}.` };
+  return { value: contextReal };
+}
+
+/** Reads the build's Dockerfile (default `Dockerfile` in the context), which must be inside the project. */
+async function readBuildDockerfile(
+  build: unknown,
+  contextReal: string,
+  root: string,
+  service: string
+): Promise<Step<{ real: string; content: string }>> {
+  const declared = typeof build === "object" && build ? (build as { dockerfile?: unknown }).dockerfile : undefined;
+  const dockerfileName = typeof declared === "string" ? declared : "Dockerfile";
+  let real: string;
+  try { real = await fs.realpath(path.resolve(contextReal, dockerfileName)); }
+  catch { return { skip: `Build Dockerfile inaccessible for service ${service}.` }; }
+  if (!within(root, real)) return { skip: `Build Dockerfile outside project skipped for service ${service}.` };
+  try { return { value: { real, content: await fs.readFile(real, "utf8") } }; }
+  catch { return { skip: `Build Dockerfile unreadable for service ${service}.` }; }
+}
+
+/** Reads the `.dockerignore` that applies to the build (`<Dockerfile>.dockerignore` wins); a missing file means no rules. */
+async function readIgnoreRules(dockerfileReal: string, contextReal: string, root: string, service: string): Promise<Step<string>> {
+  const specialIgnore = `${dockerfileReal}.dockerignore`;
+  const defaultIgnore = path.join(contextReal, ".dockerignore");
+  const selectedIgnore = await fs.stat(specialIgnore).then(() => specialIgnore).catch(() => defaultIgnore);
+  try {
+    const ignoreReal = await fs.realpath(selectedIgnore);
+    if (!within(root, ignoreReal)) return { skip: `Ignore file outside project skipped for service ${service}.` };
+    const rules = await fs.readFile(ignoreReal, "utf8");
+    if (rules.length > 1024 * 1024) return { skip: `Ignore file too large for service ${service}.` };
+    return { value: rules };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") return { skip: `Ignore file unreadable for service ${service}.` };
+    return { value: "" };
+  }
 }
 
 /**
@@ -384,54 +441,61 @@ export class DockerScanner implements ScannerEngine {
     for (const [name, service] of Object.entries(doc.services ?? {})) {
       const build = service?.build;
       if (!build) continue;
-      const rawContext = typeof build === "string" ? build : (build as { context?: unknown }).context;
-      if (typeof rawContext !== "string" || !rawContext || /^(https?:|git@|docker-image:)/i.test(rawContext)) {
-        incomplete = true; diagnostics.push(`Local build context for service ${safeName(name)} is unsupported or unresolved.`); continue;
-      }
-      const contextPath = path.resolve(path.dirname(path.resolve(root, file)), rawContext);
-      let contextReal: string;
-      try { contextReal = await fs.realpath(contextPath); }
-      catch { incomplete = true; diagnostics.push(`Local build context inaccessible for service ${safeName(name)}.`); continue; }
-      if (!within(root, contextReal)) { incomplete = true; diagnostics.push(`Build context outside project skipped for service ${safeName(name)}.`); continue; }
-      const dockerfileName = typeof build === "object" && build && typeof (build as { dockerfile?: unknown }).dockerfile === "string" ? (build as { dockerfile: string }).dockerfile : "Dockerfile";
-      const dockerfilePath = path.resolve(contextReal, dockerfileName);
-      let dockerfileReal: string;
-      try { dockerfileReal = await fs.realpath(dockerfilePath); }
-      catch { incomplete = true; diagnostics.push(`Build Dockerfile inaccessible for service ${safeName(name)}.`); continue; }
-      if (!within(root, dockerfileReal)) { incomplete = true; diagnostics.push(`Build Dockerfile outside project skipped for service ${safeName(name)}.`); continue; }
-      let content: string;
-      try { content = await fs.readFile(dockerfileReal, "utf8"); }
-      catch { incomplete = true; diagnostics.push(`Build Dockerfile unreadable for service ${safeName(name)}.`); continue; }
-      const specialIgnore = `${dockerfileReal}.dockerignore`;
-      const defaultIgnore = path.join(contextReal, ".dockerignore");
-      const selectedIgnore = await fs.stat(specialIgnore).then(() => specialIgnore).catch(() => defaultIgnore);
-      let rules = "";
-      try {
-        const ignoreReal = await fs.realpath(selectedIgnore);
-        if (!within(root, ignoreReal)) { incomplete = true; diagnostics.push(`Ignore file outside project skipped for service ${safeName(name)}.`); continue; }
-        rules = await fs.readFile(ignoreReal, "utf8");
-        if (rules.length > 1024 * 1024) { incomplete = true; diagnostics.push(`Ignore file too large for service ${safeName(name)}.`); continue; }
-      }
-      catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT") { incomplete = true; diagnostics.push(`Ignore file unreadable for service ${safeName(name)}.`); continue; }
-      }
-      let matcher;
-      try { matcher = ignore().add(rules); }
-      catch { incomplete = true; diagnostics.push(`Ignore rules unsupported for service ${safeName(name)}.`); continue; }
-      for (const candidate of SENSITIVE) {
-        const candidatePath = path.join(contextReal, candidate);
-        let candidateReal: string;
-        try { candidateReal = await fs.realpath(candidatePath); }
-        catch { continue; }
-        if (!within(contextReal, candidateReal)) { incomplete = true; diagnostics.push(`Sensitive candidate symlink skipped for service ${safeName(name)}.`); continue; }
-        if (matcher.ignores(candidate)) continue;
-        for (const instruction of instructions(content)) {
-          if (!/^(COPY|ADD)\s/i.test(instruction.text) || /\s--from(?:=|\s)/i.test(instruction.text)) continue;
-          const sources = copySources(instruction.text);
-          if (!sources) { incomplete = true; diagnostics.push(`COPY form unsupported for service ${safeName(name)}.`); continue; }
-          if (sources.some(s => sourceMatches(s, candidate))) {
-            findings.push({ id: "IM-05", title: "Sensitive file copied into build stage", message: `Service ${safeName(name)} copies unignored sensitive file "${candidate}" into a build stage.`, severity: "high", category: "security", source: this.name, confidence: "inferred", file: path.relative(root, dockerfileReal), line: instruction.line, remediation: `Exclude ${candidate} with the selected .dockerignore or narrow the COPY source.` });
-          }
+      if (await this.analyzeServiceBuild(name, build, file, root, findings, diagnostics)) incomplete = true;
+    }
+    return incomplete;
+  }
+
+  /** Checks one service's build for sensitive files copied into it. Returns true when it could not be fully checked. */
+  private async analyzeServiceBuild(
+    name: string,
+    build: unknown,
+    file: string,
+    root: string,
+    findings: ScanIssueInput[],
+    diagnostics: string[]
+  ): Promise<boolean> {
+    const service = safeName(name);
+    const context = await resolveBuildContext(build, file, root, service);
+    if ("skip" in context) return skipped(diagnostics, context.skip);
+    const contextReal = context.value;
+
+    const dockerfile = await readBuildDockerfile(build, contextReal, root, service);
+    if ("skip" in dockerfile) return skipped(diagnostics, dockerfile.skip);
+
+    const rules = await readIgnoreRules(dockerfile.value.real, contextReal, root, service);
+    if ("skip" in rules) return skipped(diagnostics, rules.skip);
+
+    let matcher: Ignore;
+    try { matcher = ignore().add(rules.value); }
+    catch { return skipped(diagnostics, `Ignore rules unsupported for service ${service}.`); }
+
+    return this.findSensitiveCopies(service, contextReal, root, dockerfile.value, matcher, findings, diagnostics);
+  }
+
+  /** Reports unignored sensitive files that a COPY/ADD in the build Dockerfile would pull in. */
+  private async findSensitiveCopies(
+    service: string,
+    contextReal: string,
+    root: string,
+    dockerfile: { real: string; content: string },
+    matcher: Ignore,
+    findings: ScanIssueInput[],
+    diagnostics: string[]
+  ): Promise<boolean> {
+    let incomplete = false;
+    for (const candidate of SENSITIVE) {
+      let candidateReal: string;
+      try { candidateReal = await fs.realpath(path.join(contextReal, candidate)); }
+      catch { continue; }
+      if (!within(contextReal, candidateReal)) { incomplete = skipped(diagnostics, `Sensitive candidate symlink skipped for service ${service}.`); continue; }
+      if (matcher.ignores(candidate)) continue;
+      for (const instruction of instructions(dockerfile.content)) {
+        if (!/^(COPY|ADD)\s/i.test(instruction.text) || /\s--from(?:=|\s)/i.test(instruction.text)) continue;
+        const sources = copySources(instruction.text);
+        if (!sources) { incomplete = skipped(diagnostics, `COPY form unsupported for service ${service}.`); continue; }
+        if (sources.some(s => sourceMatches(s, candidate))) {
+          findings.push({ id: "IM-05", title: "Sensitive file copied into build stage", message: `Service ${service} copies unignored sensitive file "${candidate}" into a build stage.`, severity: "high", category: "security", source: this.name, confidence: "inferred", file: path.relative(root, dockerfile.real), line: instruction.line, remediation: `Exclude ${candidate} with the selected .dockerignore or narrow the COPY source.` });
         }
       }
     }
