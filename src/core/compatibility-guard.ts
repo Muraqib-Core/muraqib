@@ -80,73 +80,107 @@ function minimumVersion(spec: string): semver.SemVer | undefined {
   }
 }
 
+/** What one check contributes: structured findings plus human readable report lines. */
+interface CheckOutput {
+  findings: CompatibilityFinding[];
+  reports: string[];
+}
+
+/** Flags an end-of-life `engines.node` range, or notes one that cannot be parsed. */
+function checkNodeEngine(parsed: Record<string, unknown>): CheckOutput {
+  const out: CheckOutput = { findings: [], reports: [] };
+  const engines = parsed["engines"];
+  const nodeRange = isRecord(engines) ? engines["node"] : undefined;
+  if (typeof nodeRange !== "string") return out;
+
+  const min = minimumVersion(nodeRange);
+  if (min !== undefined && min.major < MIN_SUPPORTED_NODE_MAJOR) {
+    out.findings.push({
+      code: "COMPATIBILITY_EOL_NODE",
+      severity: "error",
+      message: `Node.js ${nodeRange} is end-of-life. Upgrade to ${supportedNodeVersions.join(" or ")}`,
+    });
+    out.reports.push(`🔴 EOL Node.js version detected: ${nodeRange}`);
+  } else if (min === undefined && semver.validRange(nodeRange) === null) {
+    out.reports.push(`ℹ️ Could not parse engines.node range: ${nodeRange}`);
+  }
+  return out;
+}
+
+/** Flags every declared package (any dependency section) that has a known better alternative. */
+function checkDeprecatedPackages(names: Iterable<string>): CheckOutput {
+  const out: CheckOutput = { findings: [], reports: [] };
+  for (const pkg of names) {
+    const entry = Object.hasOwn(deprecatedPackages, pkg) ? deprecatedPackages[pkg] : undefined;
+    if (entry === undefined) continue;
+    out.findings.push({
+      code: "COMPATIBILITY_DEPRECATED_PACKAGE",
+      severity: "warning",
+      message: `Package '${pkg}' is deprecated. Consider ${entry.alternative} instead. ${entry.reason}`,
+    });
+    out.reports.push(`⚠️ Deprecated package: ${pkg}`);
+  }
+  return out;
+}
+
+/** Compares what is actually installed with each peer range; unbounded or unparsable specs are skipped. */
+function checkPeerConflicts(
+  peerDependencies: Record<string, string>,
+  installed: Record<string, string>
+): CheckOutput {
+  const out: CheckOutput = { findings: [], reports: [] };
+  for (const [peerPkg, peerRange] of Object.entries(peerDependencies)) {
+    const installedSpec = Object.hasOwn(installed, peerPkg) ? installed[peerPkg] : undefined;
+    if (installedSpec === undefined || semver.validRange(peerRange) === null) continue;
+    const min = minimumVersion(installedSpec);
+    if (min === undefined || semver.satisfies(min, peerRange, { includePrerelease: true })) continue;
+    out.findings.push({
+      code: "COMPATIBILITY_PEER_CONFLICT",
+      severity: "error",
+      message: `Peer dependency mismatch: ${peerPkg} requires ${peerRange} but ${installedSpec} is installed`,
+    });
+    out.reports.push(`❌ Peer dependency conflict: ${peerPkg} (required: ${peerRange}, installed: ${installedSpec})`);
+  }
+  return out;
+}
+
+/** Builds the final result; a clean, non-empty audit gets a single success line. */
+function finishAudit(findings: CompatibilityFinding[], reports: string[]): CompatibilityAuditResult {
+  const isCompatible = !findings.some((f) => f.severity === "error");
+  if (isCompatible && reports.length === 0) {
+    reports.push("✅ All dependencies are compatible and well-maintained");
+  }
+  return { isCompatible, reports, issues: findings.map((f) => f.message), findings };
+}
+
+/** Result for a package.json that cannot be used: one error finding and its report line. */
+function invalidPackageJson(report: string, message: string): CompatibilityAuditResult {
+  return finishAudit(
+    [{ code: "COMPATIBILITY_PACKAGE_JSON_INVALID", severity: "error", message }],
+    [report]
+  );
+}
+
 function performCompatibilityAuditInternal(
   projectRoot?: string
 ): CompatibilityAuditResult {
-  const root = nonEmpty(projectRoot, process.cwd());
-  const packageJsonPath = join(root, "package.json");
-
-  const reports: string[] = [];
-  const issues: string[] = [];
-  const findings: CompatibilityFinding[] = [];
-  const add = (
-    code: string,
-    severity: CompatibilityFinding["severity"],
-    message: string
-  ): void => {
-    findings.push({ code, severity, message });
-    issues.push(message);
-  };
-  const finish = (): CompatibilityAuditResult => {
-    const isCompatible = !findings.some((f) => f.severity === "error");
-    if (isCompatible && reports.length === 0) {
-      reports.push("✅ All dependencies are compatible and well-maintained");
-    }
-    return { isCompatible, reports, issues, findings };
-  };
+  const packageJsonPath = join(nonEmpty(projectRoot, process.cwd()), "package.json");
 
   if (!existsSync(packageJsonPath)) {
-    reports.push("ℹ️ No package.json found. Skipping compatibility checks.");
-    return finish();
+    return finishAudit([], ["ℹ️ No package.json found. Skipping compatibility checks."]);
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
   } catch {
-    reports.push("❌ Failed to parse package.json");
-    add(
-      "COMPATIBILITY_PACKAGE_JSON_INVALID",
-      "error",
-      "package.json could not be read or parsed as JSON"
-    );
-    return finish();
+    return invalidPackageJson("❌ Failed to parse package.json", "package.json could not be read or parsed as JSON");
   }
   if (!isRecord(parsed)) {
-    reports.push("❌ Failed to parse package.json: expected a JSON object");
-    add(
-      "COMPATIBILITY_PACKAGE_JSON_INVALID",
-      "error",
+    return invalidPackageJson(
+      "❌ Failed to parse package.json: expected a JSON object",
       "package.json must contain a JSON object"
     );
-    return finish();
-  }
-
-  // Node.js engine range
-  const engines = parsed["engines"];
-  const nodeRange = isRecord(engines) ? engines["node"] : undefined;
-  if (typeof nodeRange === "string") {
-    const min = minimumVersion(nodeRange);
-    if (min !== undefined && min.major < MIN_SUPPORTED_NODE_MAJOR) {
-      add(
-        "COMPATIBILITY_EOL_NODE",
-        "error",
-        `Node.js ${nodeRange} is end-of-life. Upgrade to ${supportedNodeVersions.join(" or ")}`
-      );
-      reports.push(`🔴 EOL Node.js version detected: ${nodeRange}`);
-    } else if (min === undefined && semver.validRange(nodeRange) === null) {
-      reports.push(`ℹ️ Could not parse engines.node range: ${nodeRange}`);
-    }
   }
 
   const dependencies = toStringMap(parsed["dependencies"]);
@@ -154,54 +188,24 @@ function performCompatibilityAuditInternal(
   const optionalDependencies = toStringMap(parsed["optionalDependencies"]);
   const peerDependencies = toStringMap(parsed["peerDependencies"]);
 
-  // Deprecated packages
   const names = new Set([
     ...Object.keys(dependencies),
     ...Object.keys(devDependencies),
     ...Object.keys(optionalDependencies),
     ...Object.keys(peerDependencies),
   ]);
-  for (const pkg of names) {
-    const entry = Object.hasOwn(deprecatedPackages, pkg)
-      ? deprecatedPackages[pkg]
-      : undefined;
-    if (entry) {
-      add(
-        "COMPATIBILITY_DEPRECATED_PACKAGE",
-        "warning",
-        `Package '${pkg}' is deprecated. Consider ${entry.alternative} instead. ${entry.reason}`
-      );
-      reports.push(`⚠️ Deprecated package: ${pkg}`);
-    }
-  }
+  // Peer ranges are checked against what is installed; `dependencies` wins over dev over optional.
+  const installed = { ...optionalDependencies, ...devDependencies, ...dependencies };
 
-  // Peer dependency conflicts: compare what is actually installed with the peer range
-  const installed: Record<string, string> = {
-    ...optionalDependencies,
-    ...devDependencies,
-    ...dependencies,
-  };
-  for (const [peerPkg, peerRange] of Object.entries(peerDependencies)) {
-    const installedSpec = Object.hasOwn(installed, peerPkg)
-      ? installed[peerPkg]
-      : undefined;
-    if (installedSpec === undefined) continue;
-    if (semver.validRange(peerRange) === null) continue;
-    const min = minimumVersion(installedSpec);
-    if (min === undefined) continue;
-    if (!semver.satisfies(min, peerRange, { includePrerelease: true })) {
-      add(
-        "COMPATIBILITY_PEER_CONFLICT",
-        "error",
-        `Peer dependency mismatch: ${peerPkg} requires ${peerRange} but ${installedSpec} is installed`
-      );
-      reports.push(
-        `❌ Peer dependency conflict: ${peerPkg} (required: ${peerRange}, installed: ${installedSpec})`
-      );
-    }
-  }
-
-  return finish();
+  const outputs = [
+    checkNodeEngine(parsed),
+    checkDeprecatedPackages(names),
+    checkPeerConflicts(peerDependencies, installed),
+  ];
+  return finishAudit(
+    outputs.flatMap((o) => o.findings),
+    outputs.flatMap((o) => o.reports)
+  );
 }
 
 /**
@@ -225,6 +229,36 @@ export class CompatibilityGuard extends BaseGuard {
   }
 
   /**
+   * Cross-package rules (e.g. Next.js x React 19) from the scan layer's CompatibilityEngine.
+   * A crash of the engine is reported as an issue, never thrown.
+   *
+   * @param root - Project directory to scan
+   * @returns The issues found and whether any came from a cross-package rule
+   */
+  private async scanCrossPackage(root: string): Promise<{ issues: AuditIssue[]; found: boolean }> {
+    try {
+      const engine = new CompatibilityEngine();
+      const scanContext = { projectPath: root, files: [] as string[] };
+      if (!engine.supports(scanContext)) return { issues: [], found: false };
+      const scan = await engine.scan(scanContext);
+      const issues = scan.findings.map(enrichIssue);
+      return { issues, found: issues.length > 0 };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      const issue = this.createIssue(
+        "COMPATIBILITY_SCAN_FAILED",
+        "error",
+        "Compatibility Scan Failed",
+        `Cross-package compatibility scan failed: ${reason}`,
+        undefined,
+        "Check that package.json is readable and valid",
+        ["compatibility", "scan"]
+      );
+      return { issues: [issue], found: false };
+    }
+  }
+
+  /**
    * Execute.
    *
    * @returns Execute result
@@ -244,30 +278,9 @@ export class CompatibilityGuard extends BaseGuard {
       )
     );
 
-    // Cross-package rules (e.g. Next.js x React 19) come from the scan layer's CompatibilityEngine
-    let scanFound = false;
-    try {
-      const engine = new CompatibilityEngine();
-      const scanContext = { projectPath: root, files: [] as string[] };
-      if (engine.supports(scanContext)) {
-        const scan = await engine.scan(scanContext);
-        const scanIssues = scan.findings.map(enrichIssue);
-        scanFound = scanIssues.length > 0;
-        auditIssues.push(...scanIssues);
-      }
-    } catch (error) {
-      auditIssues.push(
-        this.createIssue(
-          "COMPATIBILITY_SCAN_FAILED",
-          "error",
-          "Compatibility Scan Failed",
-          `Cross-package compatibility scan failed: ${error instanceof Error ? error.message : String(error)}`,
-          undefined,
-          "Check that package.json is readable and valid",
-          ["compatibility", "scan"]
-        )
-      );
-    }
+    const scan = await this.scanCrossPackage(root);
+    auditIssues.push(...scan.issues);
+    const scanFound = scan.found;
 
     if (auditIssues.length === 0) {
       return this.ok("✅ All dependencies compatible");
