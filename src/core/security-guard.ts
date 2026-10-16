@@ -204,6 +204,41 @@ function buildResult(
   };
 }
 
+type RedirectStep =
+  | { kind: "follow"; next: URL }
+  /** Not a followable redirect: audit this response's own headers. */
+  | { kind: "audit" }
+  | { kind: "fail"; message: string };
+
+/**
+ * Decides what to do with a response: follow its redirect, audit it as-is, or give up.
+ * A redirect to an https -> http downgrade or to a foreign scheme is not followed; the redirect
+ * response itself is audited instead.
+ */
+function resolveRedirect(
+  current: URL,
+  outcome: Extract<ProbeOutcome, { kind: "response" }>,
+  hop: number,
+  visited: ReadonlySet<string>
+): RedirectStep {
+  const location = outcome.headers.location;
+  const isRedirect = outcome.statusCode >= 300 && outcome.statusCode < 400 && typeof location === "string" && location.length > 0;
+  if (!isRedirect) return { kind: "audit" };
+
+  let next: URL;
+  try {
+    next = new URL(location, current);
+  } catch {
+    return { kind: "fail", message: `Security audit request failed: invalid redirect location "${location}"` };
+  }
+  const downgrade = current.protocol === "https:" && next.protocol === "http:";
+  if ((next.protocol !== "http:" && next.protocol !== "https:") || downgrade) return { kind: "audit" };
+  if (visited.has(next.href) || hop === MAX_REDIRECTS) {
+    return { kind: "fail", message: "Security audit request failed: too many redirects" };
+  }
+  return { kind: "follow", next };
+}
+
 async function performSecurityAuditInternal(targetUrl: string, timeoutOption?: number): Promise<SecurityAuditResult> {
   const timeoutMs = timeoutOption !== undefined && Number.isFinite(timeoutOption) && timeoutOption > 0 ? timeoutOption : DEFAULT_TIMEOUT_MS;
   const findings: SecurityFinding[] = [];
@@ -241,24 +276,11 @@ async function performSecurityAuditInternal(targetUrl: string, timeoutOption?: n
       return fail(`Security audit request failed: ${outcome.message}`, "SECURITY_REQUEST_FAILED", current.href);
     }
 
-    const location = outcome.headers.location;
-    const isRedirect = outcome.statusCode >= 300 && outcome.statusCode < 400 && typeof location === "string" && location.length > 0;
-    if (isRedirect) {
-      let next: URL | undefined;
-      try {
-        next = new URL(location, current);
-      } catch {
-        return fail(`Security audit request failed: invalid redirect location "${location}"`, "SECURITY_REQUEST_FAILED", current.href);
-      }
-      const downgrade = current.protocol === "https:" && next.protocol === "http:";
-      if ((next.protocol === "http:" || next.protocol === "https:") && !downgrade) {
-        if (visited.has(next.href) || hop === MAX_REDIRECTS) {
-          return fail("Security audit request failed: too many redirects", "SECURITY_REQUEST_FAILED", current.href);
-        }
-        current = next;
-        continue;
-      }
-      // Redirect to a downgraded/foreign scheme: audit the redirect response itself.
+    const step = resolveRedirect(current, outcome, hop, visited);
+    if (step.kind === "fail") return fail(step.message, "SECURITY_REQUEST_FAILED", current.href);
+    if (step.kind === "follow") {
+      current = step.next;
+      continue;
     }
 
     findings.push(...analyzeHeaders(outcome.headers));
