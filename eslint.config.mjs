@@ -22,4 +22,13 @@ export default [
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },
+  {
+    // Branching-complexity budget for production code; warnings only, so CI does not fail on legacy hot spots.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: ["**/*.spec.ts", "**/*.test.ts"],
+    rules: {
+      complexity: ["warn", 20],
+      "max-depth": ["warn", 4],
+    },
+  },
 ];
