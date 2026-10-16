@@ -52,6 +52,109 @@ function resolveProjectRoot(raw: string): string {
   return expanded;
 }
 
+const COMMAND_WORDS: ReadonlyMap<string, NonNullable<ExtendedCliOptions["command"]>> = new Map([
+  ["resolve", "resolve"],
+  ["audit", "audit"],
+  ["agent", "agent"],
+  ["context", "context"],
+  ["tool-schema", "tool-schema"],
+]);
+
+/** Applies a flag to `options`; `value` is the next argument. Returns how many extra arguments it consumed. */
+type FlagHandler = (options: ExtendedCliOptions, value: string | undefined) => number;
+
+/** A flag that takes no value. */
+const switchFlag = (apply: (options: ExtendedCliOptions) => void): FlagHandler => (options) => {
+  apply(options);
+  return 0;
+};
+
+/** A flag that always consumes the next argument. */
+const valueFlag = (apply: (options: ExtendedCliOptions, value: string | undefined) => void): FlagHandler =>
+  (options, value) => {
+    apply(options, value);
+    return 1;
+  };
+
+/** Exits the process; typed as returning so callers keep parsing if `exit` is stubbed (as in tests). */
+function exitProcess(code: number): void {
+  process.exit(code);
+}
+
+function showHelp(options: ExtendedCliOptions): number {
+  printHelp(options.command === "resolve" ? "resolve" : "audit");
+  exitProcess(0);
+  return 0;
+}
+
+/** `--version` means "package version" for `resolve` and "print the CLI version" for `audit`. */
+function handleVersion(options: ExtendedCliOptions, value: string | undefined): number {
+  if (options.command === "resolve") {
+    options.packageVersion = value;
+    return 1;
+  }
+  if (options.command === "audit") {
+    console.log(`Muraqib Core v${readPackageVersion()}`);
+    exitProcess(0);
+  }
+  return 0;
+}
+
+const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHandler>([
+  ["--json", switchFlag((o) => { o.format = "json"; })],
+  ["--interactive", switchFlag((o) => { o.interactive = true; })],
+  ["-i", switchFlag((o) => { o.interactive = true; })],
+  ["--no-interactive", switchFlag((o) => { o.interactive = false; })],
+  ["--docker-native", switchFlag((o) => { o.dockerNative = true; })],
+  ["--verbose", switchFlag((o) => { o.verbose = true; })],
+  ["-v", switchFlag((o) => { o.verbose = true; })],
+  ["--fail-on-warning", switchFlag((o) => { o.failOnWarning = true; })],
+  ["--osv", switchFlag((o) => { o.osv = true; })],
+  ["--docker", switchFlag((o) => { o.docker = true; })],
+  ["--ai-advisory", switchFlag((o) => { o.aiAdvisory = true; })],
+  ["--max-issues", valueFlag((o, value) => {
+    const n = Number.parseInt(value ?? "", 10);
+    if (Number.isInteger(n) && n >= 0) o.maxIssues = n;
+  })],
+  ["--format", formatFlag],
+  ["-f", formatFlag],
+  ["--output", valueFlag((o, value) => { o.output = value; })],
+  ["-o", valueFlag((o, value) => { o.output = value; })],
+  ["--project", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
+  ["-p", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
+  ["--modules", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
+  ["-m", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
+  ["--security-url", valueFlag((o, value) => { o.securityUrl = value; })],
+  ["--env", valueFlag(setEnvMode)],
+  ["-e", valueFlag(setEnvMode)],
+  ["--engine", valueFlag(setEngine)],
+  ["--package", valueFlag((o, value) => { o.packageName = value; })],
+  ["--version", handleVersion],
+  ["--help", showHelp],
+  ["-h", showHelp],
+]);
+
+/** `--format` consumes its value only when it is a known format. */
+function formatFlag(options: ExtendedCliOptions, value: string | undefined): number {
+  if (!value || !["json", "text", "html", "csv"].includes(value)) return 0;
+  options.format = value as OutputFormat;
+  return 1;
+}
+
+function setEnvMode(options: ExtendedCliOptions, value: string | undefined): void {
+  if (value !== "build" && value !== "prod") {
+    throw new Error(`Invalid environment mode '${value ?? ""}'. Expected 'build' or 'prod'.`);
+  }
+  options.env = value;
+}
+
+function setEngine(options: ExtendedCliOptions, value: string | undefined): void {
+  if (!isValidationEngine(value)) {
+    throw new Error(`Invalid validation engine '${value ?? ""}'. Expected one of: ${VALIDATION_ENGINES.join(", ")}.`);
+  }
+  options.engine = value;
+}
+
 function parseArgs(args: string[]): ExtendedCliOptions {
   const options: ExtendedCliOptions = {
     format: "text",
@@ -61,139 +164,16 @@ function parseArgs(args: string[]): ExtendedCliOptions {
   };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    // Command selection
-    if (arg === "resolve") {
-      options.command = "resolve";
+    const arg = args[i] ?? "";
+    const command = COMMAND_WORDS.get(arg);
+    if (command) {
+      options.command = command;
       continue;
     }
-
-    if (arg === "audit") {
-      options.command = "audit";
-      continue;
-    }
-
-    if (arg === "agent" || arg === "context" || arg === "tool-schema") {
-      options.command = arg;
-      continue;
-    }
-
-    if (arg === "--json") {
-      options.format = "json";
-    }
-
-    if (arg === "--interactive" || arg === "-i") {
-      options.interactive = true;
-    }
-
-    if (arg === "--no-interactive") {
-      options.interactive = false;
-    }
-
-    if (arg === "--docker-native") {
-      options.dockerNative = true;
-    }
-
-    if (arg === "--max-issues") {
-      const n = Number.parseInt(args[i + 1] ?? "", 10);
-      if (Number.isInteger(n) && n >= 0) options.maxIssues = n;
-      i++;
-    }
-
-    if (arg === "--format" || arg === "-f") {
-      const value = args[i + 1];
-      if (value && ["json", "text", "html", "csv"].includes(value)) {
-        options.format = value as OutputFormat;
-        i++;
-      }
-    }
-
-    if (arg === "--output" || arg === "-o") {
-      options.output = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--project" || arg === "-p") {
-      options.projectRoot = nonEmpty(args[i + 1], process.cwd());
-      i++;
-    }
-
-    if (arg === "--verbose" || arg === "-v") {
-      options.verbose = true;
-    }
-
-    if (arg === "--fail-on-warning") {
-      options.failOnWarning = true;
-    }
-
-    if (arg === "--modules" || arg === "-m") {
-      options.modules = args[i + 1]?.split(",") || [];
-      i++;
-    }
-
-    if (arg === "--security-url") {
-      options.securityUrl = args[i + 1];
-      i++;
-    }
-
-    // New filters
-    if (arg === "--osv") {
-      options.osv = true;
-    }
-
-    if (arg === "--docker") {
-      options.docker = true;
-    }
-
-    if (arg === "--ai-advisory") {
-      options.aiAdvisory = true;
-    }
-
-    if (arg === "--env" || arg === "-e") {
-      const value = args[i + 1];
-      if (value !== "build" && value !== "prod") {
-        throw new Error(`Invalid environment mode '${value ?? ""}'. Expected 'build' or 'prod'.`);
-      }
-      options.env = value;
-      i++;
-    }
-
-    if (arg === "--engine") {
-      const value = args[i + 1];
-      if (!isValidationEngine(value)) {
-        throw new Error(`Invalid validation engine '${value ?? ""}'. Expected one of: ${VALIDATION_ENGINES.join(", ")}.`);
-      }
-      options.engine = value;
-      i++;
-    }
-
-    // Resolve command options
-    if (arg === "--package") {
-      options.packageName = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--version" && options.command === "resolve") {
-      options.packageVersion = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--help" || arg === "-h") {
-      printHelp(options.command === "resolve" ? "resolve" : "audit");
-      process.exit(0);
-    }
-
-    if (arg === "--version" && options.command === "audit") {
-      console.log(`Muraqib Core v${readPackageVersion()}`);
-      process.exit(0);
-    }
+    i += FLAG_HANDLERS.get(arg)?.(options, args[i + 1]) ?? 0;
   }
 
-  if (!options.projectRoot) {
-    options.projectRoot = process.cwd();
-  }
-
+  options.projectRoot ||= process.cwd();
   return options;
 }
 
