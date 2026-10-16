@@ -18,6 +18,64 @@ const IGNORE_DIRS = new Set([
   "coverage"
 ]);
 
+const COMPOSE_NAMES = new Set([
+  "compose.yaml",
+  "compose.yml",
+  "docker-compose.yml",
+  "docker-compose.yaml",
+  "compose.override.yaml",
+  "compose.override.yml",
+  "docker-compose.override.yaml",
+  "docker-compose.override.yml",
+]);
+
+const MAX_DEPTH = 10;
+
+/** What a directory entry is once symlinks are followed; undefined for a link that escapes the root or is broken. */
+function resolveEntryKind(
+  entry: fs.Dirent,
+  fullPath: string,
+  rootAbsolute: string
+): { isDir: boolean; isFile: boolean; targetName: string } | undefined {
+  if (!entry.isSymbolicLink()) {
+    return { isDir: entry.isDirectory(), isFile: entry.isFile(), targetName: entry.name };
+  }
+  try {
+    const realPath = fs.realpathSync(fullPath);
+    if (realPath !== rootAbsolute && !realPath.startsWith(rootAbsolute + path.sep)) return undefined; // prevent symlink escape
+    const stat = fs.statSync(realPath);
+    return { isDir: stat.isDirectory(), isFile: stat.isFile(), targetName: path.basename(realPath) };
+  } catch {
+    return undefined;
+  }
+}
+
+/** Lists a directory, or returns undefined when it was already visited (by real path) or cannot be read. */
+function readUnvisitedDir(dir: string, visited: Set<string>): fs.Dirent[] | undefined {
+  let resolvedDir: string;
+  try {
+    resolvedDir = fs.realpathSync(dir);
+  } catch {
+    return undefined;
+  }
+  if (visited.has(resolvedDir)) return undefined;
+  visited.add(resolvedDir);
+
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+}
+
+/** Which of the result lists a file name belongs to, if any. */
+function discoveryKind(lowerName: string): keyof DockerDiscoveryResult | undefined {
+  if (lowerName === "dockerfile" || lowerName.startsWith("dockerfile.")) return "dockerfiles";
+  if (lowerName === ".dockerignore") return "dockerignoreFiles";
+  if (COMPOSE_NAMES.has(lowerName)) return "composeFiles";
+  return undefined;
+}
+
 /**
  * Discover docker files.
  *
@@ -25,86 +83,37 @@ const IGNORE_DIRS = new Set([
  * @returns Discover docker files result
  */
 export function discoverDockerFiles(projectRoot: string): DockerDiscoveryResult {
-  const dockerfiles: string[] = [];
-  const composeFiles: string[] = [];
-  const dockerignoreFiles: string[] = [];
-  
+  const found: DockerDiscoveryResult = { dockerfiles: [], composeFiles: [], dockerignoreFiles: [] };
+
   const rootAbsolute = path.resolve(projectRoot);
   const visited = new Set<string>();
 
-  function walk(dir: string, depth: number = 0) {
-    if (depth > 10) return; // Bound traversal
-    
-    let resolvedDir: string;
-    try {
-      resolvedDir = fs.realpathSync(dir);
-    } catch {
-      return;
-    }
-    
-    if (visited.has(resolvedDir)) return;
-    visited.add(resolvedDir);
-    
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
+  function walk(dir: string, depth: number = 0): void {
+    if (depth > MAX_DEPTH) return; // Bound traversal
+
+    const entries = readUnvisitedDir(dir, visited);
+    if (!entries) return;
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      
-      let isDir = entry.isDirectory();
-      let isFile = entry.isFile();
-      let targetName = entry.name;
+      const kind = resolveEntryKind(entry, fullPath, rootAbsolute);
+      if (!kind) continue;
 
-      // Prevent symlink escape
-      if (entry.isSymbolicLink()) {
-        try {
-          const realPath = fs.realpathSync(fullPath);
-          if (realPath !== rootAbsolute && !realPath.startsWith(rootAbsolute + path.sep)) {
-            continue;
-          }
-          const stat = fs.statSync(realPath);
-          isDir = stat.isDirectory();
-          isFile = stat.isFile();
-          targetName = path.basename(realPath);
-        } catch {
-          continue;
-        }
-      }
-
-      if (isDir && (IGNORE_DIRS.has(entry.name) || (entry.isSymbolicLink() && IGNORE_DIRS.has(targetName)))) {
-        continue;
-      }
-
-      if (isDir) {
-        walk(fullPath, depth + 1);
-      } else if (isFile) {
-        const lowerName = entry.name.toLowerCase();
-        // Dockerfile discovery
-        if (lowerName === "dockerfile" || lowerName.startsWith("dockerfile.")) {
-          dockerfiles.push(path.relative(rootAbsolute, fullPath));
-        }
-        
-        if (lowerName === ".dockerignore") {
-          dockerignoreFiles.push(path.relative(rootAbsolute, fullPath));
-        }
-        
-        // Compose file discovery
-        if (lowerName === "compose.yaml" || lowerName === "compose.yml" || lowerName === "docker-compose.yml" || lowerName === "docker-compose.yaml" || lowerName === "compose.override.yaml" || lowerName === "compose.override.yml" || lowerName === "docker-compose.override.yaml" || lowerName === "docker-compose.override.yml") {
-          composeFiles.push(path.relative(rootAbsolute, fullPath));
-        }
+      if (kind.isDir) {
+        const ignored = IGNORE_DIRS.has(entry.name) || (entry.isSymbolicLink() && IGNORE_DIRS.has(kind.targetName));
+        if (!ignored) walk(fullPath, depth + 1);
+      } else if (kind.isFile) {
+        const list = discoveryKind(entry.name.toLowerCase());
+        if (list) found[list].push(path.relative(rootAbsolute, fullPath));
       }
     }
   }
 
   walk(rootAbsolute);
-  
+
   return {
-    dockerfiles: dockerfiles.sort(),
-    composeFiles: composeFiles.sort(),
-    dockerignoreFiles: dockerignoreFiles.sort(),
+    dockerfiles: found.dockerfiles.sort(),
+    composeFiles: found.composeFiles.sort(),
+    dockerignoreFiles: found.dockerignoreFiles.sort(),
   };
 }
