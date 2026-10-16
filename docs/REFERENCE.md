@@ -90,7 +90,7 @@ Run `muraqib --help` for the description of each flag.
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
 
-## Public API (`src/index.ts`, 160 exports)
+## Public API (`src/index.ts`, 161 exports)
 
 ### Class (17)
 
@@ -195,7 +195,7 @@ Run `muraqib --help` for the description of each flag.
 | `safeCreateEnv` | Safe create env. | `src/env/core.ts` |
 | `scanHtml` | Scan html. | `src/core/performance/html-scanner.ts` |
 
-### Interface (60)
+### Interface (58)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -210,7 +210,6 @@ Run `muraqib --help` for the description of each flag.
 | `AIInsight` | - | `src/core/types.ts` |
 | `ArktypeValidationResult` | - | `src/guard/engines/arktype-engine.ts` |
 | `AsyncAuditResult` | - | `src/core/async-guard.ts` |
-| `AsyncFinding` | A structured async finding. `code` is stable and never derived from the file path or message. | `src/core/async-guard.ts` |
 | `AuditContext` | - | `src/core/types.ts` |
 | `AuditIssue` | - | `src/core/types.ts` |
 | `AuditOptions` | Options for comprehensive project audit | `src/orchestrator/audit.ts` |
@@ -226,6 +225,7 @@ Run `muraqib --help` for the description of each flag.
 | `DeadCodeAuditResult` | Result of a dead code audit | `src/rules/dead-code-guard.ts` |
 | `DependencyAuditResult` | - | `src/core/dependency-guard.ts` |
 | `DetectedSecret` | Detected secret with location and severity | `src/ai/secret-detector.ts` |
+| `GuardFinding` | A structured finding produced by a guard's internal audit. `code` is stable and never derived from message text; `file`/`line` are present only for findings tied to a source location. | `src/core/types.ts` |
 | `GuardOptions` | - | `src/core/types.ts` |
 | `HtmlIssue` | HTML Scanner - Comprehensive HTML quality and performance analysis | `src/core/performance/html-scanner.ts` |
 | `HtmlScanResult` | - | `src/core/performance/html-scanner.ts` |
@@ -237,7 +237,6 @@ Run `muraqib --help` for the description of each flag.
 | `LoadEnvOptions` | - | `src/env/loaders.ts` |
 | `MemoryAuditOptions` | - | `src/core/memory-guard.ts` |
 | `MemoryAuditResult` | - | `src/core/memory-guard.ts` |
-| `MemoryFinding` | A structured memory finding. `code` is stable and never derived from message text. | `src/core/memory-guard.ts` |
 | `ModuleResult` | Result of a single audit module | `src/orchestrator/audit.ts` |
 | `NetworkLatencyGuardOptions` | Options for {@link NetworkLatencyGuard}. | `src/core/performance/network-latency-advisor.ts` |
 | `OrchestratorConfig` | Configuration for the package upgrade orchestrator | `src/core/upgrade-orchestrator.ts` |
@@ -249,7 +248,6 @@ Run `muraqib --help` for the description of each flag.
 | `SecretDetectionResult` | - | `src/core/types.ts` |
 | `SecurityAuditOptions` | Options accepted by {@link SecurityGuard}. | `src/core/security-guard.ts` |
 | `SecurityAuditResult` | Result of a security audit on an HTTP endpoint | `src/core/security-guard.ts` |
-| `SecurityFinding` | A structured security finding. `code` is stable and never derived from message text. | `src/core/security-guard.ts` |
 | `StandardSchemaV1` | StandardSchemaV1 - Universal schema compatibility | `src/core/types.ts` |
 | `SystemContext` | - | `src/agent/system-context.ts` |
 | `TabContent` | - | `src/webview/content/types.ts` |
@@ -266,18 +264,21 @@ Run `muraqib --help` for the description of each flag.
 |--------|-------------|--------|
 | `scan` | - | `src/scan/index.ts` |
 
-### Type (11)
+### Type (14)
 
 | Export | Description | Source |
 |--------|-------------|--------|
 | `AgentSeverity` | - | `src/agent/types.ts` |
+| `AsyncFinding` | A structured async finding. `code` is stable and never derived from the file path or message. | `src/core/async-guard.ts` |
 | `Block` | - | `src/webview/content/types.ts` |
 | `CustomSchema` | - | `src/guard/engines/custom-engine.ts` |
 | `ErrorMessage` | - | `src/env/types.ts` |
 | `GuardSchema` | - | `src/core/types.ts` |
 | `InferSchema` | - | `src/env/types.ts` |
 | `IntersectExtension` | - | `src/env/types.ts` |
+| `MemoryFinding` | A structured memory finding. `code` is stable and never derived from message text. | `src/core/memory-guard.ts` |
 | `OutputFormat` | CLI Types and Interfaces | `src/cli/types.ts` |
 | `ScanAuditMetadata` | Scan policy and coverage retained by unified reports. | `src/core/types.ts` |
 | `SecretType` | Types of secrets that can be detected | `src/ai/secret-detector.ts` |
+| `SecurityFinding` | A structured security finding. `code` is stable and never derived from message text. | `src/core/security-guard.ts` |
 | `ValidationFn` | - | `src/guard/engines/custom-engine.ts` |
