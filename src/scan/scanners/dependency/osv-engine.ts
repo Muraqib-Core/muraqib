@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
 import { createScanIssue, type DependencyType, type ScanIssueInput } from "../../core/findings/finding.js";
-import { queryOsv, type OsvVulnerability } from "./osv-client.js";
+import { queryOsv, type OsvVulnerability, type OsvVulnerabilityEvent } from "./osv-client.js";
 import { nonEmpty } from "../../../utils/defaults.js";
 
 interface PackageToScan {
@@ -10,6 +10,29 @@ interface PackageToScan {
   declaredVersion: string;
   installedVersion: string;
   dependencyType: DependencyType;
+}
+
+const PRERELEASE_MARKERS = ["-beta", "-rc", "-alpha"];
+
+/** The event list of every range of every affected entry, skipping entries that have none. */
+function* eventLists(vulns: OsvVulnerability[]): Generator<OsvVulnerabilityEvent[]> {
+  for (const vuln of vulns) {
+    for (const item of vuln.affected || []) {
+      for (const range of item.ranges || []) {
+        if (range.events) yield range.events;
+      }
+    }
+  }
+}
+
+/** ">= introduced < fixed" from the first introduced and first fixed events; undefined when there are neither. */
+function describeRange(events: OsvVulnerabilityEvent[]): string | undefined {
+  const intro = events.find((e) => e.introduced)?.introduced;
+  const fixed = events.find((e) => e.fixed)?.fixed;
+  if (intro && fixed) return `>= ${intro} < ${fixed}`;
+  if (fixed) return `< ${fixed}`;
+  if (intro) return `>= ${intro}`;
+  return undefined;
 }
 
 /**
@@ -223,22 +246,10 @@ export class OsvScanner implements ScannerEngine {
 
   private extractAllFixedVersions(vulns: OsvVulnerability[]): string[] {
     const fixedSet = new Set<string>();
-    for (const vuln of vulns) {
-      if (!vuln.affected) continue;
-      for (const item of vuln.affected) {
-        if (!item.ranges) continue;
-        for (const range of item.ranges) {
-          if (!range.events) continue;
-          for (const event of range.events) {
-            if (
-              event.fixed &&
-              !event.fixed.includes("-beta") &&
-              !event.fixed.includes("-rc") &&
-              !event.fixed.includes("-alpha")
-            ) {
-              fixedSet.add(event.fixed);
-            }
-          }
+    for (const events of eventLists(vulns)) {
+      for (const event of events) {
+        if (event.fixed && !PRERELEASE_MARKERS.some((marker) => event.fixed?.includes(marker))) {
+          fixedSet.add(event.fixed);
         }
       }
     }
@@ -256,25 +267,9 @@ export class OsvScanner implements ScannerEngine {
 
   private extractAffectedRanges(vulns: OsvVulnerability[]): string[] {
     const ranges: string[] = [];
-    for (const vuln of vulns) {
-      if (!vuln.affected) continue;
-      for (const item of vuln.affected) {
-        if (item.ranges) {
-          for (const range of item.ranges) {
-            if (range.events) {
-              const intro = range.events.find((e) => e.introduced)?.introduced;
-              const fixed = range.events.find((e) => e.fixed)?.fixed;
-              if (intro && fixed) {
-                ranges.push(`>= ${intro} < ${fixed}`);
-              } else if (fixed) {
-                ranges.push(`< ${fixed}`);
-              } else if (intro) {
-                ranges.push(`>= ${intro}`);
-              }
-            }
-          }
-        }
-      }
+    for (const events of eventLists(vulns)) {
+      const range = describeRange(events);
+      if (range) ranges.push(range);
     }
     return Array.from(new Set(ranges));
   }
