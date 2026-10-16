@@ -70,6 +70,18 @@ export interface AuditIssue {
   imageProblem?: ImageProblemData;
 }
 
+/**
+ * A structured finding produced by a guard's internal audit. `code` is stable and never derived
+ * from message text; `file`/`line` are present only for findings tied to a source location.
+ */
+export interface GuardFinding {
+  code: string;
+  severity: AuditIssue["severity"];
+  message: string;
+  file?: string;
+  line?: number;
+}
+
 /** Scan policy and coverage retained by unified reports. */
 export type ScanAuditMetadata = Pick<ScanReport, "mode" | "exitCode" | "hasBlockingIssues" | "scannerCoverage">;
 

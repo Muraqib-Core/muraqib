@@ -101,6 +101,54 @@ export interface AdvisoryResult {
   duration: number;
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+/** `value[key]` when `value` is an object that has the key, otherwise undefined. */
+function field(value: unknown, key: string): unknown {
+  return isObject(value) && key in value ? value[key] : undefined;
+}
+
+/** The first element of a non-empty array, otherwise undefined. */
+function firstElement(value: unknown): unknown {
+  return Array.isArray(value) && value.length > 0 ? (value[0] as unknown) : undefined;
+}
+
+/** The text of the first part of the first candidate, or "" when the response has another shape. */
+function extractResponseText(response: unknown): string {
+  const candidate = firstElement(field(response, "candidates"));
+  const part = firstElement(field(field(candidate, "content"), "parts"));
+  const text = field(part, "text");
+  return typeof text === "string" ? text : "";
+}
+
+/** The JSON inside a markdown code fence when the model wrapped its answer in one, otherwise the text itself. */
+function extractJsonPayload(text: string): string {
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return jsonMatch?.[1] ? jsonMatch[1] : text;
+}
+
+function buildAdvisoryPrompt(issues: AuditIssue[]): string {
+  const issueDescriptions = issues
+    .map(
+      (issue) =>
+        `Code: ${issue.code}\nSeverity: ${issue.severity}\nTitle: ${redactSecretsInText(issue.title ?? "")}\nMessage: ${redactSecretsInText(issue.message)}`
+    )
+    .join("\n\n");
+
+  return `${ADVISOR_SYSTEM_PROMPT}\n\nAnalyze these audit findings and provide concise, actionable remediation suggestions for each issue.
+
+Issues to analyze:
+${issueDescriptions}
+
+For each issue, provide:
+1. A specific recommendation (1-2 sentences)
+2. If applicable, a code example (short and direct)
+3. Priority level (1-5, where 5 is critical)
+4. Estimated fix time in minutes
+
+Format as JSON array with fields: issueCode, recommendation, codeExample, priority, estimatedTime`;
+}
+
 /**
  * Generate AI-powered advisory suggestions for audit findings
  *
@@ -162,26 +210,7 @@ export async function generateAdvisory(
     // Initialize Generative AI client
     const client = await createGeminiClient(apiKey);
 
-    // Build prompt for AI
-    const issueDescriptions = filteredIssues
-      .map(
-        (issue) =>
-          `Code: ${issue.code}\nSeverity: ${issue.severity}\nTitle: ${redactSecretsInText(issue.title ?? "")}\nMessage: ${redactSecretsInText(issue.message)}`
-      )
-      .join("\n\n");
-
-    const prompt = `${ADVISOR_SYSTEM_PROMPT}\n\nAnalyze these audit findings and provide concise, actionable remediation suggestions for each issue.
-
-Issues to analyze:
-${issueDescriptions}
-
-For each issue, provide:
-1. A specific recommendation (1-2 sentences)
-2. If applicable, a code example (short and direct)
-3. Priority level (1-5, where 5 is critical)
-4. Estimated fix time in minutes
-
-Format as JSON array with fields: issueCode, recommendation, codeExample, priority, estimatedTime`;
+    const prompt = buildAdvisoryPrompt(filteredIssues);
 
     const response = await client.models.generateContent({
       model: config.model ?? "gemini-1.5-flash",
@@ -197,44 +226,7 @@ Format as JSON array with fields: issueCode, recommendation, codeExample, priori
       ],
     });
 
-    // Extract text from response
-    let text: string = "";
-    if (
-      response &&
-      typeof response === "object" &&
-      "candidates" in response &&
-      Array.isArray(response.candidates) &&
-      response.candidates.length > 0
-    ) {
-      const candidate = response.candidates[0];
-      if (
-        candidate &&
-        typeof candidate === "object" &&
-        "content" in candidate &&
-        candidate.content &&
-        typeof candidate.content === "object" &&
-        "parts" in candidate.content &&
-        Array.isArray(candidate.content.parts) &&
-        candidate.content.parts.length > 0
-      ) {
-        const part = candidate.content.parts[0];
-        if (
-          part &&
-          typeof part === "object" &&
-          "text" in part &&
-          typeof part.text === "string"
-        ) {
-          text = part.text;
-        }
-      }
-    }
-
-    // Parse AI response - extract JSON from markdown code blocks if present
-    let jsonText: string = text;
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch && jsonMatch[1]) {
-      jsonText = jsonMatch[1];
-    }
+    const jsonText = extractJsonPayload(extractResponseText(response));
 
     const suggestions = parseAdvisorySuggestions(jsonText);
 

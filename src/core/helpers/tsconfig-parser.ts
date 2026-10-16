@@ -12,20 +12,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function stripJsonCommentsAndTrailingCommas(input: string): string {
-  // Remove UTF-8 BOM if present
-  const text = input.startsWith('﻿') ? input.slice(1) : input;
+/** What to emit for the text starting at an index outside any string, and the last index it consumed. */
+interface ScanStep {
+  emit: string;
+  last: number;
+}
 
-  let noComments = "";
+/**
+ * Copies `text`, passing string literals (with escapes) through untouched and letting `step`
+ * decide what each character outside a string becomes.
+ */
+function scanOutsideStrings(text: string, step: (text: string, index: number) => ScanStep): string {
+  let out = "";
   let inString = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i] ?? "";
-    const next = text[i + 1] ?? "";
 
     if (inString) {
-      noComments += ch;
+      out += ch;
       if (ch === "\\") {
-        noComments += next;
+        out += text[i + 1] ?? "";
         i++;
       } else if (ch === '"') {
         inString = false;
@@ -35,49 +41,47 @@ function stripJsonCommentsAndTrailingCommas(input: string): string {
 
     if (ch === '"') {
       inString = true;
-      noComments += ch;
-    } else if (ch === "/" && next === "/") {
-      while (i < text.length && text[i] !== "\n") i++;
-      noComments += "\n";
-    } else if (ch === "/" && next === "*") {
-      i += 2;
-      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
-      i++;
-    } else {
-      noComments += ch;
-    }
-  }
-
-  let result = "";
-  inString = false;
-  for (let i = 0; i < noComments.length; i++) {
-    const ch = noComments[i] ?? "";
-
-    if (inString) {
-      result += ch;
-      if (ch === "\\") {
-        result += noComments[i + 1] ?? "";
-        i++;
-      } else if (ch === '"') {
-        inString = false;
-      }
+      out += ch;
       continue;
     }
-
-    if (ch === '"') {
-      inString = true;
-      result += ch;
-    } else if (ch === ",") {
-      let j = i + 1;
-      while (j < noComments.length && /\s/.test(noComments[j] ?? "")) j++;
-      const following = noComments[j];
-      if (following !== "}" && following !== "]") result += ch;
-    } else {
-      result += ch;
-    }
+    const result = step(text, i);
+    out += result.emit;
+    i = result.last;
   }
+  return out;
+}
 
-  return result;
+/** Drops `//` and block comments; a line comment keeps its newline. */
+function dropComment(text: string, i: number): ScanStep {
+  const ch = text[i] ?? "";
+  const next = text[i + 1] ?? "";
+  if (ch === "/" && next === "/") {
+    let end = i;
+    while (end < text.length && text[end] !== "\n") end++;
+    return { emit: "\n", last: end };
+  }
+  if (ch === "/" && next === "*") {
+    let end = i + 2;
+    while (end < text.length && !(text[end] === "*" && text[end + 1] === "/")) end++;
+    return { emit: "", last: end + 1 };
+  }
+  return { emit: ch, last: i };
+}
+
+/** Drops a comma whose next non-whitespace character closes an object or array. */
+function dropTrailingComma(text: string, i: number): ScanStep {
+  const ch = text[i] ?? "";
+  if (ch !== ",") return { emit: ch, last: i };
+  let j = i + 1;
+  while (j < text.length && /\s/.test(text[j] ?? "")) j++;
+  const following = text[j];
+  return { emit: following === "}" || following === "]" ? "" : ch, last: i };
+}
+
+function stripJsonCommentsAndTrailingCommas(input: string): string {
+  // Remove UTF-8 BOM if present
+  const text = input.startsWith('﻿') ? input.slice(1) : input;
+  return scanOutsideStrings(scanOutsideStrings(text, dropComment), dropTrailingComma);
 }
 
 function parseJsonc(input: string): unknown {

@@ -31,8 +31,15 @@
  * ```
  */
 
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditIssue, AuditContext, GuardFinding } from "./types.js";
 import * as logger from "../shared/logger.js";
+
+/** Result status for the most severe issue present, checked in order (`info` alone stays `ok`). */
+const STATUS_BY_SEVERITY: ReadonlyArray<readonly [AuditIssue["severity"], AuditResult["status"]]> = [
+  ["critical", "error"],
+  ["error", "issues"],
+  ["warning", "warning"],
+];
 
 /**
  * Base guard class.
@@ -137,19 +144,25 @@ export abstract class BaseGuard {
    * @returns AuditResult with appropriate status and issues
    */
   protected issues(issues: AuditIssue[], message?: string): AuditResult {
-    const hasErrors = issues.some((i) => i.severity === "error");
-    const hasCritical = issues.some((i) => i.severity === "critical");
-    const hasWarnings = issues.some((i) => i.severity === "warning");
-    const status: AuditResult["status"] = hasCritical
-      ? "error"
-      : hasErrors
-        ? "issues"
-        : hasWarnings
-          ? "warning"
-          : "ok";
+    const status = STATUS_BY_SEVERITY.find(([severity]) => issues.some((i) => i.severity === severity))?.[1] ?? "ok";
     const fallback = issues.length === 0 ? "No issues found" : `Found ${issues.length} issue(s)`;
 
     return this.createResult(status, issues, message ?? fallback);
+  }
+
+  /**
+   * Convert structured guard findings into issues sharing one title and recommendation.
+   * @param findings - Findings produced by the guard's internal audit
+   * @param title - Issue title applied to every finding
+   * @param recommendation - Remediation suggestion applied to every finding
+   * @returns One AuditIssue per finding, in the same order
+   */
+  protected issuesFromFindings(findings: readonly GuardFinding[], title: string, recommendation: string): AuditIssue[] {
+    return findings.map((finding) => {
+      const { file, line } = finding;
+      const location = file === undefined ? undefined : { file, ...(line === undefined ? {} : { line }) };
+      return this.createIssue(finding.code, finding.severity, title, finding.message, location, recommendation);
+    });
   }
 
   /**

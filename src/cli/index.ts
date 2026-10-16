@@ -52,6 +52,109 @@ function resolveProjectRoot(raw: string): string {
   return expanded;
 }
 
+const COMMAND_WORDS: ReadonlyMap<string, NonNullable<ExtendedCliOptions["command"]>> = new Map([
+  ["resolve", "resolve"],
+  ["audit", "audit"],
+  ["agent", "agent"],
+  ["context", "context"],
+  ["tool-schema", "tool-schema"],
+]);
+
+/** Applies a flag to `options`; `value` is the next argument. Returns how many extra arguments it consumed. */
+type FlagHandler = (options: ExtendedCliOptions, value: string | undefined) => number;
+
+/** A flag that takes no value. */
+const switchFlag = (apply: (options: ExtendedCliOptions) => void): FlagHandler => (options) => {
+  apply(options);
+  return 0;
+};
+
+/** A flag that always consumes the next argument. */
+const valueFlag = (apply: (options: ExtendedCliOptions, value: string | undefined) => void): FlagHandler =>
+  (options, value) => {
+    apply(options, value);
+    return 1;
+  };
+
+/** Exits the process; typed as returning so callers keep parsing if `exit` is stubbed (as in tests). */
+function exitProcess(code: number): void {
+  process.exit(code);
+}
+
+function showHelp(options: ExtendedCliOptions): number {
+  printHelp(options.command === "resolve" ? "resolve" : "audit");
+  exitProcess(0);
+  return 0;
+}
+
+/** `--version` means "package version" for `resolve` and "print the CLI version" for `audit`. */
+function handleVersion(options: ExtendedCliOptions, value: string | undefined): number {
+  if (options.command === "resolve") {
+    options.packageVersion = value;
+    return 1;
+  }
+  if (options.command === "audit") {
+    console.log(`Muraqib Core v${readPackageVersion()}`);
+    exitProcess(0);
+  }
+  return 0;
+}
+
+const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHandler>([
+  ["--json", switchFlag((o) => { o.format = "json"; })],
+  ["--interactive", switchFlag((o) => { o.interactive = true; })],
+  ["-i", switchFlag((o) => { o.interactive = true; })],
+  ["--no-interactive", switchFlag((o) => { o.interactive = false; })],
+  ["--docker-native", switchFlag((o) => { o.dockerNative = true; })],
+  ["--verbose", switchFlag((o) => { o.verbose = true; })],
+  ["-v", switchFlag((o) => { o.verbose = true; })],
+  ["--fail-on-warning", switchFlag((o) => { o.failOnWarning = true; })],
+  ["--osv", switchFlag((o) => { o.osv = true; })],
+  ["--docker", switchFlag((o) => { o.docker = true; })],
+  ["--ai-advisory", switchFlag((o) => { o.aiAdvisory = true; })],
+  ["--max-issues", valueFlag((o, value) => {
+    const n = Number.parseInt(value ?? "", 10);
+    if (Number.isInteger(n) && n >= 0) o.maxIssues = n;
+  })],
+  ["--format", formatFlag],
+  ["-f", formatFlag],
+  ["--output", valueFlag((o, value) => { o.output = value; })],
+  ["-o", valueFlag((o, value) => { o.output = value; })],
+  ["--project", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
+  ["-p", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
+  ["--modules", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
+  ["-m", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
+  ["--security-url", valueFlag((o, value) => { o.securityUrl = value; })],
+  ["--env", valueFlag(setEnvMode)],
+  ["-e", valueFlag(setEnvMode)],
+  ["--engine", valueFlag(setEngine)],
+  ["--package", valueFlag((o, value) => { o.packageName = value; })],
+  ["--version", handleVersion],
+  ["--help", showHelp],
+  ["-h", showHelp],
+]);
+
+/** `--format` consumes its value only when it is a known format. */
+function formatFlag(options: ExtendedCliOptions, value: string | undefined): number {
+  if (!value || !["json", "text", "html", "csv"].includes(value)) return 0;
+  options.format = value as OutputFormat;
+  return 1;
+}
+
+function setEnvMode(options: ExtendedCliOptions, value: string | undefined): void {
+  if (value !== "build" && value !== "prod") {
+    throw new Error(`Invalid environment mode '${value ?? ""}'. Expected 'build' or 'prod'.`);
+  }
+  options.env = value;
+}
+
+function setEngine(options: ExtendedCliOptions, value: string | undefined): void {
+  if (!isValidationEngine(value)) {
+    throw new Error(`Invalid validation engine '${value ?? ""}'. Expected one of: ${VALIDATION_ENGINES.join(", ")}.`);
+  }
+  options.engine = value;
+}
+
 function parseArgs(args: string[]): ExtendedCliOptions {
   const options: ExtendedCliOptions = {
     format: "text",
@@ -61,139 +164,16 @@ function parseArgs(args: string[]): ExtendedCliOptions {
   };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    // Command selection
-    if (arg === "resolve") {
-      options.command = "resolve";
+    const arg = args[i] ?? "";
+    const command = COMMAND_WORDS.get(arg);
+    if (command) {
+      options.command = command;
       continue;
     }
-
-    if (arg === "audit") {
-      options.command = "audit";
-      continue;
-    }
-
-    if (arg === "agent" || arg === "context" || arg === "tool-schema") {
-      options.command = arg;
-      continue;
-    }
-
-    if (arg === "--json") {
-      options.format = "json";
-    }
-
-    if (arg === "--interactive" || arg === "-i") {
-      options.interactive = true;
-    }
-
-    if (arg === "--no-interactive") {
-      options.interactive = false;
-    }
-
-    if (arg === "--docker-native") {
-      options.dockerNative = true;
-    }
-
-    if (arg === "--max-issues") {
-      const n = Number.parseInt(args[i + 1] ?? "", 10);
-      if (Number.isInteger(n) && n >= 0) options.maxIssues = n;
-      i++;
-    }
-
-    if (arg === "--format" || arg === "-f") {
-      const value = args[i + 1];
-      if (value && ["json", "text", "html", "csv"].includes(value)) {
-        options.format = value as OutputFormat;
-        i++;
-      }
-    }
-
-    if (arg === "--output" || arg === "-o") {
-      options.output = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--project" || arg === "-p") {
-      options.projectRoot = nonEmpty(args[i + 1], process.cwd());
-      i++;
-    }
-
-    if (arg === "--verbose" || arg === "-v") {
-      options.verbose = true;
-    }
-
-    if (arg === "--fail-on-warning") {
-      options.failOnWarning = true;
-    }
-
-    if (arg === "--modules" || arg === "-m") {
-      options.modules = args[i + 1]?.split(",") || [];
-      i++;
-    }
-
-    if (arg === "--security-url") {
-      options.securityUrl = args[i + 1];
-      i++;
-    }
-
-    // New filters
-    if (arg === "--osv") {
-      options.osv = true;
-    }
-
-    if (arg === "--docker") {
-      options.docker = true;
-    }
-
-    if (arg === "--ai-advisory") {
-      options.aiAdvisory = true;
-    }
-
-    if (arg === "--env" || arg === "-e") {
-      const value = args[i + 1];
-      if (value !== "build" && value !== "prod") {
-        throw new Error(`Invalid environment mode '${value ?? ""}'. Expected 'build' or 'prod'.`);
-      }
-      options.env = value;
-      i++;
-    }
-
-    if (arg === "--engine") {
-      const value = args[i + 1];
-      if (!isValidationEngine(value)) {
-        throw new Error(`Invalid validation engine '${value ?? ""}'. Expected one of: ${VALIDATION_ENGINES.join(", ")}.`);
-      }
-      options.engine = value;
-      i++;
-    }
-
-    // Resolve command options
-    if (arg === "--package") {
-      options.packageName = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--version" && options.command === "resolve") {
-      options.packageVersion = args[i + 1];
-      i++;
-    }
-
-    if (arg === "--help" || arg === "-h") {
-      printHelp(options.command === "resolve" ? "resolve" : "audit");
-      process.exit(0);
-    }
-
-    if (arg === "--version" && options.command === "audit") {
-      console.log(`Muraqib Core v${readPackageVersion()}`);
-      process.exit(0);
-    }
+    i += FLAG_HANDLERS.get(arg)?.(options, args[i + 1]) ?? 0;
   }
 
-  if (!options.projectRoot) {
-    options.projectRoot = process.cwd();
-  }
-
+  options.projectRoot ||= process.cwd();
   return options;
 }
 
@@ -345,6 +325,191 @@ function usesWorkflowFlags(args: string[]): boolean {
   return args.some((a) => a.startsWith("--skip-") || WORKFLOW_FLAGS.has(a));
 }
 
+type InteractiveUi = typeof import("./interactive.js");
+
+/** Runs the scan layer's CLI (resolve / image / runtime) and returns the exit code it set. */
+async function runScanLayer(scanArgs: string[]): Promise<number> {
+  const { main: runScanCli } = await import("../scan/cli.js");
+  process.exitCode = undefined;
+  await runScanCli(scanArgs);
+  return typeof process.exitCode === "number" ? process.exitCode : 0;
+}
+
+/** Runs the agent command: a deterministic JSON report, printed or written to `--output`. */
+async function runAgentCommand(options: ExtendedCliOptions): Promise<number> {
+  const report = await runAuditForAgent({
+    projectRoot: options.projectRoot,
+    modules: options.modules,
+    securityUrl: options.securityUrl,
+    osv: options.osv,
+    docker: options.docker,
+    aiAdvisory: options.aiAdvisory,
+    failOnWarning: options.failOnWarning,
+    maxIssues: options.maxIssues,
+  });
+  const json = JSON.stringify(report, null, 2);
+  if (options.output) writeFileSync(resolve(process.cwd(), options.output), json);
+  else console.log(json);
+  return report.exitCode ?? (report.verdict === "fail" ? 1 : 0);
+}
+
+/**
+ * Asks the user what to audit. Returns false when they cancelled (the cancellation is already shown).
+ * Only called in guided mode (`--interactive`).
+ */
+async function promptAuditChoices(ui: InteractiveUi, options: ExtendedCliOptions): Promise<boolean> {
+  if (!options.modules) {
+    const picked = await ui.promptCategories();
+    if (!picked) {
+      ui.showCancelled();
+      return false;
+    }
+    if (picked.modules) options.modules = picked.modules;
+    if (!options.securityUrl && picked.modules?.includes("security-guard")) {
+      const url = await ui.promptSecurityUrl();
+      if (url === null) {
+        ui.showCancelled();
+        return false;
+      }
+      options.securityUrl = url;
+    }
+  }
+  if (!options.osv && !options.docker && !options.aiAdvisory) {
+    const choices = await ui.promptScanChoices();
+    if (!choices) {
+      ui.showCancelled();
+      return false;
+    }
+    options.osv = choices.osv;
+    options.docker = choices.docker;
+    options.aiAdvisory = choices.aiAdvisory;
+  }
+  return true;
+}
+
+/** Performs one follow-up the user picked after the report was shown. */
+function performFollowUp(ui: InteractiveUi, report: AuditReport, action: string): void {
+  if (action === "all") console.log(formatReport(report, "text"));
+  else if (action === "fixes") ui.showFixes(report);
+  else if (action === "ai") ui.showAssistantPrompt(report);
+  else if (action === "html") {
+    const htmlPath = resolve(process.cwd(), "muraqib-report.html");
+    writeFileSync(htmlPath, formatReport(report, "html"));
+    console.log(`Report saved to ${htmlPath}`);
+  }
+}
+
+/** Keeps offering follow-ups until the user finishes (or cancels, which reads as "done"). */
+async function offerFollowUps(ui: InteractiveUi, report: AuditReport): Promise<void> {
+  const hasIssues = report.summary.total > 0;
+  for (let action = await ui.promptAfterReport(hasIssues); action !== "done"; action = await ui.promptAfterReport(hasIssues)) {
+    performFollowUp(ui, report, action);
+  }
+}
+
+/** Exit code of a finished audit: the report's own code, else derived from the summary. */
+function exitCodeFor(report: AuditReport, failOnWarning: boolean | undefined): number {
+  if (report.exitCode !== undefined) return report.exitCode;
+  const { summary } = report;
+  if (summary.critical > 0 || summary.error > 0) return 1;
+  if (failOnWarning && summary.warning > 0) return 1;
+  return 0;
+}
+
+/** Loads the guided UI when this run should be interactive; explains why when `--interactive` was refused. */
+async function loadInteractiveUi(options: ExtendedCliOptions): Promise<InteractiveUi | null> {
+  const interactive = shouldUseInteractive({
+    flag: options.interactive,
+    format: options.format ?? "text",
+    hasOutputFile: Boolean(options.output),
+    stdoutIsTTY: Boolean(process.stdout.isTTY),
+    stdinIsTTY: Boolean(process.stdin.isTTY),
+    env: process.env,
+  });
+  // Loaded on demand so importing the library never pulls in @clack/prompts
+  const ui = interactive ? await import("./interactive.js") : null;
+  if (options.interactive === true && !ui) {
+    console.error("ℹ️  Interactive mode needs a terminal and text output (not CI, pipes, --json/--format or --output); continuing non-interactively.");
+  }
+  return ui;
+}
+
+/** Writes the formatted report to `--output`, or prints it; the guided UI shows it itself when there is no file. */
+async function deliverReport(
+  ui: InteractiveUi | null,
+  options: ExtendedCliOptions,
+  report: AuditReport,
+  formatted: string
+): Promise<void> {
+  if (ui && !options.output) {
+    ui.showReport(report, options.verbose);
+    if (options.interactive === true) await offerFollowUps(ui, report);
+  } else if (options.output) {
+    const outputPath = resolve(process.cwd(), options.output);
+    writeFileSync(outputPath, formatted);
+    if (options.verbose) {
+      console.log(`✅ Report saved to: ${outputPath}`);
+    }
+  } else {
+    console.log(formatted);
+  }
+}
+
+/** Runs the default audit command: optional guided prompts, the audit itself and report output. */
+async function runAuditCommand(options: ExtendedCliOptions): Promise<number> {
+  const ui = await loadInteractiveUi(options);
+  if (ui) {
+    ui.showIntro(options.projectRoot ?? process.cwd());
+    if (options.interactive === true && !(await promptAuditChoices(ui, options))) return 130;
+  }
+
+  const auditOptions = {
+    ...(options as CliOptions & { securityUrl?: string }),
+    scan: Boolean(options.osv || options.docker || options.aiAdvisory || options.env || options.engine),
+    aiAdvisory: options.aiAdvisory ?? false,
+    dockerNative: options.dockerNative ?? false,
+  };
+
+  if (options.verbose) {
+    console.log("🚀 Starting Muraqib Core audit...");
+    console.log(`📁 Project root: ${auditOptions.projectRoot}`);
+    console.log(`📊 Format: ${auditOptions.format}`);
+  }
+
+  const report = ui
+    ? await ui.withSpinner("Running audit modules...", () => createAuditReport(auditOptions))
+    : await createAuditReport(auditOptions);
+
+  await deliverReport(ui, options, report, formatReport(report, auditOptions.format));
+
+  if (ui) ui.showOutro(report);
+  if (options.verbose) {
+    console.log("✅ Audit completed successfully");
+  }
+
+  return exitCodeFor(report, auditOptions.failOnWarning);
+}
+
+/** Runs a parsed command whose project root has already been resolved. */
+async function runCommand(command: NonNullable<ExtendedCliOptions["command"]>, options: ExtendedCliOptions): Promise<number> {
+  switch (command) {
+    case "context":
+      console.log(JSON.stringify(getSystemContext(), null, 2));
+      return 0;
+    case "tool-schema":
+      console.log(JSON.stringify(AGENT_TOOL_DEFINITIONS, null, 2));
+      return 0;
+    case "agent":
+      return runAgentCommand(options);
+    case "resolve":
+      // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
+      if (options.projectRoot) process.chdir(options.projectRoot);
+      return runScanLayer(["resolve"]);
+    default:
+      return runAuditCommand(options);
+  }
+}
+
 /**
  * Run cli.
  *
@@ -354,12 +519,7 @@ function usesWorkflowFlags(args: string[]): boolean {
 export async function runCli(args: string[]): Promise<number> {
   try {
     // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
-    if (args[0] && SCAN_COMMANDS.has(args[0])) {
-      const { main: runScanCli } = await import("../scan/cli.js");
-      process.exitCode = undefined;
-      await runScanCli(args);
-      return typeof process.exitCode === "number" ? process.exitCode : 0;
-    }
+    if (args[0] && SCAN_COMMANDS.has(args[0])) return await runScanLayer(args);
 
     // Workflow-style audit (13 modules, --skip-*, --url, --upgrade ...) is served by the workflow runner
     if (usesWorkflowFlags(args) && !args.some((a) => SCAN_COMMANDS.has(a))) {
@@ -374,142 +534,7 @@ export async function runCli(args: string[]): Promise<number> {
     if (command !== "context" && command !== "tool-schema") {
       options.projectRoot = resolveProjectRoot(options.projectRoot ?? process.cwd());
     }
-
-    if (command === "context") {
-      console.log(JSON.stringify(getSystemContext(), null, 2));
-      return 0;
-    }
-    if (command === "tool-schema") {
-      console.log(JSON.stringify(AGENT_TOOL_DEFINITIONS, null, 2));
-      return 0;
-    }
-    if (command === "agent") {
-      const report = await runAuditForAgent({
-        projectRoot: options.projectRoot,
-        modules: options.modules,
-        securityUrl: options.securityUrl,
-        osv: options.osv,
-        docker: options.docker,
-        aiAdvisory: options.aiAdvisory,
-        failOnWarning: options.failOnWarning,
-        maxIssues: options.maxIssues,
-      });
-      const json = JSON.stringify(report, null, 2);
-      if (options.output) writeFileSync(resolve(process.cwd(), options.output), json);
-      else console.log(json);
-      return report.exitCode ?? (report.verdict === "fail" ? 1 : 0);
-    }
-
-    if (command === "resolve") {
-      // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
-      if (options.projectRoot) process.chdir(options.projectRoot);
-      const { main: runScanCli } = await import("../scan/cli.js");
-      process.exitCode = undefined;
-      await runScanCli(["resolve"]);
-      return typeof process.exitCode === "number" ? process.exitCode : 0;
-    } else {
-      // Default audit command
-      const interactive = shouldUseInteractive({
-        flag: options.interactive,
-        format: options.format ?? "text",
-        hasOutputFile: Boolean(options.output),
-        stdoutIsTTY: Boolean(process.stdout.isTTY),
-        stdinIsTTY: Boolean(process.stdin.isTTY),
-        env: process.env,
-      });
-      // Loaded on demand so importing the library never pulls in @clack/prompts
-      const ui = interactive ? await import("./interactive.js") : null;
-      if (options.interactive === true && !ui) {
-        console.error("ℹ️  Interactive mode needs a terminal and text output (not CI, pipes, --json/--format or --output); continuing non-interactively.");
-      }
-      if (ui) {
-        ui.showIntro(options.projectRoot ?? process.cwd());
-        const noScanFlags = !options.osv && !options.docker && !options.aiAdvisory;
-        if (options.interactive === true) {
-          if (!options.modules) {
-            const picked = await ui.promptCategories();
-            if (!picked) {
-              ui.showCancelled();
-              return 130;
-            }
-            if (picked.modules) options.modules = picked.modules;
-            if (!options.securityUrl && picked.modules?.includes("security-guard")) {
-              const url = await ui.promptSecurityUrl();
-              if (url === null) {
-                ui.showCancelled();
-                return 130;
-              }
-              options.securityUrl = url;
-            }
-          }
-          if (noScanFlags) {
-            const choices = await ui.promptScanChoices();
-            if (!choices) {
-              ui.showCancelled();
-              return 130;
-            }
-            options.osv = choices.osv;
-            options.docker = choices.docker;
-            options.aiAdvisory = choices.aiAdvisory;
-          }
-        }
-      }
-
-      const auditOptions = {
-        ...(options as CliOptions & { securityUrl?: string }),
-        scan: Boolean(options.osv || options.docker || options.aiAdvisory || options.env || options.engine),
-        aiAdvisory: options.aiAdvisory ?? false,
-        dockerNative: options.dockerNative ?? false,
-      };
-
-      if (options.verbose) {
-        console.log("🚀 Starting Muraqib Core audit...");
-        console.log(`📁 Project root: ${auditOptions.projectRoot}`);
-        console.log(`📊 Format: ${auditOptions.format}`);
-      }
-
-      const report = ui
-        ? await ui.withSpinner("Running audit modules...", () => createAuditReport(auditOptions))
-        : await createAuditReport(auditOptions);
-
-      const formatted = formatReport(report, auditOptions.format);
-
-      if (ui && !options.output) {
-        ui.showReport(report, options.verbose);
-        if (options.interactive === true) {
-          // Keep offering follow-ups until the user finishes (or cancels, which reads as "done").
-          for (let action = await ui.promptAfterReport(report.summary.total > 0); action !== "done"; action = await ui.promptAfterReport(report.summary.total > 0)) {
-            if (action === "all") console.log(formatReport(report, "text"));
-            else if (action === "fixes") ui.showFixes(report);
-            else if (action === "ai") ui.showAssistantPrompt(report);
-            else if (action === "html") {
-              const htmlPath = resolve(process.cwd(), "muraqib-report.html");
-              writeFileSync(htmlPath, formatReport(report, "html"));
-              console.log(`Report saved to ${htmlPath}`);
-            }
-          }
-        }
-      } else if (options.output) {
-        const outputPath = resolve(process.cwd(), options.output);
-        writeFileSync(outputPath, formatted);
-        if (options.verbose) {
-          console.log(`✅ Report saved to: ${outputPath}`);
-        }
-      } else {
-        console.log(formatted);
-      }
-
-      if (ui) ui.showOutro(report);
-      if (options.verbose) {
-        console.log("✅ Audit completed successfully");
-      }
-
-      if (report.exitCode !== undefined) return report.exitCode;
-      const { summary } = report;
-      if (summary.critical > 0 || summary.error > 0) return 1;
-      if (auditOptions.failOnWarning && summary.warning > 0) return 1;
-      return 0;
-    }
+    return await runCommand(command, options);
   } catch (error) {
     console.error(
       "❌ Error:",

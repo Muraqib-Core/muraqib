@@ -22,4 +22,13 @@ export default [
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },
+  {
+    // Branching-complexity budget for production code. Hard errors: split the function (guard clauses, lookup tables, helpers) instead of raising the limit.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: ["**/*.spec.ts", "**/*.test.ts"],
+    rules: {
+      complexity: ["error", 20],
+      "max-depth": ["error", 4],
+    },
+  },
 ];

@@ -204,6 +204,144 @@ function toVersionStrategy(rangeStrategy: OrchestratorConfig['rangeStrategy']): 
   }
 }
 
+/** Outcome of an upgrade run; `skipReason` is set when the package was skipped for a known reason. */
+interface UpgradeResult {
+  updatedVersion: string | null;
+  schemaMigrated: boolean;
+  skipReason?: string;
+}
+
+type InputValidation =
+  | { ok: true; coercedNew: semver.SemVer }
+  /** Inputs are unusable: return `result` to the caller unchanged. */
+  | { ok: false; result: UpgradeResult };
+
+/**
+ * Checks the package name and both versions before any work starts, logging the reason for a rejection.
+ * Never throws: malformed input yields an early `UpgradeResult` (with a `skipReason` for version problems).
+ */
+function validateInputs({
+  packageName,
+  currentValue,
+  newVersion,
+}: Pick<OrchestratorConfig, 'packageName' | 'currentValue' | 'newVersion'>): InputValidation {
+  if (typeof packageName !== 'string' || packageName.trim().length === 0) {
+    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
+  }
+
+  if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
+    logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
+  }
+
+  const coercedNew = semver.coerce(newVersion);
+  if (!coercedNew) {
+    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-new-version] "${newVersion}" is not a version number.`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-new-version' } };
+  }
+
+  const coercedCurrent = semver.coerce(currentValue);
+  if (!coercedCurrent || !semver.valid(coercedCurrent)) {
+    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' } };
+  }
+
+  return { ok: true, coercedNew };
+}
+
+/** Resolves the active presets (remote when a URL is given) and logs the group the package belongs to, if any. */
+async function announcePresetGroup(packageName: string, remotePresetUrl: string | undefined): Promise<void> {
+  let activePresets: PackageGroup[] = MURAQIB_LOCAL_PRESETS;
+
+  if (remotePresetUrl && remotePresetUrl.trim().length > 0) {
+    log(`🌐 [Muraqib Remote Engine]: Fetching centralized presets from URL...`);
+    activePresets = await fetchRemoteMuraqibPresets(remotePresetUrl);
+  }
+
+  const matchedPreset = activePresets.find(preset =>
+    preset.packages.includes(packageName)
+  );
+
+  if (matchedPreset) {
+    log(`\n📦 [Muraqib Manager]: Package "${packageName}" matches active preset group: [${matchedPreset.groupName}]`);
+    log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(', ')}) simultaneously.`);
+  }
+}
+
+/** `rejected` means the migration command failed validation and the whole upgrade must be abandoned. */
+type MigrationOutcome = 'migrated' | 'not-migrated' | 'rejected';
+
+/**
+ * Runs the breaking-major codemod registered for this package and target major, if there is one.
+ * A failing step is logged and tolerated (`not-migrated`); an invalid command aborts (`rejected`).
+ */
+async function migrateSchema(
+  packageName: string,
+  targetMajor: number,
+  cwd: string,
+  runMigrations: boolean,
+): Promise<MigrationOutcome> {
+  const migrationRule = SCHEMA_MIGRATIONS_REGISTRY.find(
+    (r) => r.packageName === packageName && targetMajor === r.breakingMajor
+  );
+
+  if (!migrationRule) {
+    log(`ℹ️  [Info]: No core schema modifications required for ${packageName} v${targetMajor}.`);
+    return 'not-migrated';
+  }
+  if (!runMigrations) {
+    log(`ℹ️  [Info]: Migration for ${packageName} v${targetMajor} skipped (runMigrations is disabled): ${migrationRule.migrationCommand}`);
+    return 'not-migrated';
+  }
+
+  log(`⚠️  [Schema Alert]: ${packageName} v${targetMajor} introduces breaking configuration changes!`);
+  log(`🔄 [Migration]: Running Automated Repair: ${migrationRule.description}...`);
+
+  if (!isValidCommand(migrationRule.migrationCommand)) {
+    logError(`❌ [Security Error]: Migration command validation failed. Invalid command syntax.`);
+    return 'rejected';
+  }
+
+  for (const step of migrationRule.steps) {
+    const outcome = await runCommand(step, cwd, MIGRATION_TIMEOUT_MS);
+    if (!outcome.ok) {
+      const tail = tailLines(outcome.output, OUTPUT_TAIL_LINES);
+      logError(`❌ [Error]: Automated schema migration failed for ${packageName} at "${step.command} ${step.args.join(' ')}". Proceeding with cautious testing.${tail ? `\n${tail}` : ''}`);
+      return 'not-migrated';
+    }
+  }
+  log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
+  return 'migrated';
+}
+
+/** Runs the project's build and logs the result; false when the build command is invalid or the build fails. */
+async function verifyBuild(
+  envMeta: ManagerMeta,
+  packageName: string,
+  currentValue: string,
+  cwd: string,
+): Promise<boolean> {
+  const targetBuildCommand = envMeta.commands.build;
+  log(`🧪 [Integrity]: Testing project build after upgrade using: "${targetBuildCommand}"...`);
+
+  if (!isValidCommand(targetBuildCommand)) {
+    logError(`❌ [Security Error]: Build command validation failed. Invalid command syntax.`);
+    return false;
+  }
+
+  const build = await runCommand(envMeta.commands.buildStep, cwd, BUILD_TIMEOUT_MS);
+  if (build.ok) {
+    log(`💎 [Integrity Success]: Project build passed smoothly on [${envMeta.type.toUpperCase()}] environment! Safe to commit.`);
+    return true;
+  }
+  const tail = tailLines(build.output, OUTPUT_TAIL_LINES);
+  logError(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!${tail ? `\n${tail}` : ''}`);
+  log(`⚠️  [Warning]: Build failed. The current version "${currentValue}" is returned unchanged; Muraqib did not modify package.json.`);
+  log(`🔍 [Next Steps]: Fix the build errors shown above, then run "${targetBuildCommand}" again.`);
+  return false;
+}
+
 /**
  * Computes the new version spec for a package, runs the matching breaking-major migration codemod
  * (Tailwind, Prisma, Next.js, React, ESLint, Zustand) and verifies that the project still builds.
@@ -237,49 +375,16 @@ export async function runMuraqibUpgradeOrchestrator({
   remotePresetUrl,
   cwd = process.cwd(),
   runMigrations = true,
-}: OrchestratorConfig): Promise<{ updatedVersion: string | null; schemaMigrated: boolean; skipReason?: string }> {
-
+}: OrchestratorConfig): Promise<UpgradeResult> {
+  const validation = validateInputs({ packageName, currentValue, newVersion });
+  if (!validation.ok) return validation.result;
+  const { coercedNew } = validation;
   let schemaMigrated = false;
-  if (typeof packageName !== 'string' || packageName.trim().length === 0) {
-    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
-    return { updatedVersion: null, schemaMigrated: false };
-  }
-
-  if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
-    logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
-    return { updatedVersion: null, schemaMigrated: false };
-  }
-
-  const coercedNew = semver.coerce(newVersion);
-  if (!coercedNew) {
-    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-new-version] "${newVersion}" is not a version number.`);
-    return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-new-version' };
-  }
-
-  const coercedCurrent = semver.coerce(currentValue);
-  if (!coercedCurrent || !semver.valid(coercedCurrent)) {
-    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
-    return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' };
-  }
   const detected = String(detectProjectPackageManager(cwd));
   const envMeta = MANAGER_META[isManagerId(detected) ? detected : 'npm'];
   log(`🔍 [Muraqib Environment]: Active Package Manager detected: [${envMeta.type.toUpperCase()}] via "${envMeta.commands.lockFile}"`);
 
-  let activePresets: PackageGroup[] = MURAQIB_LOCAL_PRESETS;
-
-  if (remotePresetUrl && remotePresetUrl.trim().length > 0) {
-    log(`🌐 [Muraqib Remote Engine]: Fetching centralized presets from URL...`);
-    activePresets = await fetchRemoteMuraqibPresets(remotePresetUrl);
-  }
-
-  const matchedPreset = activePresets.find(preset =>
-    preset.packages.includes(packageName)
-  );
-
-  if (matchedPreset) {
-    log(`\n📦 [Muraqib Manager]: Package "${packageName}" matches active preset group: [${matchedPreset.groupName}]`);
-    log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(', ')}) simultaneously.`);
-  }
+  await announcePresetGroup(packageName, remotePresetUrl);
 
   const updatedVersionValue = getMuraqibNewVersionValue({
     currentVersion: currentValue,
@@ -291,57 +396,11 @@ export async function runMuraqibUpgradeOrchestrator({
   if (updatedVersionValue && updatedVersionValue !== currentValue) {
     log(`\n[Muraqib Engine]: Version bumped for ${packageName} to ${updatedVersionValue} 🎉`);
 
-    const targetMajor = semver.major(coercedNew);
+    const migration = await migrateSchema(packageName, semver.major(coercedNew), cwd, runMigrations);
+    if (migration === 'rejected') return { updatedVersion: currentValue, schemaMigrated: false };
+    schemaMigrated = migration === 'migrated';
 
-    const migrationRule = SCHEMA_MIGRATIONS_REGISTRY.find(
-      (r) => r.packageName === packageName && targetMajor === r.breakingMajor
-    );
-
-    if (migrationRule && !runMigrations) {
-      log(`ℹ️  [Info]: Migration for ${packageName} v${targetMajor} skipped (runMigrations is disabled): ${migrationRule.migrationCommand}`);
-    } else if (migrationRule) {
-      log(`⚠️  [Schema Alert]: ${packageName} v${targetMajor} introduces breaking configuration changes!`);
-      log(`🔄 [Migration]: Running Automated Repair: ${migrationRule.description}...`);
-
-      if (!isValidCommand(migrationRule.migrationCommand)) {
-        logError(`❌ [Security Error]: Migration command validation failed. Invalid command syntax.`);
-        return { updatedVersion: currentValue, schemaMigrated: false };
-      }
-
-      let migrationOk = true;
-      for (const step of migrationRule.steps) {
-        const outcome = await runCommand(step, cwd, MIGRATION_TIMEOUT_MS);
-        if (!outcome.ok) {
-          migrationOk = false;
-          const tail = tailLines(outcome.output, OUTPUT_TAIL_LINES);
-          logError(`❌ [Error]: Automated schema migration failed for ${packageName} at "${step.command} ${step.args.join(' ')}". Proceeding with cautious testing.${tail ? `\n${tail}` : ''}`);
-          break;
-        }
-      }
-      if (migrationOk) {
-        log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
-        schemaMigrated = true;
-      }
-    } else {
-      log(`ℹ️  [Info]: No core schema modifications required for ${packageName} v${targetMajor}.`);
-    }
-
-    const targetBuildCommand = envMeta.commands.build;
-    log(`🧪 [Integrity]: Testing project build after upgrade using: "${targetBuildCommand}"...`);
-
-    if (!isValidCommand(targetBuildCommand)) {
-      logError(`❌ [Security Error]: Build command validation failed. Invalid command syntax.`);
-      return { updatedVersion: currentValue, schemaMigrated: false };
-    }
-
-    const build = await runCommand(envMeta.commands.buildStep, cwd, BUILD_TIMEOUT_MS);
-    if (build.ok) {
-      log(`💎 [Integrity Success]: Project build passed smoothly on [${envMeta.type.toUpperCase()}] environment! Safe to commit.`);
-    } else {
-      const tail = tailLines(build.output, OUTPUT_TAIL_LINES);
-      logError(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!${tail ? `\n${tail}` : ''}`);
-      log(`⚠️  [Warning]: Build failed. The current version "${currentValue}" is returned unchanged; Muraqib did not modify package.json.`);
-      log(`🔍 [Next Steps]: Fix the build errors shown above, then run "${targetBuildCommand}" again.`);
+    if (!(await verifyBuild(envMeta, packageName, currentValue, cwd))) {
       return { updatedVersion: currentValue, schemaMigrated: false };
     }
   }

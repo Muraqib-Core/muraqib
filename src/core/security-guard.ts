@@ -1,16 +1,10 @@
 import https from "https";
 import http from "http";
 import { BaseGuard } from "./base-guard.js";
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditContext, GuardFinding } from "./types.js";
 
 /** A structured security finding. `code` is stable and never derived from message text. */
-export interface SecurityFinding { // muraqib-ignore-dead: structured finding shape of SecurityAuditResult
-  code: string;
-  severity: "critical" | "error" | "warning" | "info";
-  message: string;
-  file?: string;
-  line?: number;
-}
+export type SecurityFinding = GuardFinding; // muraqib-ignore-dead: structured finding shape of SecurityAuditResult
 
 /**
  * Result of a security audit on an HTTP endpoint
@@ -123,65 +117,80 @@ function parseCsp(csp: string): Map<string, string[]> {
   return directives;
 }
 
-/** Findings for the response headers (everything except transport/request problems). */
-function analyzeHeaders(headers: http.IncomingHttpHeaders): SecurityFinding[] {
-  const findings: SecurityFinding[] = [];
+/** Lower-cases header names and joins multi-value headers; undefined values are dropped. */
+function normalizeHeaders(headers: http.IncomingHttpHeaders): Map<string, string> {
   const lower = new Map<string, string>();
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) continue;
     lower.set(key.toLowerCase(), Array.isArray(value) ? value.join(", ") : String(value));
   }
+  return lower;
+}
 
-  for (const header of REQUIRED_HEADERS) {
-    if (!lower.has(header)) {
-      findings.push({ code: "SECURITY_MISSING_HEADER", severity: "error", message: `Missing security header: ${header}` });
-    }
-  }
-  for (const header of RECOMMENDED_HEADERS) {
-    if (!lower.has(header)) {
-      findings.push({ code: "SECURITY_MISSING_RECOMMENDED_HEADER", severity: "warning", message: `Missing recommended header: ${header}` });
-    }
-  }
+/** One finding per header from `names` that the response does not send. */
+function missingHeaderFindings(
+  lower: ReadonlyMap<string, string>,
+  names: readonly string[],
+  code: string,
+  severity: SecurityFinding["severity"],
+  label: string
+): SecurityFinding[] {
+  return names
+    .filter((header) => !lower.has(header))
+    .map((header) => ({ code, severity, message: `${label}: ${header}` }));
+}
 
-  const hsts = lower.get("strict-transport-security");
-  if (hsts !== undefined) {
-    const maxAgeMatch = /max-age\s*=\s*"?(\d+)/i.exec(hsts);
-    if (maxAgeMatch?.[1] !== undefined) {
-      const maxAge = parseInt(maxAgeMatch[1], 10);
-      if (maxAge < MIN_HSTS_MAX_AGE) {
-        findings.push({ code: "SECURITY_HSTS_WEAK", severity: "warning", message: `HSTS max-age too low: ${maxAge}s (recommended: ${MIN_HSTS_MAX_AGE}s)` });
-      }
-    }
-  }
+/** Flags an HSTS max-age below the recommended minimum; an unparsable max-age is ignored. */
+function analyzeHsts(hsts: string): SecurityFinding[] {
+  const maxAgeMatch = /max-age\s*=\s*"?(\d+)/i.exec(hsts);
+  if (maxAgeMatch?.[1] === undefined) return [];
+  const maxAge = parseInt(maxAgeMatch[1], 10);
+  if (maxAge >= MIN_HSTS_MAX_AGE) return [];
+  return [{ code: "SECURITY_HSTS_WEAK", severity: "warning", message: `HSTS max-age too low: ${maxAge}s (recommended: ${MIN_HSTS_MAX_AGE}s)` }];
+}
 
-  const csp = lower.get("content-security-policy");
-  if (csp !== undefined) {
-    const directives = parseCsp(csp);
-    const unsafe = [...new Set((csp.match(/'unsafe-[^']+'/gi) ?? []).map((token) => token.toLowerCase()))];
-    if (unsafe.length > 0) {
-      findings.push({ code: "SECURITY_CSP_UNSAFE", severity: "warning", message: `CSP contains unsafe directives: ${unsafe.join(", ")}` });
-    }
-    if (!directives.has("default-src") && !directives.has("script-src")) {
-      findings.push({ code: "SECURITY_CSP_MISSING_DIRECTIVE", severity: "warning", message: "CSP missing default-src or script-src directive" });
-    }
-    const missing = RECOMMENDED_CSP_DIRECTIVES.filter((directive) => !directives.has(directive));
-    if (missing.length > 0) {
-      findings.push({ code: "SECURITY_CSP_MISSING_DIRECTIVE", severity: "warning", message: `CSP missing recommended directives: ${missing.join(", ")}` });
-    }
-    const scriptSrc = directives.get("script-src");
-    if (scriptSrc?.some((token) => token.toLowerCase() === "'none'") === true) {
-      findings.push({ code: "SECURITY_CSP_SCRIPT_NONE", severity: "warning", message: "CSP script-src is set to 'none', blocking all scripts" });
-    }
+/** Flags unsafe sources, absent directives and a blocking `script-src 'none'` in a CSP. */
+function analyzeCsp(csp: string): SecurityFinding[] {
+  const warn = (code: string, message: string): SecurityFinding => ({ code, severity: "warning", message });
+  const findings: SecurityFinding[] = [];
+  const directives = parseCsp(csp);
+  const unsafe = [...new Set((csp.match(/'unsafe-[^']+'/gi) ?? []).map((token) => token.toLowerCase()))];
+  if (unsafe.length > 0) {
+    findings.push(warn("SECURITY_CSP_UNSAFE", `CSP contains unsafe directives: ${unsafe.join(", ")}`));
   }
-
-  const xfoRaw = lower.get("x-frame-options");
-  if (xfoRaw !== undefined) {
-    const xfo = xfoRaw.trim().toLowerCase();
-    if (xfo !== "deny" && xfo !== "sameorigin") {
-      findings.push({ code: "SECURITY_XFO_WEAK", severity: "warning", message: `X-Frame-Options has weak value: ${xfo}` });
-    }
+  if (!directives.has("default-src") && !directives.has("script-src")) {
+    findings.push(warn("SECURITY_CSP_MISSING_DIRECTIVE", "CSP missing default-src or script-src directive"));
+  }
+  const missing = RECOMMENDED_CSP_DIRECTIVES.filter((directive) => !directives.has(directive));
+  if (missing.length > 0) {
+    findings.push(warn("SECURITY_CSP_MISSING_DIRECTIVE", `CSP missing recommended directives: ${missing.join(", ")}`));
+  }
+  if (directives.get("script-src")?.some((token) => token.toLowerCase() === "'none'") === true) {
+    findings.push(warn("SECURITY_CSP_SCRIPT_NONE", "CSP script-src is set to 'none', blocking all scripts"));
   }
   return findings;
+}
+
+/** Flags an X-Frame-Options value other than DENY / SAMEORIGIN. */
+function analyzeXFrameOptions(raw: string): SecurityFinding[] {
+  const xfo = raw.trim().toLowerCase();
+  if (xfo === "deny" || xfo === "sameorigin") return [];
+  return [{ code: "SECURITY_XFO_WEAK", severity: "warning", message: `X-Frame-Options has weak value: ${xfo}` }];
+}
+
+/** Findings for the response headers (everything except transport/request problems). */
+function analyzeHeaders(headers: http.IncomingHttpHeaders): SecurityFinding[] {
+  const lower = normalizeHeaders(headers);
+  const hsts = lower.get("strict-transport-security");
+  const csp = lower.get("content-security-policy");
+  const xfo = lower.get("x-frame-options");
+  return [
+    ...missingHeaderFindings(lower, REQUIRED_HEADERS, "SECURITY_MISSING_HEADER", "error", "Missing security header"),
+    ...missingHeaderFindings(lower, RECOMMENDED_HEADERS, "SECURITY_MISSING_RECOMMENDED_HEADER", "warning", "Missing recommended header"),
+    ...(hsts === undefined ? [] : analyzeHsts(hsts)),
+    ...(csp === undefined ? [] : analyzeCsp(csp)),
+    ...(xfo === undefined ? [] : analyzeXFrameOptions(xfo)),
+  ];
 }
 
 /** Maps a finding to the score check it belongs to (CSP findings count as one check). */
@@ -208,6 +217,41 @@ function buildResult(
     findings,
     finalUrl,
   };
+}
+
+type RedirectStep =
+  | { kind: "follow"; next: URL }
+  /** Not a followable redirect: audit this response's own headers. */
+  | { kind: "audit" }
+  | { kind: "fail"; message: string };
+
+/**
+ * Decides what to do with a response: follow its redirect, audit it as-is, or give up.
+ * A redirect to an https -> http downgrade or to a foreign scheme is not followed; the redirect
+ * response itself is audited instead.
+ */
+function resolveRedirect(
+  current: URL,
+  outcome: Extract<ProbeOutcome, { kind: "response" }>,
+  hop: number,
+  visited: ReadonlySet<string>
+): RedirectStep {
+  const location = outcome.headers.location;
+  const isRedirect = outcome.statusCode >= 300 && outcome.statusCode < 400 && typeof location === "string" && location.length > 0;
+  if (!isRedirect) return { kind: "audit" };
+
+  let next: URL;
+  try {
+    next = new URL(location, current);
+  } catch {
+    return { kind: "fail", message: `Security audit request failed: invalid redirect location "${location}"` };
+  }
+  const downgrade = current.protocol === "https:" && next.protocol === "http:";
+  if ((next.protocol !== "http:" && next.protocol !== "https:") || downgrade) return { kind: "audit" };
+  if (visited.has(next.href) || hop === MAX_REDIRECTS) {
+    return { kind: "fail", message: "Security audit request failed: too many redirects" };
+  }
+  return { kind: "follow", next };
 }
 
 async function performSecurityAuditInternal(targetUrl: string, timeoutOption?: number): Promise<SecurityAuditResult> {
@@ -247,24 +291,11 @@ async function performSecurityAuditInternal(targetUrl: string, timeoutOption?: n
       return fail(`Security audit request failed: ${outcome.message}`, "SECURITY_REQUEST_FAILED", current.href);
     }
 
-    const location = outcome.headers.location;
-    const isRedirect = outcome.statusCode >= 300 && outcome.statusCode < 400 && typeof location === "string" && location.length > 0;
-    if (isRedirect) {
-      let next: URL | undefined;
-      try {
-        next = new URL(location, current);
-      } catch {
-        return fail(`Security audit request failed: invalid redirect location "${location}"`, "SECURITY_REQUEST_FAILED", current.href);
-      }
-      const downgrade = current.protocol === "https:" && next.protocol === "http:";
-      if ((next.protocol === "http:" || next.protocol === "https:") && !downgrade) {
-        if (visited.has(next.href) || hop === MAX_REDIRECTS) {
-          return fail("Security audit request failed: too many redirects", "SECURITY_REQUEST_FAILED", current.href);
-        }
-        current = next;
-        continue;
-      }
-      // Redirect to a downgraded/foreign scheme: audit the redirect response itself.
+    const step = resolveRedirect(current, outcome, hop, visited);
+    if (step.kind === "fail") return fail(step.message, "SECURITY_REQUEST_FAILED", current.href);
+    if (step.kind === "follow") {
+      current = step.next;
+      continue;
     }
 
     findings.push(...analyzeHeaders(outcome.headers));
@@ -293,16 +324,7 @@ export class SecurityGuard extends BaseGuard {
   async execute(): Promise<AuditResult> {
     const result = await performSecurityAuditInternal(this.options.targetUrl, this.options.timeoutMs);
 
-    const issues: AuditIssue[] = result.findings.map((finding) =>
-      this.createIssue(
-        finding.code,
-        finding.severity,
-        "Security Header Issue",
-        finding.message,
-        finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
-        "Configure the security header as recommended"
-      )
-    );
+    const issues = this.issuesFromFindings(result.findings, "Security Header Issue", "Configure the security header as recommended");
 
     if (issues.length === 0) {
       return this.ok(`Security headers audit passed with score ${result.score}/100`);

@@ -29,6 +29,35 @@ export interface PackageManifest {
 
 export type PackageManagerName = "pnpm" | "npm" | "yarn" | "bun";
 
+const LOCKFILES: Record<PackageManagerName, string> = {
+  pnpm: "pnpm-lock.yaml",
+  npm: "package-lock.json",
+  yarn: "yarn.lock",
+  bun: "bun.lockb",
+};
+
+/** Managers tried, in order, by the lockfile that exists when package.json does not declare one. */
+const LOCKFILE_DETECTION_ORDER: readonly PackageManagerName[] = ["pnpm", "yarn", "bun"];
+
+function readRootManifest(projectPath: string): PackageManifest {
+  const pkgPath = path.join(projectPath, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    throw new Error(`No package.json found at ${projectPath}`);
+  }
+  try {
+    return JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  } catch {
+    throw new Error(`Failed to parse package.json at ${pkgPath}`);
+  }
+}
+
+/** The manager named by `packageManager` in package.json, else the one whose lockfile exists, else npm. */
+function detectPackageManager(projectPath: string, manifest: PackageManifest): PackageManagerName {
+  const declared = typeof manifest.packageManager === "string" ? manifest.packageManager.split("@")[0] : undefined;
+  if (declared && Object.hasOwn(LOCKFILES, declared)) return declared as PackageManagerName;
+  return LOCKFILE_DETECTION_ORDER.find((name) => fs.existsSync(path.join(projectPath, LOCKFILES[name]))) ?? "npm";
+}
+
 /**
  * Dependency graph class.
  */
@@ -41,47 +70,19 @@ export class DependencyGraph {
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
-    const pkgPath = path.join(projectPath, "package.json");
-    if (!fs.existsSync(pkgPath)) {
-      throw new Error(`No package.json found at ${projectPath}`);
-    }
-
-    let rootPkg: PackageManifest;
-    try {
-      rootPkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-    } catch {
-      throw new Error(`Failed to parse package.json at ${pkgPath}`);
-    }
+    const rootPkg = readRootManifest(projectPath);
 
     this.projectEngines = rootPkg.engines;
+    this.packageManager = detectPackageManager(projectPath, rootPkg);
 
-    const declaredManager = typeof rootPkg.packageManager === "string"
-      ? rootPkg.packageManager.split("@")[0]
-      : undefined;
-    const supportedManagers = new Set<PackageManagerName>(["pnpm", "npm", "yarn", "bun"]);
-    const lockfiles: Record<PackageManagerName, string> = {
-      pnpm: "pnpm-lock.yaml",
-      npm: "package-lock.json",
-      yarn: "yarn.lock",
-      bun: "bun.lockb",
-    };
-
-    if (declaredManager && supportedManagers.has(declaredManager as PackageManagerName)) {
-      this.packageManager = declaredManager as PackageManagerName;
-    } else if (fs.existsSync(path.join(projectPath, lockfiles.pnpm))) {
-      this.packageManager = "pnpm";
-    } else if (fs.existsSync(path.join(projectPath, lockfiles.yarn))) {
-      this.packageManager = "yarn";
-    } else if (fs.existsSync(path.join(projectPath, lockfiles.bun))) {
-      this.packageManager = "bun";
-    } else {
-      this.packageManager = "npm";
-    }
-
-    const selectedLockfile = path.join(projectPath, lockfiles[this.packageManager]);
+    const selectedLockfile = path.join(projectPath, LOCKFILES[this.packageManager]);
     if (fs.existsSync(selectedLockfile)) this.lockfilePath = selectedLockfile;
 
-    // Populate declared packages
+    this.declarePackages(rootPkg);
+  }
+
+  /** Records every declared package once, in dependency-section order, with whatever is installed. */
+  private declarePackages(rootPkg: PackageManifest): void {
     const sections: Array<{ type: DependencyType; obj: Record<string, string> | undefined }> = [
       { type: "dependencies", obj: rootPkg.dependencies },
       { type: "devDependencies", obj: rootPkg.devDependencies },
@@ -92,20 +93,19 @@ export class DependencyGraph {
     for (const section of sections) {
       if (!section.obj) continue;
       for (const [name, declaredVersion] of Object.entries(section.obj)) {
-        if (!this.declaredPackages.has(name)) {
-          const installed = this.getInstalledMeta(name);
-          this.declaredPackages.set(name, {
-            name,
-            declaredVersion,
-            installedVersion: installed?.version ?? declaredVersion.replace(/[\^~]/g, ""),
-            dependencyType: section.type,
-            dependencies: installed?.dependencies,
-            devDependencies: installed?.devDependencies,
-            peerDependencies: installed?.peerDependencies,
-            optionalDependencies: installed?.optionalDependencies,
-            engines: installed?.engines,
-          });
-        }
+        if (this.declaredPackages.has(name)) continue;
+        const installed = this.getInstalledMeta(name);
+        this.declaredPackages.set(name, {
+          name,
+          declaredVersion,
+          installedVersion: installed?.version ?? declaredVersion.replace(/[\^~]/g, ""),
+          dependencyType: section.type,
+          dependencies: installed?.dependencies,
+          devDependencies: installed?.devDependencies,
+          peerDependencies: installed?.peerDependencies,
+          optionalDependencies: installed?.optionalDependencies,
+          engines: installed?.engines,
+        });
       }
     }
   }

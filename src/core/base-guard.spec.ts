@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { BaseGuard } from "./base-guard.js";
-import type { AuditIssue, AuditResult } from "./types.js";
+import type { AuditIssue, AuditResult, GuardFinding } from "./types.js";
 
 type Body = (g: TestGuard) => Promise<AuditResult>;
 
@@ -15,6 +15,7 @@ class TestGuard extends BaseGuard {
   exposeIssues(i: AuditIssue[], m?: string): AuditResult { return this.issues(i, m); }
   exposeIssue(sev: AuditIssue["severity"]): AuditIssue { return this.createIssue("X", sev, "t", "m"); }
   exposeResult(i: AuditIssue[]): AuditResult { return this.createResult("warning", i, "x"); }
+  fromFindings(f: GuardFinding[]): AuditIssue[] { return this.issuesFromFindings(f, "Title", "Fix it"); }
   bytes(n: number): string { return this.formatBytes(n); }
   dur(n: number): string { return this.formatDuration(n); }
   json<T>(s: string, f: T): T { return this.parseJSON(s, f); }
@@ -136,5 +137,17 @@ describe("BaseGuard", () => {
     const g = new TestGuard();
     expect(g.json<{ a: number }>('{"a":1}', { a: 0 })).toEqual({ a: 1 });
     expect(g.json("{bad", 7)).toBe(7);
+  });
+
+  it("issuesFromFindings maps findings in order and includes a location only when a file is set", () => {
+    const issues = new TestGuard().fromFindings([
+      { code: "A", severity: "error", message: "a", file: "x.ts", line: 3 },
+      { code: "B", severity: "info", message: "b", file: "y.ts" },
+      { code: "C", severity: "warning", message: "c" },
+    ]);
+    expect(issues.map((i) => i.code)).toEqual(["A", "B", "C"]);
+    expect(issues[0]).toMatchObject({ title: "Title", recommendation: "Fix it", module: "test-guard", location: { file: "x.ts", line: 3 } });
+    expect(issues[1]?.location).toEqual({ file: "y.ts" });
+    expect(issues[2]?.location).toBeUndefined();
   });
 });
