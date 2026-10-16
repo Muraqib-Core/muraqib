@@ -99,17 +99,108 @@ function collectAsyncNames(source: string): { functions: Set<string>; methods: S
   return { functions, methods };
 }
 
+/** Everything a rule may inspect about the line under examination. */
+interface LineContext {
+  relativePath: string;
+  lineNum: number;
+  /** Offset of the line's first character within the masked file content. */
+  offset: number;
+  /** The raw (masked) line and its trimmed form. */
+  line: string;
+  trimmed: string;
+  /** The previous non-empty line ends mid-expression, so this line is not a statement of its own. */
+  isContinuation: boolean;
+  /** This line and the next four, joined (the window in which a `.catch(` is looked for). */
+  nextWindow: string;
+  /** Lines after this one. */
+  following: () => string;
+  content: string;
+  asyncNames: ReturnType<typeof collectAsyncNames>;
+}
+
+type FindingBucket = "unhandledPromises" | "missingAwait" | "callbackHell" | "floatingPromises";
+
+/** A single line-level check: `check` returns the finding message when the line violates the rule. */
+interface AsyncRule {
+  code: string;
+  severity: AsyncFinding["severity"];
+  /** Result list that also receives `file:line` for this rule (kept for the legacy result shape). */
+  bucket?: FindingBucket;
+  check: (ctx: LineContext) => string | undefined;
+}
+
+const ASYNC_RULES: readonly AsyncRule[] = [
+  {
+    code: "ASYNC_UNHANDLED_PROMISE",
+    severity: "error",
+    bucket: "unhandledPromises",
+    check: ({ trimmed, nextWindow, relativePath, lineNum }) =>
+      /new\s+Promise\s*\(/.test(trimmed) && !FULFIL_ONLY_EXECUTOR.test(trimmed) && !nextWindow.includes(".catch(")
+        ? `Unhandled Promise at ${relativePath}:${lineNum} — add .catch() or try/catch`
+        : undefined,
+  },
+  {
+    // A statement that is only `name();` / `this.name();` for an async function declared in this file.
+    code: "ASYNC_MISSING_AWAIT",
+    severity: "warning",
+    bucket: "missingAwait",
+    check: ({ trimmed, isContinuation, asyncNames, relativePath, lineNum }) => {
+      const callMatch = /^(this\.)?([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?$/.exec(trimmed);
+      const funcName = callMatch?.[2];
+      if (funcName === undefined || isContinuation) return undefined;
+      const known = callMatch?.[1] === undefined ? asyncNames.functions : asyncNames.methods;
+      return known.has(funcName)
+        ? `Missing await for async call: ${relativePath}:${lineNum} — ${funcName}() returns a Promise`
+        : undefined;
+    },
+  },
+  {
+    code: "ASYNC_CALLBACK_HELL",
+    severity: "warning",
+    bucket: "callbackHell",
+    check: ({ trimmed, relativePath, lineNum }) => {
+      const callbackDepth = (trimmed.match(/\)/g) ?? []).length;
+      return callbackDepth >= 3 && (trimmed.includes("callback") || /\bcb\b/.test(trimmed))
+        ? `Potential callback hell: ${relativePath}:${lineNum} — consider async/await`
+        : undefined;
+    },
+  },
+  {
+    // The statement itself starts with the call (so never `const x = fetch(`, `return`, `await`, `void`,
+    // `.then(` ...), is not a method declaration and is not chained.
+    code: "ASYNC_FLOATING_PROMISE",
+    severity: "error",
+    bucket: "floatingPromises",
+    check: ({ trimmed, isContinuation, following, relativePath, lineNum }) => {
+      if (!FLOATING_START.test(trimmed) || isContinuation || DECLARATION_END.test(trimmed) || trimmed.includes(".catch(")) {
+        return undefined;
+      }
+      return /^\.(?:then|catch|finally)\b/.test(following())
+        ? undefined
+        : `Floating Promise: ${relativePath}:${lineNum} — Promise result is ignored`;
+    },
+  },
+  {
+    code: "ASYNC_THEN_WITHOUT_CATCH",
+    severity: "warning",
+    check: ({ trimmed, nextWindow, content, offset, line, relativePath, lineNum }) =>
+      trimmed.includes(".then(") && !nextWindow.includes(".catch(") && !chainHandlesRejection(content, offset + line.indexOf(".then("))
+        ? `Promise chain without .catch(): ${relativePath}:${lineNum}`
+        : undefined,
+  },
+];
+
 function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   const findings: AsyncFinding[] = [];
-  const unhandledPromises: string[] = [];
-  const missingAwait: string[] = [];
-  const callbackHell: string[] = [];
-  const floatingPromises: string[] = [];
+  const buckets: Record<FindingBucket, string[]> = {
+    unhandledPromises: [],
+    missingAwait: [],
+    callbackHell: [],
+    floatingPromises: [],
+  };
 
   // Only scan TypeScript sources to avoid false-positives from compiled JS artifacts.
-  const scannedFiles = scanProjectFiles(targetPath, ["ts"]);
-
-  for (const scannedFile of scannedFiles) {
+  for (const scannedFile of scanProjectFiles(targetPath, ["ts"])) {
     const { relativePath } = scannedFile;
     // Skip scanning the guard and related guards themselves to avoid self-matching callback patterns
     if (SELF_SKIP.test(relativePath.replace(/\\/g, "/"))) continue;
@@ -121,56 +212,34 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
     let lineStart = 0;
     let previous = "";
 
-    const add = (code: string, severity: AsyncFinding["severity"], lineNum: number, message: string): void => {
-      findings.push({ code, severity, message, file: relativePath, line: lineNum });
-    };
-
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const offset = lineStart;
       lineStart += (line?.length ?? 0) + 1;
       if (line === undefined) continue;
-      const lineNum = i + 1;
       const trimmed = line.trim();
       const isContinuation = CONTINUATION_END.test(previous);
       if (trimmed.length > 0) previous = trimmed;
       if (trimmed.length === 0) continue;
-      const nextWindow = lines.slice(i, Math.min(i + 5, lines.length)).join(" ");
 
-      if (/new\s+Promise\s*\(/.test(trimmed) && !FULFIL_ONLY_EXECUTOR.test(trimmed) && !nextWindow.includes(".catch(")) {
-        unhandledPromises.push(`${relativePath}:${lineNum}`);
-        add("ASYNC_UNHANDLED_PROMISE", "error", lineNum, `Unhandled Promise at ${relativePath}:${lineNum} — add .catch() or try/catch`);
-      }
+      const ctx: LineContext = {
+        relativePath,
+        lineNum: i + 1,
+        offset,
+        line,
+        trimmed,
+        isContinuation,
+        nextWindow: lines.slice(i, Math.min(i + 5, lines.length)).join(" "),
+        following: () => lines.slice(i + 1).find((candidate) => candidate.trim().length > 0)?.trim() ?? "",
+        content,
+        asyncNames,
+      };
 
-      // Missing await: a statement that is only `name();` / `this.name();` for an async function in this file.
-      const callMatch = /^(this\.)?([A-Za-z_$][\w$]*)\s*\(\s*\)\s*;?$/.exec(trimmed);
-      if (callMatch?.[2] !== undefined && !isContinuation) {
-        const funcName = callMatch[2];
-        const isAsync = callMatch[1] === undefined ? asyncNames.functions.has(funcName) : asyncNames.methods.has(funcName);
-        if (isAsync) {
-          missingAwait.push(`${relativePath}:${lineNum}`);
-          add("ASYNC_MISSING_AWAIT", "warning", lineNum, `Missing await for async call: ${relativePath}:${lineNum} — ${funcName}() returns a Promise`);
-        }
-      }
-
-      const callbackDepth = (trimmed.match(/\)/g) ?? []).length;
-      if (callbackDepth >= 3 && (trimmed.includes("callback") || /\bcb\b/.test(trimmed))) {
-        callbackHell.push(`${relativePath}:${lineNum}`);
-        add("ASYNC_CALLBACK_HELL", "warning", lineNum, `Potential callback hell: ${relativePath}:${lineNum} — consider async/await`);
-      }
-
-      // Floating promise: the statement itself starts with the call (so never `const x = fetch(`,
-      // `return`, `await`, `void`, `.then(` ...), is not a method declaration and is not chained.
-      if (FLOATING_START.test(trimmed) && !isContinuation && !DECLARATION_END.test(trimmed) && !trimmed.includes(".catch(")) {
-        const following = lines.slice(i + 1).find((candidate) => candidate.trim().length > 0)?.trim() ?? "";
-        if (!/^\.(?:then|catch|finally)\b/.test(following)) {
-          floatingPromises.push(`${relativePath}:${lineNum}`);
-          add("ASYNC_FLOATING_PROMISE", "error", lineNum, `Floating Promise: ${relativePath}:${lineNum} — Promise result is ignored`);
-        }
-      }
-
-      if (trimmed.includes(".then(") && !nextWindow.includes(".catch(") && !chainHandlesRejection(content, offset + line.indexOf(".then("))) {
-        add("ASYNC_THEN_WITHOUT_CATCH", "warning", lineNum, `Promise chain without .catch(): ${relativePath}:${lineNum}`);
+      for (const rule of ASYNC_RULES) {
+        const message = rule.check(ctx);
+        if (message === undefined) continue;
+        if (rule.bucket !== undefined) buckets[rule.bucket].push(`${relativePath}:${ctx.lineNum}`);
+        findings.push({ code: rule.code, severity: rule.severity, message, file: relativePath, line: ctx.lineNum });
       }
     }
   }
@@ -178,10 +247,7 @@ function performAsyncAuditInternal(targetPath: string): AsyncAuditResult {
   return {
     isClean: findings.length === 0,
     reports: findings.map((finding) => finding.message),
-    unhandledPromises,
-    missingAwait,
-    callbackHell,
-    floatingPromises,
+    ...buckets,
     findings,
   };
 }
