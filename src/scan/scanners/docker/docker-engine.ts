@@ -102,6 +102,33 @@ function sourceMatches(source: string, candidate: string): boolean {
   return false;
 }
 
+interface ScanState {
+  findings: ScanIssueInput[];
+  diagnostics: string[];
+  scannedInputs: string[];
+  skippedInputs: string[];
+  partial: boolean;
+}
+
+const BASE_COMPOSE = /^(?:docker-)?compose\.ya?ml$/;
+
+/** A `compose.override.yml` next to a base compose file is merged into it, not scanned on its own. */
+function isSupersededOverride(file: string, allCompose: string[]): boolean {
+  const baseName = path.basename(file).toLowerCase();
+  return /^(?:docker-)?compose\.override\.ya?ml$/.test(baseName) && allCompose.some(other =>
+    path.dirname(other) === path.dirname(file) && BASE_COMPOSE.test(path.basename(other).toLowerCase()));
+}
+
+/** The file followed by the override files that merge into it (an override file stands alone). */
+function composeMembers(file: string, allCompose: string[]): string[] {
+  const baseName = path.basename(file).toLowerCase();
+  if (/\.override\./.test(baseName)) return [file];
+  const prefix = baseName.startsWith("docker-") ? "docker-compose" : "compose";
+  const override = allCompose.filter(other => path.dirname(other) === path.dirname(file) &&
+    new RegExp(`^${prefix}\\.override\\.ya?ml$`).test(path.basename(other).toLowerCase()));
+  return [file, ...override];
+}
+
 /**
  * Docker scanner class.
  */
@@ -126,94 +153,170 @@ export class DockerScanner implements ScannerEngine {
    * @returns Scan result
    */
   async scan(context: ScanContext): Promise<ScanResult> {
-    const findings: ScanIssueInput[] = [];
-    const diagnostics: string[] = [];
-    const scannedInputs: string[] = [];
-    const skippedInputs: string[] = [];
-    let partial = false;
+    const state: ScanState = { findings: [], diagnostics: [], scannedInputs: [], skippedInputs: [], partial: false };
     const root = await fs.realpath(context.projectPath).catch(() => path.resolve(context.projectPath));
-    let dockerAvailable = false;
-    if (this.nativeValidation) {
-      try { await this.docker(["--version"], root); dockerAvailable = true; }
-      catch { partial = true; diagnostics.push("Requested Docker-native validation is unavailable; static rules still ran."); }
-    }
+    const dockerAvailable = await this.probeNativeDocker(root, state);
 
     for (const file of context.dockerfiles ?? []) {
-      const filePath = path.resolve(root, file);
-      if (!within(root, filePath)) { skippedInputs.push(file); partial = true; diagnostics.push(`Dockerfile outside project skipped: ${safeName(file)}`); continue; }
-      try {
-        const real = await fs.realpath(filePath);
-        if (!within(root, real)) throw new Error("outside root");
-        const content = await fs.readFile(real, "utf8");
-        if (content.length > 1024 * 1024) throw new Error("too large");
-        scannedInputs.push(file);
-        this.analyzeDockerfile(content, file, findings);
-        if (dockerAvailable) {
-          try { await this.docker(["build", "--check", "-f", real, "."], path.dirname(real)); }
-          catch { partial = true; diagnostics.push(`Docker-native build validation could not complete for ${safeName(file)}; static rules still ran.`); }
-        }
-      } catch {
-        skippedInputs.push(file); partial = true; diagnostics.push(`Failed to read Dockerfile: ${safeName(file)}`);
-      }
+      await this.scanDockerfile(file, root, dockerAvailable, state);
     }
 
     const allCompose = context.composeFiles ?? [];
     for (const file of allCompose) {
-      const baseName = path.basename(file).toLowerCase();
-      if (/^(?:docker-)?compose\.override\.ya?ml$/.test(baseName) && allCompose.some(other =>
-        path.dirname(other) === path.dirname(file) && /^(?:docker-)?compose\.ya?ml$/.test(path.basename(other).toLowerCase()))) continue;
-      const prefix = baseName.startsWith("docker-") ? "docker-compose" : "compose";
-      const override = allCompose.filter(other => path.dirname(other) === path.dirname(file) &&
-        new RegExp(`^${prefix}\\.override\\.ya?ml$`).test(path.basename(other).toLowerCase()));
-      const members = /\.override\./.test(baseName) ? [file] : [file, ...override];
-      const filePath = path.resolve(root, file);
-      if (!within(root, filePath)) { skippedInputs.push(file); partial = true; diagnostics.push(`Compose file outside project skipped: ${safeName(file)}`); continue; }
-      let document: ComposeDocument;
-      try {
-        const real = await fs.realpath(filePath);
-        if (!within(root, real)) throw new Error("outside root");
-        const content = await fs.readFile(real, "utf8");
-        if (content.length > 1024 * 1024) throw new Error("too large");
-        document = yaml.parse(content) as ComposeDocument;
-        scannedInputs.push(file);
-        for (const additional of members.slice(1)) {
-          const full = path.resolve(root, additional);
-          const resolved = await fs.realpath(full);
-          if (!within(root, resolved)) throw new Error("override outside root");
-          const overrideContent = await fs.readFile(resolved, "utf8");
-          if (overrideContent.length > 1024 * 1024) throw new Error("override too large");
-          yaml.parse(overrideContent);
-          scannedInputs.push(additional);
-        }
-      } catch {
-        findings.push({ id: "CO-01", title: "Invalid or unreadable Compose file", message: "Compose file could not be parsed or read.", severity: "high", category: "validation", source: this.name, confidence: "confirmed", file });
-        skippedInputs.push(file); partial = true; continue;
-      }
-      if (members.length === 1) this.analyzeCompose(document, file, findings, "inferred");
-      if (!dockerAvailable) {
-        if (members.length > 1) { partial = true; diagnostics.push(`Compose overrides for ${safeName(file)} require Docker Compose to resolve; effective settings were skipped.`); }
-        else if (await this.analyzeContexts(document, file, root, findings, diagnostics)) partial = true;
-        continue;
-      }
-      try {
-        // The CLI resolves variables and paths. Never expose its normalized output or errors in reports.
-        const filesArgs = members.flatMap(member => ["-f", path.resolve(root, member)]);
-        const output = await this.docker(["compose", ...filesArgs, "config", "--format", "json"], path.dirname(filePath));
-        const effective = JSON.parse(output) as ComposeDocument;
-        if (!effective || typeof effective.services !== "object") throw new Error("invalid model");
-        // Prefer effective Compose values when available; avoid duplicate literal findings.
-        findings.splice(0, findings.length, ...findings.filter(f => f.file !== file || !["PR-02", "PR-05", "PR-03", "PR-04"].includes(f.id)));
-        this.analyzeCompose(effective, file, findings);
-        if (await this.analyzeContexts(effective, file, root, findings, diagnostics)) partial = true;
-      } catch {
-        partial = true;
-        diagnostics.push(`Effective Compose model unavailable for ${safeName(file)}; no cross-file claims were made.`);
-        // Explicit literal values can still be reported from the parsed file, but are inferred until merge resolution.
-        if (members.length === 1 && await this.analyzeContexts(document, file, root, findings, diagnostics)) partial = true;
-      }
+      if (isSupersededOverride(file, allCompose)) continue;
+      await this.scanComposeFile(file, composeMembers(file, allCompose), root, dockerAvailable, state);
     }
 
-    return { scanner: this.name, status: partial ? "partial" : "success", findings: findings.map(createScanIssue), scannedInputs, skippedInputs, diagnostics };
+    return {
+      scanner: this.name,
+      status: state.partial ? "partial" : "success",
+      findings: state.findings.map(createScanIssue),
+      scannedInputs: state.scannedInputs,
+      skippedInputs: state.skippedInputs,
+      diagnostics: state.diagnostics,
+    };
+  }
+
+  /** Whether the Docker CLI can be used; only probed when native validation was requested. */
+  private async probeNativeDocker(root: string, state: ScanState): Promise<boolean> {
+    if (!this.nativeValidation) return false;
+    try {
+      await this.docker(["--version"], root);
+      return true;
+    } catch {
+      state.partial = true;
+      state.diagnostics.push("Requested Docker-native validation is unavailable; static rules still ran.");
+      return false;
+    }
+  }
+
+  private async scanDockerfile(file: string, root: string, dockerAvailable: boolean, state: ScanState): Promise<void> {
+    const filePath = path.resolve(root, file);
+    if (!within(root, filePath)) {
+      state.skippedInputs.push(file);
+      state.partial = true;
+      state.diagnostics.push(`Dockerfile outside project skipped: ${safeName(file)}`);
+      return;
+    }
+    try {
+      const real = await fs.realpath(filePath);
+      if (!within(root, real)) throw new Error("outside root");
+      const content = await fs.readFile(real, "utf8");
+      if (content.length > 1024 * 1024) throw new Error("too large");
+      state.scannedInputs.push(file);
+      this.analyzeDockerfile(content, file, state.findings);
+      if (dockerAvailable) await this.nativeBuildCheck(real, file, state);
+    } catch {
+      state.skippedInputs.push(file);
+      state.partial = true;
+      state.diagnostics.push(`Failed to read Dockerfile: ${safeName(file)}`);
+    }
+  }
+
+  private async nativeBuildCheck(real: string, file: string, state: ScanState): Promise<void> {
+    try {
+      await this.docker(["build", "--check", "-f", real, "."], path.dirname(real));
+    } catch {
+      state.partial = true;
+      state.diagnostics.push(`Docker-native build validation could not complete for ${safeName(file)}; static rules still ran.`);
+    }
+  }
+
+  private async scanComposeFile(
+    file: string,
+    members: string[],
+    root: string,
+    dockerAvailable: boolean,
+    state: ScanState
+  ): Promise<void> {
+    const document = await this.readComposeDocument(file, members, root, state);
+    if (!document) return;
+    if (members.length === 1) this.analyzeCompose(document.value, file, state.findings, "inferred");
+    if (dockerAvailable) await this.analyzeWithDocker(document.value, file, members, root, state);
+    else await this.analyzeWithoutDocker(document.value, file, members, root, state);
+  }
+
+  /** Parses the compose file and its overrides; on any problem records why and returns undefined. */
+  private async readComposeDocument(
+    file: string,
+    members: string[],
+    root: string,
+    state: ScanState
+  ): Promise<{ value: ComposeDocument } | undefined> {
+    const filePath = path.resolve(root, file);
+    if (!within(root, filePath)) {
+      state.skippedInputs.push(file);
+      state.partial = true;
+      state.diagnostics.push(`Compose file outside project skipped: ${safeName(file)}`);
+      return undefined;
+    }
+    try {
+      const real = await fs.realpath(filePath);
+      if (!within(root, real)) throw new Error("outside root");
+      const content = await fs.readFile(real, "utf8");
+      if (content.length > 1024 * 1024) throw new Error("too large");
+      const value = yaml.parse(content) as ComposeDocument;
+      state.scannedInputs.push(file);
+      for (const additional of members.slice(1)) {
+        await this.validateOverride(additional, root);
+        state.scannedInputs.push(additional);
+      }
+      return { value };
+    } catch {
+      state.findings.push({ id: "CO-01", title: "Invalid or unreadable Compose file", message: "Compose file could not be parsed or read.", severity: "high", category: "validation", source: this.name, confidence: "confirmed", file });
+      state.skippedInputs.push(file);
+      state.partial = true;
+      return undefined;
+    }
+  }
+
+  private async validateOverride(additional: string, root: string): Promise<void> {
+    const resolved = await fs.realpath(path.resolve(root, additional));
+    if (!within(root, resolved)) throw new Error("override outside root");
+    const overrideContent = await fs.readFile(resolved, "utf8");
+    if (overrideContent.length > 1024 * 1024) throw new Error("override too large");
+    yaml.parse(overrideContent);
+  }
+
+  /** Without a Docker CLI, overrides cannot be merged, so only a lone file is analysed for build contexts. */
+  private async analyzeWithoutDocker(
+    document: ComposeDocument,
+    file: string,
+    members: string[],
+    root: string,
+    state: ScanState
+  ): Promise<void> {
+    if (members.length > 1) {
+      state.partial = true;
+      state.diagnostics.push(`Compose overrides for ${safeName(file)} require Docker Compose to resolve; effective settings were skipped.`);
+    } else if (await this.analyzeContexts(document, file, root, state.findings, state.diagnostics)) {
+      state.partial = true;
+    }
+  }
+
+  private async analyzeWithDocker(
+    document: ComposeDocument,
+    file: string,
+    members: string[],
+    root: string,
+    state: ScanState
+  ): Promise<void> {
+    try {
+      // The CLI resolves variables and paths. Never expose its normalized output or errors in reports.
+      const filesArgs = members.flatMap(member => ["-f", path.resolve(root, member)]);
+      const output = await this.docker(["compose", ...filesArgs, "config", "--format", "json"], path.dirname(path.resolve(root, file)));
+      const effective = JSON.parse(output) as ComposeDocument;
+      if (!effective || typeof effective.services !== "object") throw new Error("invalid model");
+      // Prefer effective Compose values when available; avoid duplicate literal findings.
+      state.findings.splice(0, state.findings.length, ...state.findings.filter(f => f.file !== file || !["PR-02", "PR-05", "PR-03", "PR-04"].includes(f.id)));
+      this.analyzeCompose(effective, file, state.findings);
+      if (await this.analyzeContexts(effective, file, root, state.findings, state.diagnostics)) state.partial = true;
+    } catch {
+      state.partial = true;
+      state.diagnostics.push(`Effective Compose model unavailable for ${safeName(file)}; no cross-file claims were made.`);
+      // Explicit literal values can still be reported from the parsed file, but are inferred until merge resolution.
+      if (members.length === 1 && await this.analyzeContexts(document, file, root, state.findings, state.diagnostics)) state.partial = true;
+    }
   }
 
   private analyzeDockerfile(content: string, file: string, findings: ScanIssueInput[]): void {
