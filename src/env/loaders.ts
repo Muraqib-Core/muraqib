@@ -10,6 +10,56 @@ export interface LoadEnvOptions {
   verbose?: boolean;
 }
 
+/** Parses a trimmed `KEY=value` line (optional `export`, trailing comment, surrounding quotes), or undefined. */
+function parseAssignment(trimmed: string): { key: string; value: string } | undefined {
+  const commentIndex = findCommentIndex(trimmed);
+  const meaningful = commentIndex >= 0 ? trimmed.slice(0, commentIndex) : trimmed;
+  const withoutExport = meaningful.replace(/^export\s+/, "").trim();
+  const eqIndex = withoutExport.indexOf("=");
+  if (eqIndex < 0) return undefined;
+
+  const key = withoutExport.slice(0, eqIndex).trim();
+  const rawValue = withoutExport.slice(eqIndex + 1).trim();
+  const quoteMatch = rawValue.match(/^(['"])(.*)\1$/s);
+  return { key, value: quoteMatch ? (quoteMatch[2] ?? rawValue) : rawValue };
+}
+
+/**
+ * Parses one file's content into `loaded`. A line ending in a backslash continues onto the next
+ * one; blank lines and comments are skipped even inside a continuation.
+ */
+function parseEnvContent(content: string, file: string, loaded: Record<string, string>, verbose: boolean): void {
+  const record = (key: string, value: string): void => {
+    loaded[key] = value;
+    if (verbose) {
+      logger.log(`📄 [Muraqib Loader]: Loaded ${key} from ${file}`);
+    }
+  };
+
+  let pending: { key: string; value: string } | null = null;
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const continues = line.endsWith("\\");
+    if (pending !== null) {
+      pending.value += "\n" + line.replace(/\\$/, "").trimEnd();
+      if (!continues) {
+        record(pending.key, pending.value);
+        pending = null;
+      }
+      continue;
+    }
+
+    const assignment = parseAssignment(trimmed);
+    if (!assignment) continue;
+    if (continues) pending = assignment;
+    else record(assignment.key, assignment.value);
+  }
+
+  if (pending !== null) record(pending.key, pending.value);
+}
+
 /**
  * Load env.
  *
@@ -27,61 +77,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
     if (!fs.existsSync(filePath)) continue;
 
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      const lines = content.split(/\r?\n/);
-      let pendingKey: string | null = null;
-      let pendingValue = "";
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]!;
-        const trimmed = line.trim();
-
-        if (!trimmed || trimmed.startsWith("#")) continue;
-
-        if (pendingKey !== null) {
-          pendingValue += "\n" + line.replace(/\\$/, "").trimEnd();
-          if (!line.endsWith("\\")) {
-            loaded[pendingKey] = pendingValue;
-            if (options.verbose) {
-              logger.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
-            }
-            pendingKey = null;
-          }
-          continue;
-        }
-
-        const commentIndex = findCommentIndex(trimmed);
-        const meaningful = commentIndex >= 0 ? trimmed.slice(0, commentIndex) : trimmed;
-        const withoutExport = meaningful.replace(/^export\s+/, "").trim();
-        const eqIndex = withoutExport.indexOf("=");
-        if (eqIndex < 0) continue;
-
-        const key = withoutExport.slice(0, eqIndex).trim();
-        let rawValue = withoutExport.slice(eqIndex + 1).trim();
-
-        const quoteMatch = rawValue.match(/^(['"])(.*)\1$/s);
-        if (quoteMatch) {
-          rawValue = quoteMatch[2] ?? rawValue;
-        }
-
-        pendingKey = key;
-        pendingValue = rawValue;
-
-        if (!line.endsWith("\\")) {
-          loaded[key] = rawValue;
-          if (options.verbose) {
-            logger.log(`📄 [Muraqib Loader]: Loaded ${key} from ${file}`);
-          }
-          pendingKey = null;
-        }
-      }
-
-      if (pendingKey !== null) {
-        loaded[pendingKey] = pendingValue;
-        if (options.verbose) {
-          logger.log(`📄 [Muraqib Loader]: Loaded ${pendingKey} from ${file}`);
-        }
-      }
+      parseEnvContent(fs.readFileSync(filePath, "utf-8"), file, loaded, Boolean(options.verbose));
     } catch {
       logger.warn(`⚠️ [Muraqib Loader]: Failed to load ${filePath}`);
     }
