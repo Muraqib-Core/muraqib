@@ -256,6 +256,17 @@ describe("runMuraqibUpgradeOrchestrator", () => {
     expect(execFile).not.toHaveBeenCalled();
   });
 
+  it("rejects an empty newVersion without a skipReason and without running anything", async () => {
+    const result = await runMuraqibUpgradeOrchestrator({
+      packageName: "react",
+      currentValue: "^18.0.0",
+      newVersion: "   ",
+      rangeStrategy: "replace",
+    });
+    expect(result).toEqual({ updatedVersion: null, schemaMigrated: false });
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
   it.each(["latest", "next", "*", "beta"])("does not throw and skips for dist-tag newVersion %s", async (tag) => {
     vi.mocked(detectProjectPackageManager).mockReturnValue("npm");
     const result = await runMuraqibUpgradeOrchestrator({

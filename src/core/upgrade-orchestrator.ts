@@ -204,6 +204,52 @@ function toVersionStrategy(rangeStrategy: OrchestratorConfig['rangeStrategy']): 
   }
 }
 
+/** Outcome of an upgrade run; `skipReason` is set when the package was skipped for a known reason. */
+interface UpgradeResult {
+  updatedVersion: string | null;
+  schemaMigrated: boolean;
+  skipReason?: string;
+}
+
+type InputValidation =
+  | { ok: true; coercedNew: semver.SemVer }
+  /** Inputs are unusable: return `result` to the caller unchanged. */
+  | { ok: false; result: UpgradeResult };
+
+/**
+ * Checks the package name and both versions before any work starts, logging the reason for a rejection.
+ * Never throws: malformed input yields an early `UpgradeResult` (with a `skipReason` for version problems).
+ */
+function validateInputs({
+  packageName,
+  currentValue,
+  newVersion,
+}: Pick<OrchestratorConfig, 'packageName' | 'currentValue' | 'newVersion'>): InputValidation {
+  if (typeof packageName !== 'string' || packageName.trim().length === 0) {
+    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
+  }
+
+  if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
+    logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
+  }
+
+  const coercedNew = semver.coerce(newVersion);
+  if (!coercedNew) {
+    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-new-version] "${newVersion}" is not a version number.`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-new-version' } };
+  }
+
+  const coercedCurrent = semver.coerce(currentValue);
+  if (!coercedCurrent || !semver.valid(coercedCurrent)) {
+    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' } };
+  }
+
+  return { ok: true, coercedNew };
+}
+
 /**
  * Computes the new version spec for a package, runs the matching breaking-major migration codemod
  * (Tailwind, Prisma, Next.js, React, ESLint, Zustand) and verifies that the project still builds.
@@ -237,30 +283,11 @@ export async function runMuraqibUpgradeOrchestrator({
   remotePresetUrl,
   cwd = process.cwd(),
   runMigrations = true,
-}: OrchestratorConfig): Promise<{ updatedVersion: string | null; schemaMigrated: boolean; skipReason?: string }> {
-
+}: OrchestratorConfig): Promise<UpgradeResult> {
+  const validation = validateInputs({ packageName, currentValue, newVersion });
+  if (!validation.ok) return validation.result;
+  const { coercedNew } = validation;
   let schemaMigrated = false;
-  if (typeof packageName !== 'string' || packageName.trim().length === 0) {
-    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
-    return { updatedVersion: null, schemaMigrated: false };
-  }
-
-  if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
-    logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
-    return { updatedVersion: null, schemaMigrated: false };
-  }
-
-  const coercedNew = semver.coerce(newVersion);
-  if (!coercedNew) {
-    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-new-version] "${newVersion}" is not a version number.`);
-    return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-new-version' };
-  }
-
-  const coercedCurrent = semver.coerce(currentValue);
-  if (!coercedCurrent || !semver.valid(coercedCurrent)) {
-    logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
-    return { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' };
-  }
   const detected = String(detectProjectPackageManager(cwd));
   const envMeta = MANAGER_META[isManagerId(detected) ? detected : 'npm'];
   log(`🔍 [Muraqib Environment]: Active Package Manager detected: [${envMeta.type.toUpperCase()}] via "${envMeta.commands.lockFile}"`);
