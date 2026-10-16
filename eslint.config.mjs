@@ -23,12 +23,12 @@ export default [
     },
   },
   {
-    // Branching-complexity budget for production code; warnings only, so CI does not fail on legacy hot spots.
+    // Branching-complexity budget for production code. Hard errors: split the function (guard clauses, lookup tables, helpers) instead of raising the limit.
     files: ["src/**/*.ts", "src/**/*.tsx"],
     ignores: ["**/*.spec.ts", "**/*.test.ts"],
     rules: {
-      complexity: ["warn", 20],
-      "max-depth": ["warn", 4],
+      complexity: ["error", 20],
+      "max-depth": ["error", 4],
     },
   },
 ];
