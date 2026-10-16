@@ -1,3 +1,106 @@
+type Mode = "code" | "line-comment" | "block-comment" | "quote" | "template-text";
+
+interface MaskState {
+  out: string[];
+  mode: Mode;
+  /** The opening quote while `mode` is "quote". */
+  quote: string;
+  /** One entry per open `${` expression: how many `{` are still open inside it. */
+  expressionDepths: number[];
+}
+
+/** A handler masks the character at hand and returns how many extra characters it consumed. */
+type ModeHandler = (state: MaskState, ch: string, next: string) => number;
+
+/** A backslash escape blanks both characters, but keeps a line break so line numbers survive. */
+function maskEscape(state: MaskState, next: string): number {
+  state.out.push(" ", next === "\n" ? "\n" : " ");
+  return 1;
+}
+
+function maskBlockComment(state: MaskState, ch: string, next: string): number {
+  if (ch === "*" && next === "/") {
+    state.out.push("  ");
+    state.mode = "code";
+    return 1;
+  }
+  state.out.push(" ");
+  return 0;
+}
+
+function maskQuoted(state: MaskState, ch: string, next: string): number {
+  if (ch === "\\") return maskEscape(state, next);
+  if (ch === state.quote) {
+    state.out.push(ch);
+    state.mode = "code";
+  } else {
+    state.out.push(" ");
+  }
+  return 0;
+}
+
+function maskTemplateText(state: MaskState, ch: string, next: string): number {
+  if (ch === "\\") return maskEscape(state, next);
+  if (ch === "`") {
+    state.out.push(ch);
+    state.mode = "code";
+    return 0;
+  }
+  if (ch === "$" && next === "{") {
+    state.out.push("${");
+    state.mode = "code";
+    state.expressionDepths.push(0);
+    return 1;
+  }
+  state.out.push(" ");
+  return 0;
+}
+
+/** Tracks `{`/`}` inside a `${...}` expression; its closing `}` returns to template text. */
+function maskExpressionBrace(state: MaskState, ch: string): void {
+  const top = state.expressionDepths.length - 1;
+  const depth = state.expressionDepths[top] ?? 0;
+  if (ch === "{") {
+    state.expressionDepths[top] = depth + 1;
+  } else if (depth === 0) {
+    state.expressionDepths.pop();
+    state.mode = "template-text";
+  } else {
+    state.expressionDepths[top] = depth - 1;
+  }
+  state.out.push(ch);
+}
+
+function maskCode(state: MaskState, ch: string, next: string): number {
+  if (ch === "/" && (next === "/" || next === "*")) {
+    state.mode = next === "/" ? "line-comment" : "block-comment";
+    state.out.push("  ");
+    return 1;
+  }
+  if (ch === "'" || ch === '"') {
+    state.mode = "quote";
+    state.quote = ch;
+  } else if (ch === "`") {
+    state.mode = "template-text";
+  } else if ((ch === "{" || ch === "}") && state.expressionDepths.length > 0) {
+    maskExpressionBrace(state, ch);
+    return 0;
+  }
+  state.out.push(ch);
+  return 0;
+}
+
+const MODE_HANDLERS: Record<Mode, ModeHandler> = {
+  code: maskCode,
+  "line-comment": (state) => {
+    state.out.push(" ");
+    return 0;
+  },
+  "block-comment": maskBlockComment,
+  quote: maskQuoted,
+  "template-text": maskTemplateText,
+};
+
 /**
  * Blank out string literals, template-literal text and comments so line-based heuristics only
  * ever look at real code. Code that is merely *data* (for example a browser script held in a
@@ -8,98 +111,17 @@
  * `${` / `}` delimiters are kept; expressions inside `${...}` are real code and stay visible.
  */
 export function maskLiteralsAndComments(source: string): string {
-  const out: string[] = [];
-  /** One entry per open `${` expression: how many `{` are still open inside it. */
-  const expressionDepths: number[] = [];
-  let quote: "'" | '"' | null = null;
-  let lineComment = false;
-  let blockComment = false;
-  let inTemplateText = false;
+  const state: MaskState = { out: [], mode: "code", quote: "", expressionDepths: [] };
 
   for (let i = 0; i < source.length; i++) {
     const ch = source.charAt(i);
-    const next = source.charAt(i + 1);
-
     if (ch === "\n") {
-      out.push(ch);
-      lineComment = false;
-      quote = null; // a quoted string never spans lines; recover from regex literals holding quotes
+      state.out.push(ch);
+      // A line comment ends here, and a quoted string never spans lines (this recovers from regex literals holding quotes).
+      if (state.mode === "line-comment" || state.mode === "quote") state.mode = "code";
       continue;
     }
-    if (lineComment) {
-      out.push(" ");
-      continue;
-    }
-    if (blockComment) {
-      if (ch === "*" && next === "/") {
-        out.push("  ");
-        i++;
-        blockComment = false;
-      } else {
-        out.push(" ");
-      }
-      continue;
-    }
-    if (quote !== null) {
-      if (ch === "\\") {
-        out.push(" ", next === "\n" ? "\n" : " ");
-        i++;
-      } else if (ch === quote) {
-        out.push(ch);
-        quote = null;
-      } else {
-        out.push(" ");
-      }
-      continue;
-    }
-    if (inTemplateText) {
-      if (ch === "\\") {
-        out.push(" ", next === "\n" ? "\n" : " ");
-        i++;
-      } else if (ch === "`") {
-        out.push(ch);
-        inTemplateText = false;
-      } else if (ch === "$" && next === "{") {
-        out.push("${");
-        i++;
-        inTemplateText = false;
-        expressionDepths.push(0);
-      } else {
-        out.push(" ");
-      }
-      continue;
-    }
-
-    // Plain code.
-    if (ch === "/" && next === "/") {
-      lineComment = true;
-      out.push("  ");
-      i++;
-    } else if (ch === "/" && next === "*") {
-      blockComment = true;
-      out.push("  ");
-      i++;
-    } else if (ch === "'" || ch === '"') {
-      quote = ch;
-      out.push(ch);
-    } else if (ch === "`") {
-      inTemplateText = true;
-      out.push(ch);
-    } else if (ch === "{" && expressionDepths.length > 0) {
-      expressionDepths[expressionDepths.length - 1] = (expressionDepths[expressionDepths.length - 1] ?? 0) + 1;
-      out.push(ch);
-    } else if (ch === "}" && expressionDepths.length > 0) {
-      const depth = expressionDepths[expressionDepths.length - 1] ?? 0;
-      if (depth === 0) {
-        expressionDepths.pop();
-        inTemplateText = true;
-      } else {
-        expressionDepths[expressionDepths.length - 1] = depth - 1;
-      }
-      out.push(ch);
-    } else {
-      out.push(ch);
-    }
+    i += MODE_HANDLERS[state.mode](state, ch, source.charAt(i + 1));
   }
-  return out.join("");
+  return state.out.join("");
 }
