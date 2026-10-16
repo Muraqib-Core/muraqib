@@ -1,16 +1,10 @@
 import https from "https";
 import http from "http";
 import { BaseGuard } from "./base-guard.js";
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditContext, GuardFinding } from "./types.js";
 
 /** A structured security finding. `code` is stable and never derived from message text. */
-export interface SecurityFinding { // muraqib-ignore-dead: structured finding shape of SecurityAuditResult
-  code: string;
-  severity: "critical" | "error" | "warning" | "info";
-  message: string;
-  file?: string;
-  line?: number;
-}
+export type SecurityFinding = GuardFinding; // muraqib-ignore-dead: structured finding shape of SecurityAuditResult
 
 /**
  * Result of a security audit on an HTTP endpoint
@@ -293,16 +287,7 @@ export class SecurityGuard extends BaseGuard {
   async execute(): Promise<AuditResult> {
     const result = await performSecurityAuditInternal(this.options.targetUrl, this.options.timeoutMs);
 
-    const issues: AuditIssue[] = result.findings.map((finding) =>
-      this.createIssue(
-        finding.code,
-        finding.severity,
-        "Security Header Issue",
-        finding.message,
-        finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
-        "Configure the security header as recommended"
-      )
-    );
+    const issues = this.issuesFromFindings(result.findings, "Security Header Issue", "Configure the security header as recommended");
 
     if (issues.length === 0) {
       return this.ok(`Security headers audit passed with score ${result.score}/100`);

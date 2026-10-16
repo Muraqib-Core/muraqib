@@ -31,7 +31,7 @@
  * ```
  */
 
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditIssue, AuditContext, GuardFinding } from "./types.js";
 import * as logger from "../shared/logger.js";
 
 /**
@@ -150,6 +150,21 @@ export abstract class BaseGuard {
     const fallback = issues.length === 0 ? "No issues found" : `Found ${issues.length} issue(s)`;
 
     return this.createResult(status, issues, message ?? fallback);
+  }
+
+  /**
+   * Convert structured guard findings into issues sharing one title and recommendation.
+   * @param findings - Findings produced by the guard's internal audit
+   * @param title - Issue title applied to every finding
+   * @param recommendation - Remediation suggestion applied to every finding
+   * @returns One AuditIssue per finding, in the same order
+   */
+  protected issuesFromFindings(findings: readonly GuardFinding[], title: string, recommendation: string): AuditIssue[] {
+    return findings.map((finding) => {
+      const { file, line } = finding;
+      const location = file === undefined ? undefined : { file, ...(line === undefined ? {} : { line }) };
+      return this.createIssue(finding.code, finding.severity, title, finding.message, location, recommendation);
+    });
   }
 
   /**
