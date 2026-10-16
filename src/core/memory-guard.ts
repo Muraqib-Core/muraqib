@@ -46,6 +46,9 @@ const DEFAULT_OPTIONS: Required<MemoryAuditOptions> = {
   heapRatioWarn: 0.85,
 };
 
+/** Heuristic leak risk indexed by how many thresholds were exceeded (3 or more is `high`). */
+const LEAK_RISK_BY_FINDING_COUNT: ReadonlyArray<MemoryAuditResult["leakRisk"]> = ["none", "low", "medium", "high"];
+
 const BYTES_PER_MB = 1024 * 1024;
 
 /** Keeps `value` only when it is a finite, non-negative number; otherwise uses the default. */
@@ -106,10 +109,7 @@ function performMemoryAuditInternal(options: MemoryAuditOptions = {}): MemoryAud
     findings.push({ code: "MEMORY_HEAP_FRAGMENTATION", severity: "warning", message: `Heap fragmentation risk: ${(heapRatio * 100).toFixed(1)}% used` });
   }
 
-  let leakRisk: MemoryAuditResult["leakRisk"] = "none";
-  if (findings.length >= 3) leakRisk = "high";
-  else if (findings.length === 2) leakRisk = "medium";
-  else if (findings.length === 1) leakRisk = "low";
+  const leakRisk = LEAK_RISK_BY_FINDING_COUNT[Math.min(findings.length, LEAK_RISK_BY_FINDING_COUNT.length - 1)] ?? "none";
 
   return {
     isOptimized: findings.length === 0,

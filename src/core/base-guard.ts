@@ -34,6 +34,13 @@
 import type { AuditResult, AuditIssue, AuditContext, GuardFinding } from "./types.js";
 import * as logger from "../shared/logger.js";
 
+/** Result status for the most severe issue present, checked in order (`info` alone stays `ok`). */
+const STATUS_BY_SEVERITY: ReadonlyArray<readonly [AuditIssue["severity"], AuditResult["status"]]> = [
+  ["critical", "error"],
+  ["error", "issues"],
+  ["warning", "warning"],
+];
+
 /**
  * Base guard class.
  * Severity levels used: warning, error, critical, info.
@@ -137,16 +144,7 @@ export abstract class BaseGuard {
    * @returns AuditResult with appropriate status and issues
    */
   protected issues(issues: AuditIssue[], message?: string): AuditResult {
-    const hasErrors = issues.some((i) => i.severity === "error");
-    const hasCritical = issues.some((i) => i.severity === "critical");
-    const hasWarnings = issues.some((i) => i.severity === "warning");
-    const status: AuditResult["status"] = hasCritical
-      ? "error"
-      : hasErrors
-        ? "issues"
-        : hasWarnings
-          ? "warning"
-          : "ok";
+    const status = STATUS_BY_SEVERITY.find(([severity]) => issues.some((i) => i.severity === severity))?.[1] ?? "ok";
     const fallback = issues.length === 0 ? "No issues found" : `Found ${issues.length} issue(s)`;
 
     return this.createResult(status, issues, message ?? fallback);
