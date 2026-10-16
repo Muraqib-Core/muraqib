@@ -5,7 +5,7 @@
 import { maskLiteralsAndComments } from "../utils/code-mask.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
 import { BaseGuard } from "./base-guard.js";
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditContext, GuardFinding } from "./types.js";
 
 export interface AsyncAuditResult { // muraqib-ignore-dead: auto-suppressed by script for AsyncAuditResult
   isClean: boolean;
@@ -69,13 +69,7 @@ function chainHandlesRejection(source: string, thenIndex: number): boolean {
 const SELF_SKIP = /(?:^|\/)core\/(?:async|security)-guard(?:\.|$)/;
 
 /** A structured async finding. `code` is stable and never derived from the file path or message. */
-export interface AsyncFinding { // muraqib-ignore-dead: structured finding shape of AsyncAuditResult
-  code: string;
-  severity: "critical" | "error" | "warning" | "info";
-  message: string;
-  file?: string;
-  line?: number;
-}
+export type AsyncFinding = GuardFinding; // muraqib-ignore-dead: structured finding shape of AsyncAuditResult
 
 /** Previous line ends mid-expression, so the next line is not a statement of its own. */
 const CONTINUATION_END = /(?:[=(,?:|&+\-<>!]|\b(?:return|await|void|yield|else|typeof))$/;
@@ -212,20 +206,7 @@ export class AsyncGuard extends BaseGuard {
   async execute(): Promise<AuditResult> {
     const result = performAsyncAuditInternal(this.options.targetPath);
 
-    const issues: AuditIssue[] = [];
-
-    for (const finding of result.findings) {
-      issues.push(
-        this.createIssue(
-          finding.code,
-          finding.severity,
-          "Async Pattern Issue",
-          finding.message,
-          finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
-          "Use async/await and proper error handling"
-        )
-      );
-    }
+    const issues = this.issuesFromFindings(result.findings, "Async Pattern Issue", "Use async/await and proper error handling");
 
     if (issues.length === 0) {
       return this.ok("No async/await issues detected");

@@ -6,7 +6,7 @@
  */
 import v8 from "v8";
 import { BaseGuard } from "./base-guard.js";
-import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
+import type { AuditResult, AuditContext, GuardFinding } from "./types.js";
 
 export interface MemoryAuditResult {
   isOptimized: boolean;
@@ -28,13 +28,7 @@ export interface MemoryAuditResult {
 }
 
 /** A structured memory finding. `code` is stable and never derived from message text. */
-export interface MemoryFinding { // muraqib-ignore-dead: structured finding shape of MemoryAuditResult
-  code: string;
-  severity: "critical" | "error" | "warning" | "info";
-  message: string;
-  file?: string;
-  line?: number;
-}
+export type MemoryFinding = GuardFinding; // muraqib-ignore-dead: structured finding shape of MemoryAuditResult
 
 export interface MemoryAuditOptions {
   heapWarnMb?: number;
@@ -151,20 +145,7 @@ export class MemoryGuard extends BaseGuard {
   async execute(): Promise<AuditResult> {
     const result = performMemoryAuditInternal(this.options);
 
-    const issues: AuditIssue[] = [];
-
-    for (const finding of result.findings) {
-      issues.push(
-        this.createIssue(
-          finding.code,
-          finding.severity,
-          "Memory Usage Issue",
-          finding.message,
-          finding.file === undefined ? undefined : { file: finding.file, ...(finding.line === undefined ? {} : { line: finding.line }) },
-          "Monitor and optimize memory consumption"
-        )
-      );
-    }
+    const issues = this.issuesFromFindings(result.findings, "Memory Usage Issue", "Monitor and optimize memory consumption");
 
     if (issues.length === 0) {
       return this.ok(`Memory usage optimal: Heap ${result.heapUsedMb}MB / RSS ${result.rssMb}MB`);
