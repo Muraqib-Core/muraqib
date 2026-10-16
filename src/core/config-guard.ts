@@ -184,6 +184,112 @@ function hasTypeScriptSignals(root: string, pkg: Record<string, unknown> | undef
 
 type CompilerOptions = ReturnType<typeof readCompilerOptions>;
 
+/** A declarative check on a parsed config file: when `isViolated` holds, `issue` (and `report`) are emitted. */
+interface SettingRule<Source> {
+  issue: Omit<ConfigIssue, "type">;
+  report?: string;
+  isViolated: (source: Source) => boolean;
+}
+
+const TSCONFIG_RULES: readonly SettingRule<CompilerOptions>[] = [
+  {
+    issue: {
+      file: "tsconfig.json",
+      setting: "strict",
+      severity: "medium",
+      message: "TypeScript strict mode is disabled",
+      suggestion: 'Enable strict mode: "strict": true in compilerOptions',
+    },
+    report: "⚠️ TypeScript strict mode disabled",
+    isViolated: (options) => !options?.strict,
+  },
+  {
+    issue: {
+      file: "tsconfig.json",
+      setting: "noImplicitAny",
+      severity: "high",
+      message: "Implicit 'any' types allowed",
+      suggestion: 'Set "noImplicitAny": true to catch type errors early',
+    },
+    report: "⚠️ Implicit any types allowed in TypeScript",
+    isViolated: (options) => options?.noImplicitAny === false,
+  },
+];
+
+type PackageJson = Record<string, unknown>;
+
+/** Reads `pkg[field]` as a record, or `undefined` when it is absent or not an object. */
+function recordField(pkg: PackageJson, field: string): Record<string, unknown> | undefined {
+  const value = pkg[field];
+  return isRecord(value) ? value : undefined;
+}
+
+const PACKAGE_RULES: readonly SettingRule<PackageJson>[] = [
+  {
+    issue: {
+      file: "package.json",
+      setting: "description",
+      severity: "low",
+      message: "Missing package description",
+      suggestion: "Add a description field to package.json",
+    },
+    isViolated: (pkg) => !pkg["description"],
+  },
+  {
+    issue: {
+      file: "package.json",
+      setting: "license",
+      severity: "low",
+      message: "Missing license field",
+      suggestion: 'Add a license field (e.g., "MIT", "ISC", "Apache-2.0")',
+    },
+    isViolated: (pkg) => !pkg["license"],
+  },
+  {
+    issue: {
+      file: "package.json",
+      setting: "engines.node",
+      severity: "medium",
+      message: "Node.js version not specified",
+      suggestion: 'Add "engines": { "node": ">=18.0.0" } to package.json',
+    },
+    isViolated: (pkg) => !recordField(pkg, "engines")?.["node"],
+  },
+  {
+    issue: {
+      file: "package.json",
+      setting: "scripts.test",
+      severity: "medium",
+      message: "No test script defined",
+      suggestion: 'Add "test" script to scripts section',
+    },
+    report: "⚠️ No test script in package.json",
+    isViolated: (pkg) => !recordField(pkg, "scripts")?.["test"],
+  },
+];
+
+/** Applies every violated rule, recording its issue (typed `missing_config`/`unsafe_setting`) and report. */
+function applyRules<Source>(
+  rules: readonly SettingRule<Source>[],
+  source: Source,
+  type: ConfigIssue["type"],
+  issues: ConfigIssue[],
+  reports: string[]
+): void {
+  for (const rule of rules) {
+    if (!rule.isViolated(source)) continue;
+    issues.push({ type, ...rule.issue });
+    if (rule.report !== undefined) reports.push(rule.report);
+  }
+}
+
+/** Severity of a missing critical config; anything not listed is `high`. */
+const MISSING_CONFIG_SEVERITY: Readonly<Record<string, ConfigIssue["severity"]>> = {
+  // .eslintignore is only a convenience for legacy eslintrc setups, never a blocker
+  ".eslintignore": "medium",
+  ".gitignore": "medium",
+};
+
 function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   const root = projectRoot !== undefined && projectRoot.trim() !== "" ? projectRoot : process.cwd();
   const issues: ConfigIssue[] = [];
@@ -228,8 +334,7 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
       issues.push({
         type: "missing_config",
         file: config,
-        // .eslintignore is only a convenience for legacy eslintrc setups, never a blocker
-        severity: config === ".eslintignore" ? "medium" : config === ".gitignore" ? "medium" : "high",
+        severity: MISSING_CONFIG_SEVERITY[config] ?? "high",
         message: `Critical configuration file missing: ${config}`,
         suggestion: `Create or copy ${config} to project root`,
       });
@@ -274,86 +379,14 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
 
   // Validate tsconfig.json settings (parsed once above; unreadable files were already reported as invalid JSON)
   if (compilerOptions !== undefined) {
-    if (!compilerOptions?.strict) {
-      issues.push({
-        type: "unsafe_setting",
-        file: "tsconfig.json",
-        setting: "strict",
-        severity: "medium",
-        message: "TypeScript strict mode is disabled",
-        suggestion: 'Enable strict mode: "strict": true in compilerOptions',
-      });
-      reports.push("⚠️ TypeScript strict mode disabled");
-    }
-
-    if (compilerOptions?.noImplicitAny === false) {
-      issues.push({
-        type: "unsafe_setting",
-        file: "tsconfig.json",
-        setting: "noImplicitAny",
-        severity: "high",
-        message: "Implicit 'any' types allowed",
-        suggestion:
-          'Set "noImplicitAny": true to catch type errors early',
-      });
-      reports.push("⚠️ Implicit any types allowed in TypeScript");
-    }
+    applyRules(TSCONFIG_RULES, compilerOptions, "unsafe_setting", issues, reports);
   }
 
   // Validate package.json fields (parsed once above; a parse failure was already reported as invalid JSON)
   if (pkg !== undefined) {
-    const scripts = isRecord(pkg["scripts"]) ? pkg["scripts"] : undefined;
-    const engines = isRecord(pkg["engines"]) ? pkg["engines"] : undefined;
-
-    if (!pkg["description"]) {
-      issues.push({
-        type: "missing_config",
-        file: "package.json",
-        setting: "description",
-        severity: "low",
-        message: "Missing package description",
-        suggestion: "Add a description field to package.json",
-      });
-    }
-
-    if (!pkg["license"]) {
-      issues.push({
-        type: "missing_config",
-        file: "package.json",
-        setting: "license",
-        severity: "low",
-        message: "Missing license field",
-        suggestion:
-          'Add a license field (e.g., "MIT", "ISC", "Apache-2.0")',
-      });
-    }
-
-    if (!engines?.["node"]) {
-      issues.push({
-        type: "missing_config",
-        file: "package.json",
-        setting: "engines.node",
-        severity: "medium",
-        message: "Node.js version not specified",
-        suggestion:
-          'Add "engines": { "node": ">=18.0.0" } to package.json',
-      });
-    }
-
-    // Check for test script
-    if (!scripts?.["test"]) {
-      issues.push({
-        type: "missing_config",
-        file: "package.json",
-        setting: "scripts.test",
-        severity: "medium",
-        message: "No test script defined",
-        suggestion: 'Add "test" script to scripts section',
-      });
-      reports.push("⚠️ No test script in package.json");
-    } else {
-      reports.push(`✅ Test script found: ${String(scripts["test"])}`);
-    }
+    applyRules(PACKAGE_RULES, pkg, "missing_config", issues, reports);
+    const testScript = recordField(pkg, "scripts")?.["test"];
+    if (testScript) reports.push(`✅ Test script found: ${String(testScript)}`);
   }
 
   checkEnvFiles(root, issues, reports);
@@ -369,23 +402,13 @@ function performConfigAuditInternal(projectRoot?: string): ConfigAuditResult {
   return { isHealthy, reports, issues, configFiles };
 }
 
-function toAuditSeverity(severity: ConfigIssue["severity"]): AuditIssue["severity"] {
-  switch (severity) {
-    case "critical":
-      return "critical";
-    case "high":
-      return "error";
-    case "medium":
-      return "warning";
-    case "low":
-      return "info";
-    default: {
-      const exhaustive: never = severity;
-      void exhaustive;
-      return "warning";
-    }
-  }
-}
+/** Config severities (`low`..`critical`) expressed on the guard-level scale. */
+const AUDIT_SEVERITY: Readonly<Record<ConfigIssue["severity"], AuditIssue["severity"]>> = {
+  critical: "critical",
+  high: "error",
+  medium: "warning",
+  low: "info",
+};
 
 /**
  * Validates configuration and environment files: missing or invalid variables and unsafe settings.
@@ -410,7 +433,7 @@ export class ConfigGuard extends BaseGuard {
     const issues: AuditIssue[] = [];
 
     for (const configIssue of result.issues) {
-      const severity = toAuditSeverity(configIssue.severity);
+      const severity = AUDIT_SEVERITY[configIssue.severity];
 
       issues.push(
         this.createIssue(
