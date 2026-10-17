@@ -136,6 +136,8 @@ export {
 } from "./core/secret-detector.js";
 /** Guard that scans added lines (for example the staged diff) for hardcoded secrets */
 export * from "./core/secret-guard.js";
+/** Git hooks: pre-commit secret scan and opt-in pre-push audit (what `muraqib hook install` manages) */
+export { installHooks, uninstallHooks, resolveHooksLocation, type HookOutcome, type HooksLocation, type InstallOptions } from "./hooks/install.js";
 /** AI-powered recommendations and issue advisory */
 export * from "./ai/advisor.js";
 export * from "./ai/safe-metadata.js";

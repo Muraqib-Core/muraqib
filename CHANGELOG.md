@@ -9,17 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Git hooks: `muraqib hook install` adds a pre-commit hook that scans only the staged changes (`git diff --cached`, added lines only) for secrets and blocks the commit on real credentials, in well under a second; `--pre-push` opts in to the heavier security audit before pushing; `muraqib hook uninstall` removes exactly Muraqib's marked blocks. Existing hooks, `core.hooksPath` and Husky are respected, and a missing binary or internal error never blocks git. `MURAQIB_SKIP_HOOKS=1` and `--no-verify` bypass, and `muraqib-ignore-secret` on a line suppresses a false positive.
+- `SecretGuard` (a `BaseGuard`) for scanning added lines, and `findSecrets()` which says whether each match is strong enough to block.
 - Security scorecard & compliance report: a pure, deterministic 0-100 score (`calculateScorecard`) broken down by severity (critical/high/medium/low) and domain (security/dependencies/code quality), where any critical finding hard-caps the score at 59. Rendered as Markdown (README badge, CI step summary) via `muraqib audit --report` / `--format md`; golden-file tested.
 - Dynamic documentation: `npm run docs:generate` (`scripts/generate-docs.mjs`) derives `docs/REFERENCE.md` and the `<!-- AUTO:... -->` blocks in README.md, API.md and CONTRIBUTING.md (versions, badges, requirements, guards, CLI flags, npm scripts, public API, CI workflows) from the source, `package.json` and `.github/workflows/`. `npm run docs:check` fails when they are stale; the new `docs-check` CI job enforces it and the `Docs` workflow opens a refresh PR automatically.
 - VS Code extension in `extension/` (separate package, built against the repository's `muraqib-core`): `Muraqib: Run Audit`, `Show Documentation` and `Show Last Report` commands; an audit report webview grouped by severity and module with scanner coverage, a strict nonce CSP, validated `postMessage` messages and an "open file at line" action restricted to the workspace; Problems-panel diagnostics; a status bar issue counter; and `muraqib.*` settings. Arabic/RTL friendly.
 
 ### Changed
 
+- The two secret detectors (`src/ai/secret-detector.ts`, `src/core/helpers/secret-detector.ts`) are merged into one module, `src/core/secret-detector.ts`, with a single table of token formats shared by text scanning and env/package value checks. The public `detectSecretsInText`, `detectSecretsInEnv` and `assessSecretRisk` behave as before. Tokens are now also recognised for GitHub fine-grained and `gho_`/`ghu_`/`ghs_`/`ghr_` tokens, Slack, OpenAI-style `sk-` keys, Google API keys and JWTs in free text, and secrets are masked completely when 8 characters or shorter.
 - CI/CD hardening: least-privilege `permissions`, `type-check:tests` in CI, no full-history checkouts, audit workflow limited to `main`/`develop`/PRs with concurrency control, and the release workflow now verifies that the tag matches `package.json`, type-checks and checks generated docs before publishing.
 - Documentation corrected to match the code: package name (`@muraqib/core`), Node/TypeScript/Vitest versions, CI job list, guard descriptions.
 
 ### Fixed
 
+- A `PRIVATE KEY` header without an algorithm (`-----BEGIN PRIVATE KEY-----`, PKCS#8) or with another (`OPENSSH`, `ENCRYPTED`) was not detected in text; `urlCarriesSecret` no longer throws on a URL password with malformed percent-encoding.
 - Preserve scan policy outcomes in the unified CLI: medium findings block `prod`, and scanner failures return exit code 3 rather than a generic findings exit code.
 - Retain scanner coverage, scanned/skipped inputs and diagnostics in unified and agent reports; display them in text, HTML, CSV and interactive output.
 - Report thrown scan execution errors as unreliable audits, including in the agent API.

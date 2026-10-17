@@ -223,6 +223,7 @@ COMMANDS:
   tool-schema                Print tool definitions (MCP / tool-use compatible) as JSON
   image --image <name>       Trivy scan of a local Docker image
   runtime --container <name> Read-only inspection of a running container
+  hook install|uninstall     Manage git hooks: pre-commit secret scan, opt-in pre-push audit (--pre-push)
 
 OPTIONS:
   -p, --project <path>       Project root directory (default: cwd)
@@ -263,6 +264,9 @@ EXAMPLES:
 
   # Add OSV vulnerability scanning to the audit
   muraqib audit --osv
+
+  # Block commits that stage secrets (add --pre-push for the heavier audit before pushing)
+  muraqib hook install
 
 FORMATS:
   text   - Human-readable terminal output (default)
@@ -529,6 +533,9 @@ export async function runCli(args: string[]): Promise<number> {
   try {
     // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
     if (args[0] && SCAN_COMMANDS.has(args[0])) return await runScanLayer(args);
+
+    // hook install / uninstall / run manage the git hooks (loaded on demand so hooks start fast)
+    if (args[0] === "hook") return await (await import("../hooks/cli.js")).runHookCli(args.slice(1));
 
     // Workflow-style audit (13 modules, --skip-*, --url, --upgrade ...) is served by the workflow runner
     if (usesWorkflowFlags(args) && !args.some((a) => SCAN_COMMANDS.has(a))) {
