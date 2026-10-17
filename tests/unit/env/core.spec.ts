@@ -143,6 +143,49 @@ describe("env createEnv", () => {
     expect(make({ server: {}, runtimeEnv: {}, schedule: "on weekends", silent: true })).toEqual({});
   });
 
+  test("exposes server variables on the server", () => {
+    const env = make({
+      server: { S: z.string() },
+      client: { PUBLIC_X: z.string() },
+      clientPrefix: "PUBLIC_",
+      runtimeEnv: { S: "s", PUBLIC_X: "x" },
+      isServer: true,
+      silent: true,
+    });
+    expect(env).toEqual({ S: "s", PUBLIC_X: "x" });
+    expect(env?.S).toBe("s");
+  });
+
+  test("on the client only the client schema is validated and server keys throw on access", () => {
+    const env = make({
+      server: { S: z.string() },
+      client: { PUBLIC_X: z.string() },
+      clientPrefix: "PUBLIC_",
+      runtimeEnv: { PUBLIC_X: "x" },
+      isServer: false,
+      silent: true,
+    });
+    expect(env?.PUBLIC_X).toBe("x");
+    expect(() => env?.S).toThrow(/server-side environment variable "S"/);
+    expect(Object.keys(env ?? {})).toEqual(["PUBLIC_X"]);
+    expect(env?.unknown).toBeUndefined();
+  });
+
+  test("a client schema key that is also in server stays readable on the client", () => {
+    const env = make({
+      server: { SHARED: z.string() },
+      client: { SHARED: z.string() },
+      runtimeEnv: { SHARED: "v" },
+      isServer: false,
+      silent: true,
+    });
+    expect(env?.SHARED).toBe("v");
+  });
+
+  test("accepts server keys without a clientPrefix", () => {
+    expect(make({ server: { DB: z.string() }, runtimeEnv: { DB: "d" }, silent: true })).toEqual({ DB: "d" });
+  });
+
   test("loads env files given by envFilePath", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "muraqib-envcore-"));
     const file = path.join(dir, "x.env");
