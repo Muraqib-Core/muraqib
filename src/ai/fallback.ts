@@ -219,9 +219,9 @@ export function analyzeUnknownVariablesWithFallback(
     ) {
       suggestions.push({
         issueCode: `UNKNOWN_VAR_${key}`,
-        recommendation: `"${key}" appears to be a database configuration variable. Define it in your .env file with proper credentials.`,
-        priority: 4,
-        estimatedTime: 15,
+        recommendation: `"${key}" appears to be a database configuration variable. If your project uses a database, ensure it is defined in your .env file with proper credentials; otherwise, you can safely ignore this.`,
+        priority: 1,
+        estimatedTime: 5,
       });
     } else if (
       upperKey.includes("API") ||
