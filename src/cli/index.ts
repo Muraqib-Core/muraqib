@@ -102,6 +102,7 @@ function handleVersion(options: ExtendedCliOptions, value: string | undefined): 
 
 const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHandler>([
   ["--json", switchFlag((o) => { o.format = "json"; })],
+  ["--report", switchFlag((o) => { o.format = "md"; })],
   ["--interactive", switchFlag((o) => { o.interactive = true; })],
   ["-i", switchFlag((o) => { o.interactive = true; })],
   ["--no-interactive", switchFlag((o) => { o.interactive = false; })],
@@ -134,10 +135,13 @@ const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHand
   ["-h", showHelp],
 ]);
 
-/** `--format` consumes its value only when it is a known format. */
+const OUTPUT_FORMATS: readonly OutputFormat[] = ["json", "text", "html", "csv", "md"];
+
+/** `--format` consumes its value only when it is a known format (`markdown` is an alias of `md`). */
 function formatFlag(options: ExtendedCliOptions, value: string | undefined): number {
-  if (!value || !["json", "text", "html", "csv"].includes(value)) return 0;
-  options.format = value as OutputFormat;
+  const format = value === "markdown" ? "md" : OUTPUT_FORMATS.find((candidate) => candidate === value);
+  if (format === undefined) return 0;
+  options.format = format;
   return 1;
 }
 
@@ -219,10 +223,11 @@ COMMANDS:
   tool-schema                Print tool definitions (MCP / tool-use compatible) as JSON
   image --image <name>       Trivy scan of a local Docker image
   runtime --container <name> Read-only inspection of a running container
+  hook install|uninstall     Manage git hooks: pre-commit secret scan, opt-in pre-push audit (--pre-push)
 
 OPTIONS:
   -p, --project <path>       Project root directory (default: cwd)
-  -f, --format <format>      Output format: json|text|html|csv (default: text)
+  -f, --format <format>      Output format: json|text|html|csv|md (default: text)
   -o, --output <path>        Output file path (default: stdout)
   -v, --verbose              Enable verbose logging
   -m, --modules <list>       Specific modules to run (comma-separated)
@@ -234,6 +239,7 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
+      --report               Shorthand for --format md (security scorecard & compliance report)
   -i, --interactive          Guided mode: pick what to audit, view a colour-coded report (TTY only)
       --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
@@ -250,17 +256,24 @@ EXAMPLES:
   # JSON output for CI/CD
   muraqib audit --format json --project ./src
 
+  # Markdown scorecard for a GitHub CI step summary
+  muraqib audit --report --output "$GITHUB_STEP_SUMMARY"
+
   # Run specific modules
   muraqib audit --modules memory-guard,security-guard
 
   # Add OSV vulnerability scanning to the audit
   muraqib audit --osv
 
+  # Block commits that stage secrets (add --pre-push for the heavier audit before pushing)
+  muraqib hook install
+
 FORMATS:
   text   - Human-readable terminal output (default)
   json   - JSON format for programmatic processing
   html   - Interactive HTML report
   csv    - Spreadsheet-compatible format
+  md     - Markdown security scorecard (0-100 score, README badge, CI step summary)
 
 For more information, visit: https://github.com/Muraqib-Core/muraqib
 `);
@@ -520,6 +533,9 @@ export async function runCli(args: string[]): Promise<number> {
   try {
     // resolve / image / runtime are served by the scan layer (dependency resolution, Trivy image, runtime inspection)
     if (args[0] && SCAN_COMMANDS.has(args[0])) return await runScanLayer(args);
+
+    // hook install / uninstall / run manage the git hooks (loaded on demand so hooks start fast)
+    if (args[0] === "hook") return await (await import("../hooks/cli.js")).runHookCli(args.slice(1));
 
     // Workflow-style audit (13 modules, --skip-*, --url, --upgrade ...) is served by the workflow runner
     if (usesWorkflowFlags(args) && !args.some((a) => SCAN_COMMANDS.has(a))) {

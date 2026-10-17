@@ -33,6 +33,8 @@
 
 // Core Types and Base Classes
 export * from "./core/types.js";
+/** Pure 0-100 security scorecard (severity/domain breakdown, critical hard cap) */
+export * from "./core/scorecard.js";
 export { BaseGuard } from "./core/base-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
 import { AuditOrchestrator } from "./core/orchestrator.js";
@@ -120,8 +122,22 @@ export {
 // Unified validation types (re-export from Zod engine for consistency)
 export type { ValidationIssue } from "./guard/engines/zod-engine.js";
 // AI-Powered Integration
-/** Sensitive data detection (API keys, passwords, tokens) */
-export * from "./ai/secret-detector.js";
+/** Sensitive data detection (API keys, passwords, tokens): one detector for text, env values and staged diffs */
+export {
+  detectSecretsInText,
+  detectSecretsInEnv,
+  assessSecretRisk,
+  findSecrets,
+  type DetectedSecret,
+  type SecretMatch,
+  type SecretRisk,
+  type SecretType,
+  type FindSecretsOptions,
+} from "./core/secret-detector.js";
+/** Guard that scans added lines (for example the staged diff) for hardcoded secrets */
+export * from "./core/secret-guard.js";
+/** Git hooks: pre-commit secret scan and opt-in pre-push audit (what `muraqib hook install` manages) */
+export { installHooks, uninstallHooks, resolveHooksLocation, type HookOutcome, type HooksLocation, type InstallOptions } from "./hooks/install.js";
 /** AI-powered recommendations and issue advisory */
 export * from "./ai/advisor.js";
 export * from "./ai/safe-metadata.js";
@@ -137,6 +153,16 @@ export * from "./cli/index.js";
 export * from "./cli/formatters.js";
 /** CLI type definitions */
 export * from "./cli/types.js";
+/** Markdown compliance report (README badge, CI step summary) */
+export {
+  formatMarkdown,
+  renderScorecardMarkdown,
+  scorecardFromReport,
+  findingsFromReport,
+  scoreBadge,
+  type ReportFinding,
+  type ScorecardReportData,
+} from "./cli/scorecard-markdown.js";
 
 /**
  * Initialize Muraqib Core and run the default audit
