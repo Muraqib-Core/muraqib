@@ -13,9 +13,9 @@ import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
 import { readCompilerOptions } from "./helpers/tsconfig-parser.js";
 import { trackedEnvFiles, isGitIgnored } from "./helpers/git-protection.js";
-import { isExposedEnvValue } from "./helpers/secret-detector.js";
+import { isExposedEnvValue } from "./secret-detector.js";
 import { getSensitiveMuraqibEnvKeys } from "./env-options.js";
-import { parseEnvEntries } from "./helpers/env-parser.js";
+import { ENV_FILE_PATTERN, ENV_TEMPLATE_PATTERN, parseEnvEntries } from "./helpers/env-parser.js";
 import type { EnvEntry } from "./helpers/env-parser.js";
 
 export interface ConfigIssue {
@@ -71,11 +71,6 @@ const optionalConfigs = [
   "vitest.config.ts",
   "vite.config.ts",
 ];
-
-/** Matches `.env`, `.env.local`, `.env.production`, ... */
-const ENV_FILE_PATTERN = /^\.env(?:\..+)?$/;
-/** Matches templates that are meant to be committed, such as `.env.example`. */
-const ENV_TEMPLATE_PATTERN = /\.(?:example|sample|template|dist|defaults?)$/i;
 
 /** Parses an env file into entries; returns `[]` when it cannot be read. */
 function readEnvEntries(filePath: string): EnvEntry[] {

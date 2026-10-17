@@ -122,8 +122,20 @@ export {
 // Unified validation types (re-export from Zod engine for consistency)
 export type { ValidationIssue } from "./guard/engines/zod-engine.js";
 // AI-Powered Integration
-/** Sensitive data detection (API keys, passwords, tokens) */
-export * from "./ai/secret-detector.js";
+/** Sensitive data detection (API keys, passwords, tokens): one detector for text, env values and staged diffs */
+export {
+  detectSecretsInText,
+  detectSecretsInEnv,
+  assessSecretRisk,
+  findSecrets,
+  type DetectedSecret,
+  type SecretMatch,
+  type SecretRisk,
+  type SecretType,
+  type FindSecretsOptions,
+} from "./core/secret-detector.js";
+/** Guard that scans added lines (for example the staged diff) for hardcoded secrets */
+export * from "./core/secret-guard.js";
 /** AI-powered recommendations and issue advisory */
 export * from "./ai/advisor.js";
 export * from "./ai/safe-metadata.js";
