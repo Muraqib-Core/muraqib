@@ -12,10 +12,34 @@ const SKIP_ENV_VALIDATION = process.env.SKIP_ENV_VALIDATION === "true" || proces
 type Issue = { path: string; message: string };
 
 /** Loads the configured .env files into `process.env` before validation. */
-function loadConfiguredEnvFiles(opts: Pick<CreateEnvOptions, "envFilePath" | "preserveProcessEnv" | "silent">): void {
+function loadConfiguredEnvFiles(
+  opts: Pick<CreateEnvOptions, "envFilePath" | "preserveProcessEnv" | "overrideProcessEnv" | "silent">
+): void {
   if (!opts.envFilePath) return;
   const files = Array.isArray(opts.envFilePath) ? opts.envFilePath : [opts.envFilePath];
-  loadEnv({ files, preserveProcessEnv: opts.preserveProcessEnv ?? false, verbose: !opts.silent });
+  loadEnv({
+    files,
+    preserveProcessEnv: opts.preserveProcessEnv ?? false,
+    override: opts.overrideProcessEnv ?? false,
+    verbose: !opts.silent,
+  });
+}
+
+/**
+ * Wraps client-side env data so reading a server-only variable throws instead of silently returning
+ * `undefined`. The server schema is never validated on the client, so its values are never present there.
+ */
+function guardServerAccess<T extends object>(data: T, serverKeys: ReadonlySet<string>): T {
+  return new Proxy(data, {
+    get(target, prop, receiver): unknown {
+      if (typeof prop === "string" && serverKeys.has(prop)) {
+        throw new Error(
+          `❌ [Muraqib Guards]: Attempted to access the server-side environment variable "${prop}" on the client.`
+        );
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 }
 
 /** True (after logging, unless silent) when a cron window is configured and the current time is outside it. */
@@ -97,9 +121,12 @@ export function createEnv<
     return process.env as unknown as Env;
   }
 
+  const isServer = opts.isServer ?? typeof window === "undefined";
+  const clientFields = (opts.client ?? {}) as Record<string, z.ZodTypeAny>;
+  const serverFields = (opts.server ?? {}) as Record<string, z.ZodTypeAny>;
   const rawSchemaFields: Record<string, z.ZodTypeAny> = {
-    ...(opts.server as Record<string, z.ZodTypeAny>),
-    ...(opts.client as Record<string, z.ZodTypeAny>),
+    ...(isServer ? serverFields : {}),
+    ...clientFields,
   };
 
   const combinedSchema = z.object(rawSchemaFields);
@@ -122,11 +149,15 @@ export function createEnv<
 
   const validatedGuard = createGuard(combinedSchema, {
     runtimeEnv: processedEnv,
-    isServer: opts.isServer ?? typeof window === "undefined",
+    isServer,
     emptyStringAsUndefined: shouldSanitize,
   });
 
-  return (validatedGuard?.data ?? validatedGuard) as unknown as Env;
+  const data = (validatedGuard?.data ?? validatedGuard) as unknown as Env;
+  if (isServer) return data;
+
+  const serverOnlyKeys = Object.keys(serverFields).filter((key) => !(key in clientFields));
+  return guardServerAccess(data as object, new Set(serverOnlyKeys)) as Env;
 }
 
 /**
