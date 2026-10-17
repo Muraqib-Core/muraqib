@@ -3,7 +3,8 @@
  */
 import { scanCoverageLines } from "./scan-coverage.js";
 import { escapeHtml } from "../webview/render/escape.js";
-import type { AuditReport } from "./types.js";
+import { formatMarkdown } from "./scorecard-markdown.js";
+import type { AuditReport, OutputFormat } from "./types.js";
 
 /**
  * Format json.
@@ -397,9 +398,11 @@ export function formatCsv(report: AuditReport): string {
  */
 export function formatReport(
   report: AuditReport,
-  format: "json" | "text" | "html" | "csv"
+  format: OutputFormat
 ): string {
   switch (format) {
+    case "md":
+      return formatMarkdown(report);
     case "json":
       return formatJson(report);
     case "html":

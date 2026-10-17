@@ -2,7 +2,7 @@
  * CLI Types and Interfaces
  */
 
-export type OutputFormat = "json" | "text" | "html" | "csv";
+export type OutputFormat = "json" | "text" | "html" | "csv" | "md";
 
 export interface CliOptions {
   projectRoot: string;

@@ -52,7 +52,7 @@
 
 Commands: `agent`, `audit`, `context`, `resolve`, `tool-schema`
 
-Flags: `--ai-advisory`, `--docker`, `--docker-native`, `--engine`, `--env`, `--fail-on-warning`, `--format`, `--help`, `--interactive`, `--json`, `--max-issues`, `--modules`, `--no-interactive`, `--osv`, `--output`, `--package`, `--path`, `--presets`, `--project`, `--safe`, `--schedule`, `--security-url`, `--silent`, `--upgrade`, `--url`, `--verbose`, `--version`
+Flags: `--ai-advisory`, `--docker`, `--docker-native`, `--engine`, `--env`, `--fail-on-warning`, `--format`, `--help`, `--interactive`, `--json`, `--max-issues`, `--modules`, `--no-interactive`, `--osv`, `--output`, `--package`, `--path`, `--presets`, `--project`, `--report`, `--safe`, `--schedule`, `--security-url`, `--silent`, `--upgrade`, `--url`, `--verbose`, `--version`
 
 Run `muraqib --help` for the description of each flag.
 
@@ -90,7 +90,7 @@ Run `muraqib --help` for the description of each flag.
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
 
-## Public API (`src/index.ts`, 161 exports)
+## Public API (`src/index.ts`, 186 exports)
 
 ### Class (17)
 
@@ -114,7 +114,7 @@ Run `muraqib --help` for the description of each flag.
 | `ValibotEngine` | Valibot Validation Engine - Unified validation interface for Valibot schemas | `src/guard/engines/valibot-engine.ts` |
 | `ZodEngine` | Zod Validation Engine - Unified validation interface for Zod schemas | `src/guard/engines/zod-engine.ts` |
 
-### Const (7)
+### Const (11)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -123,10 +123,14 @@ Run `muraqib --help` for the description of each flag.
 | `AGENT_TOOL_DEFINITIONS` | - | `src/agent/tool-definitions.ts` |
 | `cachePerformanceSchema` | - | `src/rules/cache-guard.ts` |
 | `commonValidators` | Common validators for reuse | `src/guard/engines/custom-validators.ts` |
+| `CRITICAL_SCORE_CAP` | Maximum overall (and per-domain) score while at least one critical finding exists. | `src/core/scorecard.ts` |
 | `FINDINGS_ADVISORY_LAYOUT` | Plain-text layout rules for the compliance advisory (terminal output). Appended to ADVISOR_SYSTEM_PROMPT by generateFindingsAdvisory only; the JSON suggestion flow keeps the base prompt. | `src/ai/advisor.ts` |
 | `SCHEMA_MIGRATIONS_REGISTRY` | Known breaking-major schema migrations. | `src/core/upgrade-orchestrator.ts` |
+| `SCORE_DOMAINS` | Domains a finding is attributed to, in report order. | `src/core/scorecard.ts` |
+| `SCORE_SEVERITIES` | Severity levels that affect the score, most severe first. | `src/core/scorecard.ts` |
+| `SEVERITY_PENALTY` | Points removed from 100 per finding of each severity. | `src/core/scorecard.ts` |
 
-### Function (64)
+### Function (74)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -141,6 +145,8 @@ Run `muraqib --help` for the description of each flag.
 | `batchValidateZod` | Batch validate multiple data items | `src/guard/engines/zod-engine.ts` |
 | `buildAgentReport` | Pure mapping from guard/scan results to the agent report; exported for tests and custom pipelines. | `src/agent/run-audit-for-agent.ts` |
 | `buildAuditContext` | Build audit context. | `src/core/audit-context.ts` |
+| `calculateScorecard` | Calculate the scorecard for a set of findings. | `src/core/scorecard.ts` |
+| `classifyIssue` | Reduce an audit issue to a {@link ScorecardFinding}. | `src/core/scorecard.ts` |
 | `composeZodSchemas` | Validate with schema composition | `src/guard/engines/zod-engine.ts` |
 | `createArktypeEngine` | Create an ArkType validation engine from a schema | `src/guard/engines/arktype-engine.ts` |
 | `createAuditReport` | Create audit report. | `src/cli/index.ts` |
@@ -155,10 +161,12 @@ Run `muraqib --help` for the description of each flag.
 | `detectSecretsInText` | Detect secrets in text content | `src/ai/secret-detector.ts` |
 | `executeAgentTool` | Execute a tool call by name. Unknown tools return an error object instead of throwing. | `src/agent/tool-definitions.ts` |
 | `extractSafeMetadata` | Extract safe metadata. | `src/ai/safe-metadata.ts` |
+| `findingsFromReport` | Extract and classify every finding in a CLI audit report. Modules that are not audit results (for example the AI advisory text) are ignored. | `src/cli/scorecard-markdown.ts` |
 | `findUnreachableLines` | Returns the 1-based line numbers of statements that sit directly after a complete `return`/`throw`/`break`/`continue` statement inside the same block. A closing brace, `case`, `default` or `else` after the jump is normal code, not dead code. | `src/rules/dead-code-guard.ts` |
 | `formatCsv` | Format csv. | `src/cli/formatters.ts` |
 | `formatHtml` | Format html. | `src/cli/formatters.ts` |
 | `formatJson` | Format json. | `src/cli/formatters.ts` |
+| `formatMarkdown` | Format a CLI audit report as a Markdown compliance report. | `src/cli/scorecard-markdown.ts` |
 | `formatReport` | Format report. | `src/cli/formatters.ts` |
 | `formatText` | Format text. | `src/cli/formatters.ts` |
 | `generateAdvisory` | Generate AI-powered advisory suggestions for audit findings | `src/ai/advisor.ts` |
@@ -166,6 +174,7 @@ Run `muraqib --help` for the description of each flag.
 | `generateFindingsAdvisory` | Generate a plain-text compliance advisory for deterministic findings. Returns null when no key is configured, there are no findings, or the call fails (the advisor is optional and must never break the audit). | `src/ai/advisor.ts` |
 | `getSystemContext` | Static, deterministic description of Muraqib for an LLM's system prompt or tool-discovery step. Does no I/O, so it is free to call at agent start-up. | `src/agent/system-context.ts` |
 | `getWebviewHtml` | Complete HTML for the Muraqib documentation page, ready to assign to a VS Code `webview.html`. Pass the nonce your extension also puts in the webview's CSP; the page's inline style and script carry it. No `vscode` dependency is involved. | `src/webview/index.ts` |
+| `gradeFor` | Letter grade for a 0-100 score. | `src/core/scorecard.ts` |
 | `isLocalHostname` | Whether a hostname (as produced by `new URL().hostname`, brackets allowed) is a loopback host: `localhost`, `*.localhost`, `::1` / `[::1]` and the whole `127.0.0.0/8` block. | `src/core/security-guard.ts` |
 | `isSensitiveKey` | Is sensitive key. | `src/ai/safe-metadata.ts` |
 | `isSensitiveValue` | Is sensitive value. | `src/ai/safe-metadata.ts` |
@@ -182,6 +191,7 @@ Run `muraqib --help` for the description of each flag.
 | `redactSecretsInText` | Strip secrets from free text before it is sent to an external AI provider. | `src/ai/safe-metadata.ts` |
 | `redactValue` | Redact value. | `src/ai/safe-metadata.ts` |
 | `renderPage` | Render a complete, self-contained HTML document (inline CSS and JS, no network access). A strict Content-Security-Policy is embedded, so the same string works from `file://` and inside a VS Code webview. | `src/webview/render/page.ts` |
+| `renderScorecardMarkdown` | Render the Markdown compliance report. | `src/cli/scorecard-markdown.ts` |
 | `resolveApiKey` | Resolve the API key. GEMINI_API_KEY is the documented name; GOOGLE_API_KEY is kept for backward compatibility. | `src/ai/advisor.ts` |
 | `runAudit` | Initialize Muraqib Core and run the default audit | `src/index.ts` |
 | `runAuditForAgent` | Run Muraqib as a tool for an AI agent. Never throws and never prints: failures come back as `{ ok: false, error }` so a tool-calling loop always receives parseable JSON. | `src/agent/run-audit-for-agent.ts` |
@@ -194,8 +204,12 @@ Run `muraqib --help` for the description of each flag.
 | `runPerformanceAudit` | Checks the cache/compression settings in the given environment. Never exits the process and never assumes a pass: every problem (including a missing variable) is returned as a report. | `src/core/performance/auditor.ts` |
 | `safeCreateEnv` | Safe create env. | `src/env/core.ts` |
 | `scanHtml` | Scan html. | `src/core/performance/html-scanner.ts` |
+| `scoreBadge` | Shields.io static badge for the overall score, suitable for a README. | `src/cli/scorecard-markdown.ts` |
+| `scorecardFromReport` | Build the scorecard and the data behind it from a CLI audit report. | `src/cli/scorecard-markdown.ts` |
+| `scoreDomainOf` | Attribute an issue to a domain. Precedence: package/image advisories, then the scan category, then the producing module, then a `security`/`dependencies` tag; everything else is code quality. | `src/core/scorecard.ts` |
+| `scoreSeverityOf` | Map an issue to a score severity. The scan layer's five-level `level` wins when present; otherwise the guard severity maps `error` to high and `warning` to medium. | `src/core/scorecard.ts` |
 
-### Interface (58)
+### Interface (66)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -215,6 +229,7 @@ Run `muraqib --help` for the description of each flag.
 | `AuditOptions` | Options for comprehensive project audit | `src/orchestrator/audit.ts` |
 | `AuditReport` | - | `src/cli/types.ts` |
 | `AuditResult` | - | `src/core/types.ts` |
+| `ClassifiableIssue` | The slice of an {@link AuditIssue} needed to classify it. Deliberately loose (advisory payloads are `unknown`, `tags` optional) so reports from third-party guards can be classified safely. | `src/core/scorecard.ts` |
 | `CliOptions` | - | `src/cli/types.ts` |
 | `CompatibilityAuditResult` | Result of a compatibility audit of a project's package.json. | `src/core/compatibility-guard.ts` |
 | `CompatibilityFinding` | A single structured compatibility finding. | `src/core/compatibility-guard.ts` |
@@ -225,6 +240,7 @@ Run `muraqib --help` for the description of each flag.
 | `DeadCodeAuditResult` | Result of a dead code audit | `src/rules/dead-code-guard.ts` |
 | `DependencyAuditResult` | - | `src/core/dependency-guard.ts` |
 | `DetectedSecret` | Detected secret with location and severity | `src/ai/secret-detector.ts` |
+| `DomainBreakdown` | - | `src/core/scorecard.ts` |
 | `GuardFinding` | A structured finding produced by a guard's internal audit. `code` is stable and never derived from message text; `file`/`line` are present only for findings tied to a source location. | `src/core/types.ts` |
 | `GuardOptions` | - | `src/core/types.ts` |
 | `HtmlIssue` | HTML Scanner - Comprehensive HTML quality and performance analysis | `src/core/performance/html-scanner.ts` |
@@ -245,9 +261,15 @@ Run `muraqib --help` for the description of each flag.
 | `PerformanceAuditResult` | - | `src/core/performance/auditor.ts` |
 | `RenderBlockingAuditResult` | - | `src/core/performance/render-blocking.ts` |
 | `RenderBlockingIssue` | Render-Blocking Resource Detector Identifies resources that block initial page rendering (CSS, JS in head) | `src/core/performance/render-blocking.ts` |
+| `ReportFinding` | A finding that lowers the score, with enough context to act on it. | `src/cli/scorecard-markdown.ts` |
+| `Scorecard` | - | `src/core/scorecard.ts` |
+| `ScorecardFinding` | A finding reduced to what scoring needs. `severity: "info"` is counted but not scored. | `src/core/scorecard.ts` |
+| `ScorecardReportData` | Everything the Markdown report is rendered from. | `src/cli/scorecard-markdown.ts` |
+| `ScoreSlice` | Score for one slice of the findings (the whole project, or a single domain). | `src/core/scorecard.ts` |
 | `SecretDetectionResult` | - | `src/core/types.ts` |
 | `SecurityAuditOptions` | Options accepted by {@link SecurityGuard}. | `src/core/security-guard.ts` |
 | `SecurityAuditResult` | Result of a security audit on an HTTP endpoint | `src/core/security-guard.ts` |
+| `SeverityBreakdown` | - | `src/core/scorecard.ts` |
 | `StandardSchemaV1` | StandardSchemaV1 - Universal schema compatibility | `src/core/types.ts` |
 | `SystemContext` | - | `src/agent/system-context.ts` |
 | `TabContent` | - | `src/webview/content/types.ts` |
@@ -264,7 +286,7 @@ Run `muraqib --help` for the description of each flag.
 |--------|-------------|--------|
 | `scan` | - | `src/scan/index.ts` |
 
-### Type (14)
+### Type (17)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -279,6 +301,9 @@ Run `muraqib --help` for the description of each flag.
 | `MemoryFinding` | A structured memory finding. `code` is stable and never derived from message text. | `src/core/memory-guard.ts` |
 | `OutputFormat` | CLI Types and Interfaces | `src/cli/types.ts` |
 | `ScanAuditMetadata` | Scan policy and coverage retained by unified reports. | `src/core/types.ts` |
+| `ScoreDomain` | - | `src/core/scorecard.ts` |
+| `ScoreGrade` | Letter grade for a score. | `src/core/scorecard.ts` |
+| `ScoreSeverity` | - | `src/core/scorecard.ts` |
 | `SecretType` | Types of secrets that can be detected | `src/ai/secret-detector.ts` |
 | `SecurityFinding` | A structured security finding. `code` is stable and never derived from message text. | `src/core/security-guard.ts` |
 | `ValidationFn` | - | `src/guard/engines/custom-engine.ts` |

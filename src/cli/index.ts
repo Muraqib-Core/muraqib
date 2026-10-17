@@ -102,6 +102,7 @@ function handleVersion(options: ExtendedCliOptions, value: string | undefined): 
 
 const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHandler>([
   ["--json", switchFlag((o) => { o.format = "json"; })],
+  ["--report", switchFlag((o) => { o.format = "md"; })],
   ["--interactive", switchFlag((o) => { o.interactive = true; })],
   ["-i", switchFlag((o) => { o.interactive = true; })],
   ["--no-interactive", switchFlag((o) => { o.interactive = false; })],
@@ -134,10 +135,13 @@ const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHand
   ["-h", showHelp],
 ]);
 
-/** `--format` consumes its value only when it is a known format. */
+const OUTPUT_FORMATS: readonly OutputFormat[] = ["json", "text", "html", "csv", "md"];
+
+/** `--format` consumes its value only when it is a known format (`markdown` is an alias of `md`). */
 function formatFlag(options: ExtendedCliOptions, value: string | undefined): number {
-  if (!value || !["json", "text", "html", "csv"].includes(value)) return 0;
-  options.format = value as OutputFormat;
+  const format = value === "markdown" ? "md" : OUTPUT_FORMATS.find((candidate) => candidate === value);
+  if (format === undefined) return 0;
+  options.format = format;
   return 1;
 }
 
@@ -222,7 +226,7 @@ COMMANDS:
 
 OPTIONS:
   -p, --project <path>       Project root directory (default: cwd)
-  -f, --format <format>      Output format: json|text|html|csv (default: text)
+  -f, --format <format>      Output format: json|text|html|csv|md (default: text)
   -o, --output <path>        Output file path (default: stdout)
   -v, --verbose              Enable verbose logging
   -m, --modules <list>       Specific modules to run (comma-separated)
@@ -234,6 +238,7 @@ OPTIONS:
       --ai-advisory          Enable AI-powered advisory
       --docker-native        Use the local Docker daemon for image checks
       --json                 Shorthand for --format json
+      --report               Shorthand for --format md (security scorecard & compliance report)
   -i, --interactive          Guided mode: pick what to audit, view a colour-coded report (TTY only)
       --no-interactive       Disable the spinner/prompts even in a terminal
       --max-issues <n>       Cap issues returned by the agent command
@@ -250,6 +255,9 @@ EXAMPLES:
   # JSON output for CI/CD
   muraqib audit --format json --project ./src
 
+  # Markdown scorecard for a GitHub CI step summary
+  muraqib audit --report --output "$GITHUB_STEP_SUMMARY"
+
   # Run specific modules
   muraqib audit --modules memory-guard,security-guard
 
@@ -261,6 +269,7 @@ FORMATS:
   json   - JSON format for programmatic processing
   html   - Interactive HTML report
   csv    - Spreadsheet-compatible format
+  md     - Markdown security scorecard (0-100 score, README badge, CI step summary)
 
 For more information, visit: https://github.com/Muraqib-Core/muraqib
 `);

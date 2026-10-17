@@ -33,6 +33,8 @@
 
 // Core Types and Base Classes
 export * from "./core/types.js";
+/** Pure 0-100 security scorecard (severity/domain breakdown, critical hard cap) */
+export * from "./core/scorecard.js";
 export { BaseGuard } from "./core/base-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
 import { AuditOrchestrator } from "./core/orchestrator.js";
@@ -137,6 +139,16 @@ export * from "./cli/index.js";
 export * from "./cli/formatters.js";
 /** CLI type definitions */
 export * from "./cli/types.js";
+/** Markdown compliance report (README badge, CI step summary) */
+export {
+  formatMarkdown,
+  renderScorecardMarkdown,
+  scorecardFromReport,
+  findingsFromReport,
+  scoreBadge,
+  type ReportFinding,
+  type ScorecardReportData,
+} from "./cli/scorecard-markdown.js";
 
 /**
  * Initialize Muraqib Core and run the default audit

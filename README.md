@@ -175,11 +175,12 @@ After `npm run build`, the `muraqib` binary (`bin/muraqib.js`) exposes four comm
 
 ```bash
 muraqib audit                              # text report of every module
-muraqib audit --format json                # json | text | html | csv
+muraqib audit --format json                # json | text | html | csv | md
 muraqib audit --format html -o report.html # write the report to a file
 muraqib audit -p ./my-app                  # audit another project root
 muraqib audit -m memory-guard,security-guard  # only matching modules
 muraqib audit --fail-on-warning            # exit 1 on warnings too
+muraqib audit --report -o "$GITHUB_STEP_SUMMARY"  # Markdown security scorecard
 ```
 
 | Flag | Effect |
@@ -188,13 +189,26 @@ muraqib audit --fail-on-warning            # exit 1 on warnings too
 | `--docker` | Add the scan layer: Docker configuration discovery (Dockerfile / Compose) |
 | `--ai-advisory` | Add the scan layer plus an optional AI advisory (needs `GEMINI_API_KEY`; secrets are redacted before anything is sent) |
 | `-p, --project <path>` | Project root (default: current directory) |
-| `-f, --format <fmt>` | `text`, `json`, `html` or `csv` |
+| `-f, --format <fmt>` | `text`, `json`, `html`, `csv` or `md` (`markdown` is accepted as an alias) |
+| `--report` | Shorthand for `--format md`: the security scorecard and compliance report |
 | `-o, --output <path>` | Write the report to a file instead of stdout |
 | `-m, --modules <list>` | Comma-separated module name filter |
 | `--fail-on-warning` | Treat warnings as failures |
 | `-i`, `--interactive` | Guided mode: choose what to audit, review colour-coded results, then fixes / AI hand-off / HTML report (terminal only) |
 | `--no-interactive` | Disable the spinner and prompts in a terminal |
 | `-v, --verbose` | Verbose logging |
+
+#### Security scorecard (`--report` / `--format md`)
+
+The Markdown report opens with a README-ready badge and an overall **0–100 score**, then breaks it down by severity (Critical, High, Medium, Low) and by domain (Security, Dependencies, Code Quality). Paste it into a README or write it to `$GITHUB_STEP_SUMMARY` in CI. The score is a pure function of the findings, so the same report always yields the same score:
+
+- Starting from 100, each finding subtracts 25 (critical), 10 (high), 4 (medium) or 1 (low); the score never goes below 0. Informational findings are listed but not scored.
+- **Hard cap:** any critical finding limits the overall score to **59** (grade F), however little else is wrong.
+- Grades: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F below 60.
+- Guard `error` findings count as high and `warning` as medium; the scan layer's own five-level severity is used as reported. Findings from `security-guard`, scan findings in the `security` category count as Security; package, image and compatibility findings count as Dependencies; everything else counts as Code Quality.
+- The report lists which modules were evaluated: modules that were not run do not affect the score, so run the full audit for a meaningful number. The score does not change the exit code.
+
+The same logic is available programmatically as `calculateScorecard()` and `formatMarkdown()`.
 
 Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The unified report includes `exitCode` and `modules.scan.scan`, which retains the scan policy, blocking decision and per-scanner coverage (`status`, scanned/skipped inputs and diagnostics). Text, HTML, CSV and interactive reports display these coverage details too. `-e prod` blocks medium scan findings even though their displayed severity stays `warning`; `build` blocks high and critical findings. A scanner failure takes precedence and returns exit code `3`. Agent module summaries also retain scan metadata; scanner failures set `ok: false`, `verdict: "fail"` and `exitCode: 3`. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
 

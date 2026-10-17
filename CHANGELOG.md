@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Security scorecard & compliance report: a pure, deterministic 0-100 score (`calculateScorecard`) broken down by severity (critical/high/medium/low) and domain (security/dependencies/code quality), where any critical finding hard-caps the score at 59. Rendered as Markdown (README badge, CI step summary) via `muraqib audit --report` / `--format md`; golden-file tested.
 - Dynamic documentation: `npm run docs:generate` (`scripts/generate-docs.mjs`) derives `docs/REFERENCE.md` and the `<!-- AUTO:... -->` blocks in README.md, API.md and CONTRIBUTING.md (versions, badges, requirements, guards, CLI flags, npm scripts, public API, CI workflows) from the source, `package.json` and `.github/workflows/`. `npm run docs:check` fails when they are stale; the new `docs-check` CI job enforces it and the `Docs` workflow opens a refresh PR automatically.
 - VS Code extension in `extension/` (separate package, built against the repository's `muraqib-core`): `Muraqib: Run Audit`, `Show Documentation` and `Show Last Report` commands; an audit report webview grouped by severity and module with scanner coverage, a strict nonce CSP, validated `postMessage` messages and an "open file at line" action restricted to the workspace; Problems-panel diagnostics; a status bar issue counter; and `muraqib.*` settings. Arabic/RTL friendly.
 
