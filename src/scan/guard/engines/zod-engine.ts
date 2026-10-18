@@ -3,7 +3,7 @@
 // from the public caller-schema wrappers in src/guard/engines (not duplicates).
 import { z, type ZodTypeAny } from "zod";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
-import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
+import { PRESET_RULES, validateField, detectPresets, URL_SCHEME_PATTERN } from "../rules/preset-rules.js";
 
 /**
  * Zod validation engine class.
@@ -47,7 +47,7 @@ export class ZodValidationEngine implements ValidationEngine {
         shape[key] = z
           .string()
           .refine(
-            (val) => /^(https?|postgres(ql)?|mongodb(\+srv)?|rediss?|cloudinary):\/\//.test(val),
+            (val) => URL_SCHEME_PATTERN.test(val),
             { message: "Field suggests a URL/URI format but lacks a valid protocol prefix." }
           )
           .optional();

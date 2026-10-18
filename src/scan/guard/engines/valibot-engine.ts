@@ -4,7 +4,7 @@
 import type * as V from "valibot";
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { loadOptionalDependency } from "../../../utils/optional-dependency.js";
-import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
+import { PRESET_RULES, validateField, detectPresets, URL_SCHEME_PATTERN } from "../rules/preset-rules.js";
 
 /**
  * Valibot validation engine class.
@@ -52,7 +52,7 @@ export class ValibotValidationEngine implements ValidationEngine {
           v.pipe(
             v.string(),
             v.check(
-              (val: string) => /^(https?|postgres(ql)?|mongodb(\+srv)?|rediss?|cloudinary):\/\//.test(val),
+              (val: string) => URL_SCHEME_PATTERN.test(val),
               "Field suggests a URL/URI format but lacks a valid protocol prefix."
             )
           )

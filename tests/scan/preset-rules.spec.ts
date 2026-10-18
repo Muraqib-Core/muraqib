@@ -54,7 +54,10 @@ describe("PRESET_RULES", () => {
     expect(check("app", "NODE_ENV", "production")).toBeNull();
     expect(check("app", "NODE_ENV", "prod")).not.toBeNull();
     expect(check("app", "PORT", "8080")).toBeNull();
-    expect(check("app", "PORT", "80")).not.toBeNull();
+    expect(check("app", "PORT", "80")).toBeNull();
+    expect(check("app", "PORT", "443")).toBeNull();
+    expect(check("app", "PORT", "0")).not.toBeNull();
+    expect(check("app", "PORT", "70000")).not.toBeNull();
     expect(check("app", "PORT", "abc")).not.toBeNull();
     expect(check("app", "CORS_ORIGIN", "*")).toBeNull();
     expect(check("app", "CORS_ORIGIN", "https://a.com")).toBeNull();
@@ -85,7 +88,14 @@ describe("PRESET_RULES", () => {
     expect(check("redis", "REDIS_URL", "rediss://h")).toBeNull();
     expect(check("redis", "REDIS_URL", "http://h")).not.toBeNull();
     expect(check("neon", "DATABASE_URL", "postgresql://h")).toBeNull();
-    expect(check("neon", "DATABASE_URL", "mysql://h")).not.toBeNull();
+    expect(check("neon", "DATABASE_URL", "mysql://h")).toBeNull();
+    expect(check("neon", "DATABASE_URL", "file:./dev.db")).toBeNull();
+    expect(check("neon", "DATABASE_URL", "not-a-url")).not.toBeNull();
+    expect(check("mongodb", "MONGODB_URL", "mongodb://h")).toBeNull();
+    expect(check("mongodb", "MONGODB_URL", "http://h")).not.toBeNull();
+    expect(check("aws", "AWS_REGION", "us-gov-west-1")).toBeNull();
+    expect(check("aws", "AWS_REGION", "eu-central-2")).toBeNull();
+    expect(check("aws", "AWS_REGION", "nowhere")).not.toBeNull();
   });
 
   test("vercel environment values", () => {

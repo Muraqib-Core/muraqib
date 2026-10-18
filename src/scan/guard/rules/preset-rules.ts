@@ -1,4 +1,4 @@
-// src/guard/rules/preset-rules.ts
+// src/scan/guard/rules/preset-rules.ts
 // ✅ المصدر الموحد لكل قواعد الفحص — كل الـ engines تقرأ من هنا
 
 export interface FieldRule {
@@ -12,6 +12,13 @@ export interface FieldRule {
 
 export type PresetMap = Record<string, Record<string, FieldRule>>;
 
+/** Schemes a generic `*_URL` / `*_URI` variable may legitimately use. */
+export const URL_SCHEME_PATTERN = /^(https?|postgres(ql)?|mysql2?|mariadb|mongodb(\+srv)?|rediss?|cloudinary):\/\//;
+
+/** DATABASE_URL is shared by many ORMs, so it accepts every common database scheme (including `file:` for SQLite). */
+const DATABASE_URL_PATTERN =
+  /^(?:(?:postgres(?:ql)?|mysql2?|mariadb|mongodb(?:\+srv)?|sqlserver|libsql|rediss?):\/\/|(?:file|sqlite):)/;
+
 export const PRESET_RULES: PresetMap = {
 
   // ─── APP CORE ───────────────────────────────────────────────
@@ -23,9 +30,9 @@ export const PRESET_RULES: PresetMap = {
     PORT: {
       customCheck: (val) => {
         const n = Number(val);
-        return !isNaN(n) && Number.isInteger(n) && n >= 1024 && n <= 65535;
+        return !isNaN(n) && Number.isInteger(n) && n >= 1 && n <= 65535;
       },
-      message: "Port must be a valid integer between 1024 and 65535.",
+      message: "Port must be a valid integer between 1 and 65535.",
     },
     CORS_ORIGIN: {
       customCheck: (val) => val === "*" || val.startsWith("http://") || val.startsWith("https://"),
@@ -72,7 +79,7 @@ export const PRESET_RULES: PresetMap = {
       message: "AWS Secret Access Key must be exactly 40 base64 characters.",
     },
     AWS_REGION: {
-      regex: /^[a-z]{2}-[a-z]+-\d$/,
+      regex: /^[a-z]{2}(?:-[a-z]+)+-\d+$/,
       message: "Invalid AWS Region format (e.g., us-east-1).",
     },
     AWS_BUCKET_NAME: {
@@ -117,8 +124,8 @@ export const PRESET_RULES: PresetMap = {
   // ─── NEON / POSTGRESQL ──────────────────────────────────────
   neon: {
     DATABASE_URL: {
-      regex: /^postgres(ql)?:\/\//,
-      message: "Must be a valid PostgreSQL/Neon connection string (postgres:// or postgresql://).",
+      regex: DATABASE_URL_PATTERN,
+      message: "Must be a valid database connection string (postgres://, mysql://, mongodb://, sqlite/file: ...).",
     },
   },
   pg: {
@@ -149,6 +156,10 @@ export const PRESET_RULES: PresetMap = {
 
   // ─── MONGODB ────────────────────────────────────────────────
   mongodb: {
+    MONGODB_URL: {
+      regex: /^mongodb(\+srv)?:\/\//,
+      message: "Must be a valid MongoDB connection string (mongodb:// or mongodb+srv://).",
+    },
     MONGODB_URI: {
       regex: /^mongodb(\+srv)?:\/\//,
       message: "Must be a valid MongoDB connection string (mongodb:// or mongodb+srv://).",
