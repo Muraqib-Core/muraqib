@@ -30,10 +30,10 @@ export interface CollectedResults {
 }
 
 /**
- * Collect audit results.
+ * Runs the selected guards (and the scan layer when requested) against a project.
  *
- * @param options - Options
- * @returns Collect audit results result
+ * @param options - Project root, module filter and scan-layer settings
+ * @returns The per-module results and, when the scan layer ran with AI, its advisory text
  */
 export async function collectAuditResults(options: CollectOptions): Promise<CollectedResults> {
   const root = options.projectRoot;

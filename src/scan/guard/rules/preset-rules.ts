@@ -188,12 +188,12 @@ export const PRESET_RULES: PresetMap = {
 // كل الـ engines تستخدم هذه الدالة للتحقق — مصدر واحد للمنطق
 // =========================================================================
 /**
- * Validate field.
+ * Checks one value against one rule.
  *
- * @param _key - _key
- * @param value - Value
- * @param rule - Rule
- * @returns Validate field result
+ * @param _key - Variable name (kept so every engine calls the rule check with the same shape)
+ * @param value - Value to check
+ * @param rule - Rule to apply
+ * @returns The rule's message when the value violates it, otherwise null
  */
 export function validateField(_key: string, value: string, rule: FieldRule): string | null {
   if (rule.allowedValues && !rule.allowedValues.includes(value)) {
@@ -218,10 +218,10 @@ export function validateField(_key: string, value: string, rule: FieldRule): str
 // Helper: auto-detect الـ presets من الـ env variables الموجودة
 // =========================================================================
 /**
- * Detect presets.
+ * Picks the presets that apply to an environment from the variables it defines.
  *
- * @param env - Env
- * @returns Detect presets result
+ * @param env - Environment variables
+ * @returns Preset names; `app` is always included
  */
 export function detectPresets(env: Record<string, string>): string[] {
   const presets = new Set<string>(["app"]);

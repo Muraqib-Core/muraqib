@@ -6,10 +6,11 @@ export function toMessage(err: unknown): string {
 type MuraqibIssue = { path?: unknown; field?: unknown; message?: string };
 
 /**
- * Extract env errors.
+ * Flattens a validation failure into `path: message` lines. Understands Muraqib's own custom errors,
+ * Zod-style `issues` and generic `errors` arrays; anything else becomes its message.
  *
- * @param error - Error
- * @returns Extract env errors result
+ * @param error - The caught value
+ * @returns One line per problem (never empty)
  */
 export function extractEnvErrors(error: unknown): string[] {
   if (
@@ -50,11 +51,11 @@ export function extractEnvErrors(error: unknown): string[] {
 }
 
 /**
- * Get arg.
+ * Value that follows `flag` in a CLI argument list.
  *
- * @param args - Args
- * @param flag - Flag
- * @returns Get arg result
+ * @param args - Raw arguments
+ * @param flag - Flag to look for, e.g. `--path`
+ * @returns The next argument, or undefined when the flag is absent or followed by another flag
  */
 export function getArg(args: string[], flag: string): string | undefined {
   const i = args.indexOf(flag);

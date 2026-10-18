@@ -113,10 +113,10 @@ export function renderSummary(allOk: boolean, skippedCount: number, criticalCoun
 }
 
 /**
- * Format colorized status.
+ * Colorized status label for a module row.
  *
- * @param status - Status
- * @returns Format colorized status result
+ * @param status - Module outcome
+ * @returns `PASS`, `FAIL`, `WARN` or `SKIP`, wrapped in its color
  */
 export function formatColorizedStatus(status: "pass" | "fail" | "warn" | "skip"): string {
   switch (status) {
@@ -132,12 +132,12 @@ export function formatColorizedStatus(status: "pass" | "fail" | "warn" | "skip")
 }
 
 /**
- * Get detail color.
+ * Color and wording of the detail column of a module row.
  *
- * @param status - Status
- * @param skipped - Skipped
- * @param count - Count
- * @returns Get detail color result
+ * @param status - True when the module is clean
+ * @param skipped - True when the module did not run (it is then never reported as clean)
+ * @param count - Number of issues found
+ * @returns The ANSI color and the text to print
  */
 export function getDetailColor(status: boolean, skipped: boolean, count: number): { color: string; text: string } {
   if (skipped) return { color: DIM, text: "not run" };

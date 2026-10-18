@@ -1,5 +1,5 @@
 /**
- * Scan layer (ported verbatim from Jenan's pre-muraqib `develop` branch).
+ * Scan layer.
  *
  * Contract-driven engines that produce deterministic `Finding`s:
  * OSV scanner, Docker (Dockerfile/compose/image/runtime) scanner, compatibility engine,

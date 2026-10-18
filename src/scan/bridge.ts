@@ -78,7 +78,7 @@ export interface ScanAuditOutcome {
   report: ScanReport;
 }
 
-/** Run Jenan's AuditRunner (env files, OSV, compatibility, Docker, optional AI) and map to an AuditResult. */
+/** Runs the scan layer's AuditRunner (env files, OSV, compatibility, Docker, optional AI) and maps it to an AuditResult. */
 export async function runScanAudit(projectRoot: string, options: ScanAuditOptions = {}): Promise<ScanAuditOutcome> {
   const started = Date.now();
   const context = createProjectContext(projectRoot);

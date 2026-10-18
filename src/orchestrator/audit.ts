@@ -158,10 +158,10 @@ export async function runBundleAudit(targetPath: string): Promise<ModuleResult> 
 }
 
 /**
- * Run network audit.
+ * Audits the first-response latency and size of a live URL.
  *
- * @param latencyUrl - Latency url
- * @returns Run network audit result
+ * @param latencyUrl - URL to measure
+ * @returns Failed with the advisor's reports when the response is not optimized, or when the URL cannot be reached
  */
 export async function runNetworkAudit(latencyUrl: string): Promise<ModuleResult> {
   try {
@@ -176,9 +176,9 @@ export async function runNetworkAudit(latencyUrl: string): Promise<ModuleResult>
 }
 
 /**
- * Run memory audit.
+ * Audits the V8 heap usage of the current process.
  *
- * @returns Run memory audit result
+ * @returns Failed with the memory reports when a usage threshold is exceeded
  */
 export async function runMemoryAudit(): Promise<ModuleResult> {
   return guarded(() => {
@@ -217,10 +217,10 @@ export async function runDeadCodeAudit(targetPath: string): Promise<ModuleResult
 }
 
 /**
- * Run dependency audit.
+ * Audits source dependencies: deprecated APIs, circular imports and duplicate versions in the lockfile.
  *
- * @param targetPath - Target path
- * @returns Run dependency audit result
+ * @param targetPath - Project root directory
+ * @returns Failed with the dependency reports when the project is not clean
  */
 export async function runDependencyAudit(targetPath: string): Promise<ModuleResult> {
   return guarded(() => {
@@ -230,10 +230,10 @@ export async function runDependencyAudit(targetPath: string): Promise<ModuleResu
 }
 
 /**
- * Run async audit.
+ * Audits source files for risky asynchronous operations.
  *
- * @param targetPath - Target path
- * @returns Run async audit result
+ * @param targetPath - Project root directory
+ * @returns Failed with the async reports when the project is not clean
  */
 export async function runAsyncAudit(targetPath: string): Promise<ModuleResult> {
   return guarded(() => {
@@ -243,10 +243,10 @@ export async function runAsyncAudit(targetPath: string): Promise<ModuleResult> {
 }
 
 /**
- * Run config audit.
+ * Audits project configuration: tsconfig options and committed environment files.
  *
- * @param targetPath - Target path
- * @returns Run config audit result
+ * @param targetPath - Project root directory
+ * @returns Failed with the configuration findings when the project is not healthy
  */
 export async function runConfigAudit(targetPath: string): Promise<ModuleResult> {
   try {
@@ -310,9 +310,9 @@ export async function runEnvAudit(
 }
 
 /**
- * Run performance audit.
+ * Audits the caching and compression settings read from the environment.
  *
- * @returns Run performance audit result
+ * @returns Failed with the performance reports when the cache setup is not optimized
  */
 export async function runPerformanceAudit(): Promise<ModuleResult> {
   try {
@@ -327,11 +327,11 @@ export async function runPerformanceAudit(): Promise<ModuleResult> {
 }
 
 /**
- * Run optimizer audit.
+ * Measures the protocol and cookie size of a live URL against the project's resource count.
  *
- * @param targetPath - Target path
- * @param url - Url
- * @returns Run optimizer audit result
+ * @param targetPath - Project root directory (its static resources are counted)
+ * @param url - URL to probe
+ * @returns Failed when the URL is unreachable or the HTTP profile has issues
  */
 export async function runOptimizerAudit(targetPath: string, url: string): Promise<ModuleResult> {
   try {
@@ -381,10 +381,10 @@ export async function runOptimizerAudit(targetPath: string, url: string): Promis
 
 
 /**
- * Run render blocking audit.
+ * Audits the root index.html for render-blocking scripts and stylesheets in the head.
  *
- * @param targetPath - Target path
- * @returns Run render blocking audit result
+ * @param targetPath - Project root directory
+ * @returns Skipped when there is no index.html; failed with one error per blocking resource
  */
 export async function runRenderBlockingAudit(targetPath: string): Promise<ModuleResult> {
   try {
