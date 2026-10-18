@@ -41,6 +41,9 @@ const STATUS_BY_SEVERITY: ReadonlyArray<readonly [AuditIssue["severity"], AuditR
   ["warning", "warning"],
 ];
 
+/** Issue code of the info issue a guard reports when it could not measure anything. */
+export const SKIPPED_ISSUE_CODE = "CHECK_SKIPPED";
+
 /**
  * Base guard class.
  * Severity levels used: warning, error, critical, info.
@@ -134,6 +137,17 @@ export abstract class BaseGuard {
    */
   protected ok(message: string): AuditResult {
     return this.createResult("ok", [], message);
+  }
+
+  /**
+   * Return the result of a check that could not run (nothing to measure). The status stays `ok`, but the
+   * info issue keeps the gap visible, so callers can tell a skipped check from a verified pass.
+   * @param reason - Why nothing was measured
+   * @returns AuditResult with status 'ok' and one info issue coded {@link SKIPPED_ISSUE_CODE}
+   */
+  protected skipped(reason: string): AuditResult {
+    const issue = this.createIssue(SKIPPED_ISSUE_CODE, "info", "Check skipped", reason, undefined, undefined, ["skipped"]);
+    return this.createResult("ok", [issue], reason);
   }
 
   /**

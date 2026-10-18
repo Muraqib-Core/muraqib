@@ -1,8 +1,12 @@
+/**
+ * Workflow adapter: one function per audit stage of `muraqib audit`, each returning the flat
+ * {@link ModuleResult} that the workflow prints. The bundle, env, cache, HTTP optimizer and render-blocking
+ * stages run through their BaseGuard (so the same checks are available to `AuditOrchestrator`); the other
+ * stages call the audit cores that their guards wrap. Only result mapping lives here (plus the package upgrade step).
+ */
 import fs from "fs";
 import path from "path";
-import { z } from "zod";
 import { runImagePerformanceAudit } from "../core/performance/image-guard.js";
-import { runComprehensiveBundleAudit } from "../rules/bundle-budget.js";
 import { performLiveLatencyAudit } from "../core/performance/network-latency-advisor.js";
 import { performMemoryAudit } from "../core/memory-guard.js";
 import { performSecurityAudit } from "../core/security-guard.js";
@@ -10,14 +14,14 @@ import { performDeadCodeAudit } from "../rules/dead-code-guard.js";
 import { performDependencyAudit } from "../core/dependency-guard.js";
 import { performAsyncAudit } from "../core/async-guard.js";
 import { performConfigAudit } from "../core/config-guard.js";
-import { runPerformanceAudit as runPerformanceAuditCore } from "../core/performance/auditor.js";
-import { performRenderBlockingAudit } from "../core/performance/render-blocking.js";
-import { analyzeHttpProfile } from "../core/performance/optimizer-engine.js";
-import { probeHttp } from "../core/performance/http-probe.js";
-import { cachePerformanceSchema } from "../rules/cache-guard.js";
-import { createEnvWithPresets, safeCreateEnv } from "../env/index.js";
+import { type BaseGuard, SKIPPED_ISSUE_CODE } from "../core/base-guard.js";
+import { BundleBudgetGuard } from "../rules/bundle-budget-guard.js";
+import { CachePerformanceGuard } from "../core/performance/cache-performance-guard.js";
+import { HttpOptimizerGuard } from "../core/performance/http-optimizer-guard.js";
+import { RenderBlockingGuard } from "../core/performance/render-blocking-guard.js";
+import { EnvGuard } from "../core/env-guard.js";
 import { runMuraqibUpgradeOrchestrator } from "../core/upgrade-orchestrator.js";
-import { toMessage, extractEnvErrors } from "../shared/utils.js";
+import { toMessage } from "../shared/utils.js";
 import * as logger from "../shared/logger.js";
 
 /**
@@ -108,6 +112,18 @@ async function guarded(run: () => ModuleResult | Promise<ModuleResult>): Promise
   }
 }
 
+/**
+ * Runs a guard and maps its result to the workflow's {@link ModuleResult}: every non-info issue is an error,
+ * and a guard that measured nothing is reported as skipped rather than as a pass.
+ */
+async function fromGuard(guard: BaseGuard): Promise<ModuleResult> {
+  const result = await guard.run();
+  const failures = result.issues.filter((issue) => issue.severity !== "info");
+  if (failures.length > 0) return { ok: false, errors: failures.map((issue) => issue.message) };
+  if (result.issues.some((issue) => issue.code === SKIPPED_ISSUE_CODE)) return { ok: true, errors: [], skipped: true };
+  return { ok: true, errors: [] };
+}
+
 /** The common module outcome: clean when the audit says so, otherwise its reports as errors. */
 function fromReports(clean: boolean, reports: string[]): ModuleResult {
   return clean ? { ok: true, errors: [] } : { ok: false, errors: reports };
@@ -139,22 +155,7 @@ export async function runImageAudit(targetPath: string): Promise<ModuleResult> {
  * @returns ModuleResult with violations if bundle exceeds budget
  */
 export async function runBundleAudit(targetPath: string): Promise<ModuleResult> {
-  try {
-    const bundle = runComprehensiveBundleAudit(targetPath);
-    const bundleErrors = [
-      ...bundle.violations.map((v) => `${v.filePath} (${v.sizeKB} KB > ${v.limitKB} KB budget)`),
-      ...bundle.projectIssues,
-    ];
-    if (bundleErrors.length > 0) {
-      return { ok: false, errors: bundleErrors };
-    }
-    if (bundle.skipped) {
-      return { ok: true, errors: [], skipped: true };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return fromGuard(new BundleBudgetGuard(targetPath));
 }
 
 /**
@@ -270,43 +271,7 @@ export async function runEnvAudit(
   _targetPath: string,
   options: { presets?: string[]; schedule?: string; safe?: boolean }
 ): Promise<ModuleResult> {
-  try {
-    const schema = {
-      DATABASE_URL: z.string().url().optional(),
-      PORT: z
-        .string()
-        .regex(/^\d+$/, "PORT must be a numeric string")
-        .optional()
-        .transform((v) => Number(v ?? "3000")),
-      ...cachePerformanceSchema,
-    };
-
-    const envOptions = {
-      server: schema,
-      runtimeEnv: process.env as Record<string, string | undefined>,
-      isServer: true,
-      silent: true,
-      ...(options.presets ? { presets: options.presets as import("../env/preset-map.js").PresetInput[] } : {}),
-      ...(options.schedule ? { schedule: options.schedule } : {}),
-    } as unknown as import("../env/index.js").CreateEnvOptions;
-
-    if (options.safe) {
-      const envResult = safeCreateEnv(envOptions);
-      if (!envResult.success) {
-        return {
-          ok: false,
-          errors: envResult.error.map((e) => `${e.path}: ${e.message}`),
-        };
-      }
-    } else {
-      createEnvWithPresets(schema, envOptions as unknown as Parameters<typeof createEnvWithPresets>[1]);
-    }
-
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    const errors = extractEnvErrors(err);
-    return { ok: false, errors };
-  }
+  return fromGuard(new EnvGuard(options));
 }
 
 /**
@@ -315,15 +280,7 @@ export async function runEnvAudit(
  * @returns Failed with the performance reports when the cache setup is not optimized
  */
 export async function runPerformanceAudit(): Promise<ModuleResult> {
-  try {
-    const perf = runPerformanceAuditCore();
-    if (typeof perf === "object" && perf !== null && "isOptimized" in perf && !perf.isOptimized) {
-      return { ok: false, errors: perf.reports ?? ["Performance cache issues detected"] };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return fromGuard(new CachePerformanceGuard());
 }
 
 /**
@@ -334,49 +291,7 @@ export async function runPerformanceAudit(): Promise<ModuleResult> {
  * @returns Failed when the URL is unreachable or the HTTP profile has issues
  */
 export async function runOptimizerAudit(targetPath: string, url: string): Promise<ModuleResult> {
-  try {
-    const probe = await probeHttp(url);
-    if (!probe.reachable) {
-      return {
-        ok: false,
-        errors: [`تعذّر قياس البروتوكول والكوكيز: لا يمكن الوصول إلى ${url} (${probe.error})`],
-      };
-    }
-
-    let resourceCount = 0;
-    const countResources = (dir: string): number => {
-      let count = 0;
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          count += countResources(fullPath);
-        } else if (
-          entry.isFile() &&
-          /\.(js|css|png|jpe?g|svg|gif|webp|ico|html|woff2?)$/i.test(entry.name)
-        ) {
-          count++;
-        }
-      }
-      return count;
-    };
-
-    try {
-      resourceCount = countResources(targetPath);
-    } catch {
-      /* ignore */
-    }
-
-    const { issues } = analyzeHttpProfile(resourceCount, probe.protocol, probe.cookiesSizeBytes);
-
-    if (issues.length === 0) {
-      return { ok: true, errors: [] };
-    }
-    return { ok: false, errors: issues };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return fromGuard(new HttpOptimizerGuard(targetPath, url));
 }
 
 
@@ -387,37 +302,7 @@ export async function runOptimizerAudit(targetPath: string, url: string): Promis
  * @returns Skipped when there is no index.html; failed with one error per blocking resource
  */
 export async function runRenderBlockingAudit(targetPath: string): Promise<ModuleResult> {
-  try {
-    let htmlContent = "";
-    try {
-      const htmlPath = path.join(targetPath, "index.html");
-      if (fs.existsSync(htmlPath)) {
-        htmlContent = fs.readFileSync(htmlPath, "utf-8");
-      }
-    } catch {
-      /* ignore missing HTML */
-    }
-
-    if (!htmlContent) {
-      return { ok: true, errors: [], skipped: true };
-    }
-
-    const blocking = performRenderBlockingAudit(htmlContent).criticalIssues.filter(
-      (issue) => issue.type === "render_blocking_js" || issue.type === "render_blocking_css"
-    );
-    if (blocking.length === 0) {
-      return { ok: true, errors: [] };
-    }
-    return {
-      ok: false,
-      errors: blocking.map((issue) => {
-        const what = issue.type === "render_blocking_js" ? "Render-blocking script" : "Render-blocking stylesheet";
-        return `${what} in <head>: ${issue.resource}. ${issue.suggestion}`;
-      }),
-    };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return fromGuard(new RenderBlockingGuard(targetPath));
 }
 
 /**
