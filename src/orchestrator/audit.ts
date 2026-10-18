@@ -11,6 +11,7 @@ import { performDependencyAudit } from "../core/dependency-guard.js";
 import { performAsyncAudit } from "../core/async-guard.js";
 import { performConfigAudit } from "../core/config-guard.js";
 import { runPerformanceAudit as runPerformanceAuditCore } from "../core/performance/auditor.js";
+import { performRenderBlockingAudit } from "../core/performance/render-blocking.js";
 import { analyzeHttpProfile } from "../core/performance/optimizer-engine.js";
 import { probeHttp } from "../core/performance/http-probe.js";
 import { cachePerformanceSchema } from "../rules/cache-guard.js";
@@ -407,29 +408,19 @@ export async function runRenderBlockingAudit(targetPath: string): Promise<Module
       return { ok: true, errors: [], skipped: true };
     }
 
-    const headMatch = htmlContent.match(/<head>[\s\S]*?<\/head>/i);
-    if (!headMatch) {
+    const blocking = performRenderBlockingAudit(htmlContent).criticalIssues.filter(
+      (issue) => issue.type === "render_blocking_js" || issue.type === "render_blocking_css"
+    );
+    if (blocking.length === 0) {
       return { ok: true, errors: [] };
     }
-
-    const headContent = headMatch[0];
-    const blockingScripts = (headContent.match(/<script(?!\s+(?:defer|async))[^>]*>/gi) || []).length;
-    const blockingStyles = (headContent.match(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi) || []).length;
-
-    const reports: string[] = [];
-    if (blockingScripts > 0) {
-      reports.push(`تحذير: لديك ${blockingScripts} سكريبتات تحجب الرندرة في الـ head!`);
-    }
-    if (blockingStyles > 0) {
-      reports.push(
-        `ملاحظة: لديك ${blockingStyles} ملف CSS blocking في الـ head. فكّري باستخدام media queries أو preload.`
-      );
-    }
-
-    if (reports.length > 0) {
-      return { ok: false, errors: reports };
-    }
-    return { ok: true, errors: [] };
+    return {
+      ok: false,
+      errors: blocking.map((issue) => {
+        const what = issue.type === "render_blocking_js" ? "Render-blocking script" : "Render-blocking stylesheet";
+        return `${what} in <head>: ${issue.resource}. ${issue.suggestion}`;
+      }),
+    };
   } catch (err: unknown) {
     return { ok: false, errors: [toMessage(err)] };
   }
