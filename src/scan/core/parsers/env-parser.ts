@@ -39,13 +39,51 @@ function stripInlineComment(value: string): string {
   return value;
 }
 
+/** Index of the first unescaped `quote` in `text`, or -1 (backslash escapes apply to double quotes only). */
+function findClosingQuote(text: string, quote: string): number {
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\" && quote === '"') {
+      i++;
+    } else if (text[i] === quote) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+const MAX_MULTILINE_VALUE_LINES = 100;
+
+/**
+ * A quoted value that opens on `rawValue` but closes on a later line (for example a PEM private key).
+ * Returns the whole quoted text and the index of the line that closes it, or undefined when the
+ * value is not a multi-line one (single line, unquoted, or never closed within a sane distance).
+ */
+function joinMultilineValue(
+  lines: string[],
+  startIndex: number,
+  rawValue: string
+): { value: string; lastIndex: number } | undefined {
+  const quote = rawValue[0];
+  if (quote !== '"' && quote !== "'") return undefined;
+  if (findClosingQuote(rawValue.slice(1), quote) >= 0) return undefined;
+
+  let value = rawValue;
+  const limit = Math.min(lines.length - 1, startIndex + MAX_MULTILINE_VALUE_LINES);
+  for (let next = startIndex + 1; next <= limit; next++) {
+    value += `\n${lines[next] ?? ""}`;
+    if (findClosingQuote(value.slice(1), quote) >= 0) return { value, lastIndex: next };
+  }
+  return undefined;
+}
+
 /**
  * Parse env file.
  *
- * @param filePath - File path
+ * @param filePath - File path to read
+ * @param displayName - Name used in findings (defaults to `filePath`); pass a project-relative name so reports do not embed machine-specific absolute paths
  * @returns Parse env file result
  */
-export function parseEnvFile(filePath: string): ParseEnvResult {
+export function parseEnvFile(filePath: string, displayName: string = filePath): ParseEnvResult {
   const parsedLines: parsedLine[] = [];
   const issues: syntaxIssue[] = [];
   const findings: ScanIssueInput[] = [];
@@ -57,17 +95,18 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const allLines = content.split("\n");
+  const allLines = content.split(/\r?\n/);
 
-  const VALID_LINE_REGEX = /^\s*([a-zA-Z_][\w]*)\s*=\s*(.*)?\s*$/;
+  const VALID_LINE_REGEX = /^\s*(?:export\s+)?([a-zA-Z_][\w]*)\s*=\s*(.*)?\s*$/;
 
-  allLines.forEach((lineContent, index) => {
+  for (let index = 0; index < allLines.length; index++) {
+    const lineContent = allLines[index] ?? "";
     const lineNum = index + 1;
     const trimmed = lineContent.trim();
 
     // 1. Skip empty lines and comments
     if (!trimmed || trimmed.startsWith("#")) {
-      return;
+      continue;
     }
 
     // 2. Check for equals sign separator
@@ -80,18 +119,18 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
         message: msg,
       });
       findings.push({
-        id: `env-${filePath}-${lineNum}-missing-equals`,
+        id: `env-${displayName}-${lineNum}-missing-equals`,
         title: "Missing equals separator",
         message: msg,
         severity: "high",
         category: "validation",
         source: "env-parser",
-        file: filePath,
+        file: displayName,
         line: lineNum,
         evidence: "A non-empty environment line is missing an assignment separator.",
         remediation: "Add an '=' between the variable name and value.",
       });
-      return;
+      continue;
     }
 
     const match = trimmed.match(VALID_LINE_REGEX);
@@ -106,22 +145,28 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
         message: msg,
       });
       findings.push({
-        id: `env-${filePath}-${lineNum}-invalid-key`,
+        id: `env-${displayName}-${lineNum}-invalid-key`,
         title: "Invalid environment variable name",
         message: msg,
         severity: "high",
         category: "validation",
         source: "env-parser",
-        file: filePath,
+        file: displayName,
         line: lineNum,
         evidence: "The environment assignment contains an invalid variable name.",
         remediation: "Ensure key starts with a letter or underscore and contains only alphanumeric characters or underscores.",
       });
-      return;
+      continue;
     }
 
     const key = match[1];
     let rawValue = match[2] ? match[2].trim() : "";
+
+    const multiline = joinMultilineValue(allLines, index, rawValue);
+    if (multiline) {
+      rawValue = multiline.value;
+      index = multiline.lastIndex;
+    }
 
     // Strip comments only when # appears outside quoted values.
     rawValue = stripInlineComment(rawValue).trim();
@@ -146,13 +191,13 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
           key,
         });
         findings.push({
-          id: `env-${filePath}-${lineNum}-unmatched-quotes`,
+          id: `env-${displayName}-${lineNum}-unmatched-quotes`,
           title: "Unmatched quotes in value",
           message: msg,
           severity: "medium",
           category: "validation",
           source: "env-parser",
-          file: filePath,
+          file: displayName,
           line: lineNum,
           key,
           evidence: "The value contains an unmatched quote. The raw value was redacted.",
@@ -173,13 +218,13 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
           key,
         });
         findings.push({
-          id: `env-${filePath}-${lineNum}-unquoted-spaces`,
+          id: `env-${displayName}-${lineNum}-unquoted-spaces`,
           title: "Unquoted value containing spaces",
           message: msg,
           severity: "medium",
           category: "validation",
           source: "env-parser",
-          file: filePath,
+          file: displayName,
           line: lineNum,
           key,
           evidence: "The value contains unquoted whitespace. The raw value was redacted.",
@@ -199,13 +244,13 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
         key,
       });
       findings.push({
-        id: `env-${filePath}-${lineNum}-duplicate-key`,
+        id: `env-${displayName}-${lineNum}-duplicate-key`,
         title: "Duplicate environment key",
         message: msg,
         severity: "low",
         category: "configuration",
         source: "env-parser",
-        file: filePath,
+        file: displayName,
         line: lineNum,
         key,
         remediation: "Remove or consolidate the duplicate key definition.",
@@ -221,7 +266,7 @@ export function parseEnvFile(filePath: string): ParseEnvResult {
     });
 
     parsedData[key] = finalValue;
-  });
+  }
 
   return { parsedLines, issues, parsedData, findings: findings.map(createScanIssue) };
 }

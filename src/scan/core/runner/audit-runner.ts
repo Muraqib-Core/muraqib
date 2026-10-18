@@ -57,7 +57,7 @@ function parseEnvFiles(context: ProjectContext, collector: FindingCollector): Pa
   for (const file of context.envFiles) {
     const fullPath = path.join(context.projectPath, file);
     try {
-      const result = parseEnvFile(fullPath);
+      const result = parseEnvFile(fullPath, file);
       totalParsedLines += result.parsedLines.length;
       cleanEnv = { ...cleanEnv, ...result.parsedData };
       result.parsedLines.forEach((p) => {
