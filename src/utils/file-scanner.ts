@@ -3,8 +3,8 @@ import path from "path";
 import { globSync } from "glob";
 
 /**
- * FileScanner: أداة مركزية لقراءة ملفات المشروع والبحث فيها.
- * الهدف: منع تكرار كود قراءة الملفات واستخدام الـ glob عبر أدوات الفحص المختلفة.
+ * FileScanner: shared helper for reading and searching project files,
+ * so the audits do not each re-implement file discovery with glob.
  */
 export interface ScannedFile { // muraqib-ignore-dead: auto-suppressed by script for ScannedFile
   path: string;
@@ -17,41 +17,43 @@ export interface ScanOptions {
   includeTests?: boolean;
 }
 
+/** Ignored at any depth, so nested `node_modules` of a monorepo workspace are skipped too. */
+const ALWAYS_IGNORED = ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.d.ts"];
+const TEST_IGNORED = ["tests/**", "**/*.spec.ts"];
+
 /**
- * Scan project files.
+ * Reads the project's source files matching the given extensions.
+ * Files that cannot be read (broken symlink, permissions, deleted mid-scan) are skipped
+ * instead of aborting the whole audit.
  *
- * @param targetPath - Target path
- * @param fileExtensions - File extensions
- * @param options - Options
- * @returns Scan project files result
+ * @param targetPath - Project root
+ * @param fileExtensions - Extensions without the dot, e.g. `["ts", "js"]`
+ * @param options - Scan options
+ * @returns The readable files with their content
  */
 export function scanProjectFiles(
   targetPath: string,
   fileExtensions: string[] = ["ts", "js"],
   options: ScanOptions = {}
 ): ScannedFile[] {
-  // بناء نمط البحث ديناميكياً بناءً على الامتدادات المطلوبة
   const pattern = fileExtensions.length === 1 ? `**/*.${fileExtensions[0]}` : `**/*.{${fileExtensions.join(",")}}`;
-  
-  // استثناء المجلدات غير المرغوبة
+
   const files = globSync(pattern, {
     cwd: targetPath,
     absolute: true,
-    ignore: options.includeTests
-      ? ["node_modules/**", "dist/**", "coverage/**", "**/*.d.ts"]
-      : ["node_modules/**", "dist/**", "tests/**", "**/*.spec.ts", "**/*.d.ts"],
+    ignore: options.includeTests ? ALWAYS_IGNORED : [...ALWAYS_IGNORED, ...TEST_IGNORED],
   });
 
   const scannedFiles: ScannedFile[] = [];
 
   for (const file of files) {
-    const content = fs.readFileSync(file, "utf-8");
-    const relativePath = path.relative(targetPath, file);
-    scannedFiles.push({
-      path: file,
-      relativePath,
-      content,
-    });
+    let content: string;
+    try {
+      content = fs.readFileSync(file, "utf-8");
+    } catch {
+      continue;
+    }
+    scannedFiles.push({ path: file, relativePath: path.relative(targetPath, file), content });
   }
 
   return scannedFiles;

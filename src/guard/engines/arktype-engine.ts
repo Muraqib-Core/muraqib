@@ -13,12 +13,9 @@
 import type { Type } from 'arktype';
 import { nonEmpty } from '../../utils/defaults.js';
 
-export interface ValidationIssue {
-  field: string;
-  message: string;
-  code: string;
-  path: (string | number)[];
-}
+import type { ValidationIssue } from './validation-issue.js';
+
+export type { ValidationIssue };
 
 export interface ArktypeValidationResult {
   success: boolean;

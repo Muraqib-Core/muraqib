@@ -46,3 +46,37 @@ describe("detectProjectPackageManager", () => {
     expect(detectProjectPackageManager()).toBe("npm");
   });
 });
+
+describe("detectProjectPackageManager: bun and the packageManager field", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "muraqib-pm-extra-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("detects bun from either bun lockfile", () => {
+    writeFileSync(join(dir, "bun.lockb"), "");
+    expect(detectProjectPackageManager(dir)).toBe("bun");
+    rmSync(join(dir, "bun.lockb"));
+    writeFileSync(join(dir, "bun.lock"), "");
+    expect(detectProjectPackageManager(dir)).toBe("bun");
+  });
+
+  test("the packageManager field wins over lockfiles", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "yarn@4.1.0" }));
+    writeFileSync(join(dir, "package-lock.json"), "{}");
+    expect(detectProjectPackageManager(dir)).toBe("yarn");
+  });
+
+  test("ignores an unknown packageManager value and an unreadable package.json", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ packageManager: "deno@1" }));
+    writeFileSync(join(dir, "pnpm-lock.yaml"), "");
+    expect(detectProjectPackageManager(dir)).toBe("pnpm");
+    writeFileSync(join(dir, "package.json"), "{ not json");
+    expect(detectProjectPackageManager(dir)).toBe("pnpm");
+  });
+});

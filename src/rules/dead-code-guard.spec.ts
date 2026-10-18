@@ -148,6 +148,33 @@ export function guard(x: number): number {
     expect(result.reports.length).toBe(0);
   });
 
+  it("a trailing marker silences only its own line", () => {
+    fs.writeFileSync(
+      path.join(testDir, "partial.ts"),
+      [
+        "export function keepQuiet() {} // muraqib-ignore-dead: intentional no-op",
+        "export function stillReported() {}",
+        "",
+      ].join("\n")
+    );
+
+    const result = performDeadCodeAudit(testDir);
+
+    expect(result.emptyFunctions.some((e) => e.includes("keepQuiet"))).toBe(false);
+    expect(result.emptyFunctions.some((e) => e.includes("stillReported"))).toBe(true);
+  });
+
+  it("does not treat the marker inside a string literal as a suppression", () => {
+    fs.writeFileSync(
+      path.join(testDir, "literal.ts"),
+      ['export const marker = "muraqib-ignore-dead";', "export function emptyOne() {}", ""].join("\n")
+    );
+
+    const result = performDeadCodeAudit(testDir);
+
+    expect(result.emptyFunctions.some((e) => e.includes("emptyOne"))).toBe(true);
+  });
+
   it("handles files with valid code correctly", () => {
     const testFile = path.join(testDir, "valid.ts");
     const content = `

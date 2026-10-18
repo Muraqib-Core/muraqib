@@ -3,7 +3,7 @@
 // from the public caller-schema wrappers in src/guard/engines (not duplicates).
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
 import { loadOptionalDependency } from "../../../utils/optional-dependency.js";
-import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
+import { PRESET_RULES, validateField, detectPresets, URL_SCHEME_PATTERN } from "../rules/preset-rules.js";
 
 /**
  * Ark type validation engine class.
@@ -81,7 +81,7 @@ export class ArkTypeValidationEngine implements ValidationEngine {
         if (value === undefined || value === "") return;
         if (errors.some((e) => e.path[0] === key)) return;
 
-        if (!/^(https?|postgres(ql)?|mongodb(\+srv)?|rediss?|cloudinary):\/\//.test(value)) {
+        if (!URL_SCHEME_PATTERN.test(value)) {
           errors.push({
             path: [key],
             message: "Field suggests a URL/URI format but lacks a valid protocol prefix.",

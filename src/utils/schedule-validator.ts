@@ -2,10 +2,15 @@ import { CronExpressionParser } from 'cron-parser';
 import * as logger from "../shared/logger.js";
 
 /**
- * Is within schedule.
+ * Whether the audit should run now for a schedule.
  *
- * @param scheduleString - Schedule string
- * @returns Is within schedule result
+ * - Empty or missing: always run.
+ * - `on weekends`: Friday, Saturday and Sunday.
+ * - A cron expression: run when its most recent occurrence was within the last 60 minutes.
+ * - An invalid cron expression: warn and run (fail open), so a typo never silently disables the audit.
+ *
+ * @param scheduleString - Schedule to evaluate
+ * @returns True when the audit may run
  */
 export function isWithinSchedule(scheduleString?: string): boolean {
   if (!scheduleString || scheduleString.trim() === '') {

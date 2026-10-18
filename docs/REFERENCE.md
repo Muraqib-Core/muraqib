@@ -292,7 +292,7 @@ Run `muraqib --help` for the description of each flag.
 | `TabContent` | - | `src/webview/content/types.ts` |
 | `UnifiedAuditResult` | - | `src/core/types.ts` |
 | `ValibotValidationResult` | - | `src/guard/engines/valibot-engine.ts` |
-| `ValidationIssue` | - | `src/guard/engines/zod-engine.ts` |
+| `ValidationIssue` | One validation failure in the unified shape every public engine reports. | `src/guard/engines/validation-issue.ts` |
 | `VariableMetadata` | - | `src/ai/safe-metadata.ts` |
 | `WorkflowAuditResult` | Aggregated result from all 13 audit modules | `src/orchestrator/audit.ts` |
 | `ZodValidationResult` | - | `src/guard/engines/zod-engine.ts` |

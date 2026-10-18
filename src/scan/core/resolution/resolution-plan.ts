@@ -1,5 +1,8 @@
 import type { ScanIssue } from "../findings/finding.js";
 
+/** Captured stdout/stderr limit for package-manager and project commands; the 1 MiB default aborts a verbose install. */
+export const COMMAND_MAX_BUFFER = 64 * 1024 * 1024;
+
 export type ApprovalDecision = "approved" | "rejected";
 export type ResolutionDirection =
   | "upgrade"

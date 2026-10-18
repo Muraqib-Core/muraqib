@@ -58,10 +58,19 @@ function enterSection(line: string, state: SectionState): boolean {
   return false;
 }
 
+/** Value of an HTML attribute (`""` when present without a value), or undefined when the tag lacks it. */
+function attribute(tag: string, name: string): string | undefined {
+  const match = new RegExp(`\\s${name}(?:\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+)))?(?=[\\s/>])`, "i").exec(tag);
+  return match ? (match[1] ?? match[2] ?? match[3] ?? "") : undefined;
+}
+
+const JS_SCRIPT_TYPES = new Set(["", "text/javascript", "application/javascript", "application/x-javascript"]);
+
 /** A stylesheet `<link>` without a `media` attribute blocks rendering. */
-function detectBlockingCss(line: string, lineNo: number): Detection | undefined {
-  if (!line.includes("<link") || !line.includes("stylesheet") || line.includes("media=")) return undefined;
-  const href = line.match(/href=["']([^"']+)["']/)?.[1];
+function detectBlockingCss(tag: string, lineNo: number): Detection | undefined {
+  const rel = (attribute(tag, "rel") ?? "").toLowerCase().split(/\s+/);
+  if (!rel.includes("stylesheet") || rel.includes("alternate") || attribute(tag, "media") !== undefined) return undefined;
+  const href = attribute(tag, "href");
   if (!href) return undefined;
   return {
     issue: {
@@ -76,10 +85,15 @@ function detectBlockingCss(line: string, lineNo: number): Detection | undefined 
   };
 }
 
-/** A `<script>` without `defer` or `async` blocks rendering. */
-function detectSyncScript(line: string, lineNo: number): Detection | undefined {
-  if (!line.includes("<script") || line.includes("defer") || line.includes("async")) return undefined;
-  const src = line.match(/src=["']([^"']+)["']/)?.[1] || "inline";
+/**
+ * A classic `<script>` without `defer` or `async` blocks rendering. Module scripts are deferred by
+ * default and non-JavaScript types (JSON-LD, importmap, templates) are never executed.
+ */
+function detectSyncScript(tag: string, lineNo: number): Detection | undefined {
+  const type = (attribute(tag, "type") ?? "").trim().toLowerCase();
+  if (!JS_SCRIPT_TYPES.has(type)) return undefined;
+  if (attribute(tag, "defer") !== undefined || attribute(tag, "async") !== undefined) return undefined;
+  const src = attribute(tag, "src") || "inline";
   return {
     issue: {
       type: "render_blocking_js",
@@ -91,6 +105,22 @@ function detectSyncScript(line: string, lineNo: number): Detection | undefined {
     report: `🔴 CRITICAL: Synchronous script in <head>: ${src}`,
     blocking: src,
   };
+}
+
+/** Finds the blocking stylesheets and scripts inside `<head>`, whatever the document's line layout. */
+function detectHeadResources(htmlContent: string): Detection[] {
+  const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(htmlContent);
+  if (!head) return [];
+  const headStart = head.index + head[0].indexOf(head[1] ?? "");
+  const detections: Detection[] = [];
+  for (const tagMatch of (head[1] ?? "").matchAll(/<(script|link)\b[^>]*>/gi)) {
+    const lineNo = htmlContent.slice(0, headStart + tagMatch.index).split("\n").length;
+    const found = tagMatch[1]?.toLowerCase() === "link"
+      ? detectBlockingCss(tagMatch[0], lineNo)
+      : detectSyncScript(tagMatch[0], lineNo);
+    if (found) detections.push(found);
+  }
+  return detections;
 }
 
 /** A font file referenced from CSS in a document that never mentions `preload`. */
@@ -140,23 +170,18 @@ export function performRenderBlockingAudit(
   const lines = htmlContent.split("\n");
   const state: SectionState = { head: false, body: false };
 
-  lines.forEach((raw, index) => {
+  const detections: Array<Detection | undefined> = detectHeadResources(htmlContent);
+  lines.forEach((raw) => {
     const line = raw.trim();
     if (enterSection(line, state)) return;
-
-    const lineNo = index + 1;
-    const detections = [
-      state.head ? detectBlockingCss(line, lineNo) : undefined,
-      state.head ? detectSyncScript(line, lineNo) : undefined,
-      detectUnpreloadedFont(line, htmlContent),
-    ];
-    for (const found of detections) {
-      if (found === undefined) continue;
-      criticalIssues.push(found.issue);
-      reports.push(found.report);
-      if (found.blocking !== undefined) blockingResources.push(found.blocking);
-    }
+    detections.push(detectUnpreloadedFont(line, htmlContent));
   });
+  for (const found of detections) {
+    if (found === undefined) continue;
+    criticalIssues.push(found.issue);
+    reports.push(found.report);
+    if (found.blocking !== undefined) blockingResources.push(found.blocking);
+  }
 
   // Analyze body section for scripts
   reports.push(...bodyScriptReports(lines, blockingResources, state.body));

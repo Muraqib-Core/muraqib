@@ -1,5 +1,4 @@
-// ANSI Color codes
-export const COLORS = {
+const ANSI_CODES = {
   RESET: "\x1b[0m",
   RED: "\x1b[31m",
   GREEN: "\x1b[32m",
@@ -8,6 +7,14 @@ export const COLORS = {
   DIM: "\x1b[2m",
   BOLD: "\x1b[1m",
 } as const;
+
+/** https://no-color.org: any non-empty NO_COLOR value turns colored output off. */
+const colorDisabled = (process.env.NO_COLOR ?? "") !== "";
+
+// ANSI Color codes (empty strings when NO_COLOR is set)
+export const COLORS: Readonly<Record<keyof typeof ANSI_CODES, string>> = colorDisabled
+  ? { RESET: "", RED: "", GREEN: "", YELLOW: "", CYAN: "", DIM: "", BOLD: "" }
+  : ANSI_CODES;
 
 // CLI flags
 export const CLI_FLAGS = {

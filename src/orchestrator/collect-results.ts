@@ -30,13 +30,14 @@ export interface CollectedResults {
 }
 
 /**
- * Collect audit results.
+ * Runs the selected guards (and the scan layer when requested) against a project.
  *
- * @param options - Options
- * @returns Collect audit results result
+ * @param options - Project root, module filter and scan-layer settings
+ * @returns The per-module results and, when the scan layer ran with AI, its advisory text
  */
 export async function collectAuditResults(options: CollectOptions): Promise<CollectedResults> {
   const root = options.projectRoot;
+  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
     projectRoot: root,
     asyncTargetPath: root,
@@ -46,15 +47,16 @@ export async function collectAuditResults(options: CollectOptions): Promise<Coll
     imageTargetPath: root,
     deadCodeTargetPath: root,
     securityTargetUrl: options.securityUrl,
+    moduleFilter: wanted,
   });
 
   const unified = await orchestrator.execute();
-  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
   const results = wanted.length
     ? unified.results.filter((r) => wanted.some((w) => r.module.toLowerCase().includes(w)))
     : [...unified.results];
 
   let aiAdvisory: string | null = null;
+  // `scan` is an explicit opt-in flag, so a module filter narrows the guards but never drops the scan layer.
   if (options.scan) {
     const outcome = await runScanAudit(root, {
       enableAi: options.aiAdvisory ?? false,

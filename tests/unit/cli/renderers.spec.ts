@@ -81,3 +81,40 @@ describe("renderers", () => {
     expect(getDetailColor(false, false, 0).color).toBe(Colors.RED);
   });
 });
+
+describe("renderer layout", () => {
+  const strip = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, ""); // eslint-disable-line no-control-regex
+  let out: string[] = [];
+
+  beforeEach(() => {
+    out = [];
+    setSilent(false);
+    vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => {
+      out.push(a.join(" "));
+    });
+  });
+
+  afterEach(() => {
+    setSilent(false);
+    vi.restoreAllMocks();
+  });
+
+  test("box rows have the same visible width even when they carry color codes", () => {
+    box([`${Colors.GREEN}ok${Colors.RESET}`, "a much longer plain line than the colored one is"]);
+    const widths = out.map((line) => strip(line).length);
+    expect(new Set(widths).size).toBe(1);
+  });
+
+  test("the header banner lines are all the same width", () => {
+    renderHeader("/p");
+    const banner = out.join("\n").split("\n").map(strip).filter((l) => /^[╔║╚]/.test(l));
+    expect(banner).toHaveLength(3);
+    expect(new Set(banner.map((l) => l.length)).size).toBe(1);
+  });
+
+  test("setSilent silences the shared logger too", async () => {
+    const { isSilentMode } = await import("../../../src/shared/logger.js");
+    setSilent(true);
+    expect(isSilentMode()).toBe(true);
+  });
+});

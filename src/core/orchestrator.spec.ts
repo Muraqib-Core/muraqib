@@ -47,6 +47,21 @@ describe("AuditOrchestrator", () => {
     expect(r.issues.map((i) => i.severity)).toEqual(["critical", "error", "warning", "info"]);
   });
 
+  it("runs only the guards matching moduleFilter", async () => {
+    const ran: string[] = [];
+    const guard = (name: string): G => new G(name, async (g) => { ran.push(name); return g.res([]); });
+    state.guards = [guard("security-guard"), guard("dead-code-guard"), guard("Async-Guard")];
+    const r = await AuditOrchestrator.create(ctx, { moduleFilter: [" SECURITY ", "async"] }).execute();
+    expect(ran.sort()).toEqual(["Async-Guard", "security-guard"]);
+    expect(r.results).toHaveLength(2);
+  });
+
+  it("runs every guard when moduleFilter is empty", async () => {
+    state.guards = [new G("a-guard", async (g) => g.res([])), new G("b-guard", async (g) => g.res([]))];
+    const r = await AuditOrchestrator.create(ctx, { moduleFilter: [] }).execute();
+    expect(r.results).toHaveLength(2);
+  });
+
   it("sorts by module using issue.module, tag fallback, then unknown", async () => {
     const raw = (m: string | undefined, tags: string[]): AuditIssue => ({ code: "c", severity: "warning", title: "t", message: "m", tags, ...(m ? { module: m } : {}) });
     state.guards = [new G("z", async () => ({ status: "warning", module: "z", issues: [raw("zeta", ["aaa"]), raw(undefined, ["beta"]), raw(undefined, []), raw("alpha", [])], message: "", timestamp: 0, duration: 0 }))];

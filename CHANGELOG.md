@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed the unused `rules/http1-advisor`, `utils/font-validator` and `shared/progress` modules. Package-manager detection is shared (`utils/manager-detector` now also knows `bun` and the `packageManager` field) and the four public engines share one `ValidationIssue` type.
 - The two secret detectors (`src/ai/secret-detector.ts`, `src/core/helpers/secret-detector.ts`) are merged into one module, `src/core/secret-detector.ts`, with a single table of token formats shared by text scanning and env/package value checks. The public `detectSecretsInText`, `detectSecretsInEnv` and `assessSecretRisk` behave as before. Tokens are now also recognised for GitHub fine-grained and `gho_`/`ghu_`/`ghs_`/`ghr_` tokens, Slack, OpenAI-style `sk-` keys, Google API keys and JWTs in free text, and secrets are masked completely when 8 characters or shorter.
 - CI/CD hardening: least-privilege `permissions`, `type-check:tests` in CI, no full-history checkouts, audit workflow limited to `main`/`develop`/PRs with concurrency control, and the release workflow now verifies that the tag matches `package.json`, type-checks and checks generated docs before publishing.
 - Documentation corrected to match the code: package name (`@muraqib/core`), Node/TypeScript/Vitest versions, CI job list, guard descriptions.
@@ -24,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scan layer false positives: `PORT` accepts 1-65535 (80 and 443 are valid), `DATABASE_URL` accepts every common database scheme (`mysql://`, `mongodb://`, `file:` ...) instead of PostgreSQL only, `AWS_REGION` accepts `us-gov-*` style regions, and `MONGODB_URL` is validated like `MONGODB_URI`. Generic `*_URL` variables may use `mysql://`/`mariadb://`.
+- Scan-layer `.env` parser (`parseEnvFile`) accepts the `export` prefix and multi-line quoted values (for example PEM keys), and reports findings under the project-relative file name rather than the absolute path.
+- Compatibility engine compares versions with `semver` (`next@14.10` is no longer treated as `14.1`) and evaluates the whole `engines.node` range.
+- `OSV_API_URL` is parsed when a query runs, so a malformed value is reported by the scan instead of crashing the CLI on import; the 5 MiB OSV response limit is enforced while the response streams in.
+- A `.env` file that cannot be read, or a detected validation engine (`zod`, `valibot`, `arktype`) that is not installed, no longer aborts the whole scan: the gap is reported as a finding and coverage entry and the OSV/Docker scanners still run.
+- Dead-code guard: a trailing `muraqib-ignore-dead` / `muraqib-unreachable` comment now silences only its own line (a comment-only marker line still silences the file), and the marker inside a string literal is ignored, so the guard no longer skips its own source.
+- File scanner ignores `node_modules`, `dist` and `coverage` at any depth (monorepo workspaces) and skips unreadable files instead of aborting.
+- Render-blocking detection reads tag attributes (not substrings): `defer`/`async` in any position, module scripts and non-JavaScript script types are not blocking, `<head lang="en">` and minified single-line documents are handled. `runRenderBlockingAudit` now reuses `performRenderBlockingAudit`.
+- Report boxes and the header banner are aligned when they contain color codes, the renderers share one silent flag with the logger, and `NO_COLOR` disables ANSI colors.
+- `collectAuditResults` passes the module filter to the orchestrator (`moduleFilter`) so unselected guards no longer run.
+- Package-manager commands run by the resolution applier/verifier use a 64 MiB output buffer so a verbose install is not reported as a failure.
 - `createEnv` typing: with no `clientPrefix` every key matched the default `""` prefix, so any `server` schema failed to compile. The prefix checks now apply only when a concrete prefix is given (and the "logical error" message no longer says "financial").
 - Server/client separation is now enforced at runtime: with `isServer: false` only the `client` schema is validated and reading a server-only key from the returned env throws instead of returning `undefined`.
 - `.env` parser: quoted values may span several lines (`"..."`, `'...'`, backticks); only double quotes decode `\n`/`\"`/`\\`; single-quoted and backtick values are literal (no `$VAR` expansion); `\$` writes a literal dollar; `#` starts a comment only after whitespace (so `pa#ss` survives); a BOM and invalid keys are ignored; an unterminated quote no longer swallows the rest of the file. `${VAR:-default}` now also falls back for empty values and `${VAR-default}` only for unset ones; references resolve through chains and later keys, and a self-reference such as `PATH=$PATH:/x` uses the real value instead of looping.

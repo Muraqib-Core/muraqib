@@ -14,6 +14,7 @@ vi.mock("../../src/ai/advisor.js", () => ({ generateFindingsAdvisory: vi.fn() })
 
 import { createEnv } from "../../src/scan/guard/env-validator.js";
 import { EnvValidationError } from "../../src/scan/guard/errors/env-validation-error.js";
+import { MissingOptionalDependencyError } from "../../src/utils/optional-dependency.js";
 import { OsvScanner } from "../../src/scan/scanners/dependency/osv-engine.js";
 import { CompatibilityEngine } from "../../src/scan/scanners/compatibility/compatibility-engine.js";
 import { DockerScanner } from "../../src/scan/scanners/docker/docker-engine.js";
@@ -146,10 +147,50 @@ describe("AuditRunner", () => {
     );
   });
 
-  test("throws a readable error when an env file cannot be read", async () => {
-    await expect(new AuditRunner().run(context({ envFiles: ["missing.env"] }))).rejects.toThrow(
-      "Failed to read environment file missing.env"
-    );
+  test("an unreadable env file becomes a finding and the other scanners still run", async () => {
+    stubScanner(OsvScanner, "osv", true, { findings: [highFinding] });
+    const report = await new AuditRunner().run(context({ envFiles: ["missing.env"] }));
+
+    const unreadable = report.findings.find((f) => f.code === "env-file-unreadable-missing.env");
+    expect(unreadable?.message).toContain("Failed to read environment file missing.env");
+    expect(report.findings).toContain(highFinding);
+    expect(report.scannerCoverage.find((c) => c.scanner === "env-files")).toMatchObject({
+      status: "failed",
+      skippedInputs: ["missing.env"],
+    });
+    expect(report.exitCode).toBe(3);
+  });
+
+  test("a readable env file next to an unreadable one is reported as partial coverage", async () => {
+    fs.writeFileSync(path.join(dir, ".env"), "A=1\n");
+    const report = await new AuditRunner().run(context({ envFiles: [".env", "missing.env"] }));
+    expect(report.scannerCoverage.find((c) => c.scanner === "env-files")).toMatchObject({
+      status: "partial",
+      scannedInputs: [".env"],
+      skippedInputs: ["missing.env"],
+    });
+  });
+
+  test("falls back to the built-in engine when the detected engine is not installed", async () => {
+    fs.writeFileSync(path.join(dir, ".env"), "A=1\n");
+    vi.mocked(createEnv)
+      .mockRejectedValueOnce(new MissingOptionalDependencyError("valibot", "engine 'valibot'"))
+      .mockResolvedValueOnce({ engine: "custom", unknownKeys: [] } as never);
+
+    const report = await new AuditRunner().run(context({ envFiles: [".env"] }));
+
+    expect(report.engine).toBe("custom");
+    expect(vi.mocked(createEnv).mock.calls[1]?.[0]).toMatchObject({ engine: "custom" });
+    expect(report.findings.map((f) => f.code)).toContain("env-engine-fallback");
+    expect(report.hasBlockingIssues).toBe(false);
+  });
+
+  test("an explicitly requested engine that is not installed still fails loudly", async () => {
+    fs.writeFileSync(path.join(dir, ".env"), "A=1\n");
+    vi.mocked(createEnv).mockRejectedValue(new MissingOptionalDependencyError("valibot", "engine 'valibot'"));
+    await expect(
+      new AuditRunner().run(context({ envFiles: [".env"] }), { engine: "valibot" })
+    ).rejects.toThrow("Missing optional dependency");
   });
 
   test("adds AI findings for unknown variables when AI is enabled and keyed", async () => {

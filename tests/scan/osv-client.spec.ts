@@ -91,3 +91,31 @@ describe("queryOsv", () => {
     expect(result.status).toBe("unavailable");
   });
 });
+
+describe("queryOsv safety", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  test("aborts a response larger than the 5 MiB limit instead of buffering it", async () => {
+    const result = await withServer(
+      (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.write(Buffer.alloc(6 * 1024 * 1024, "a"));
+        res.end();
+      },
+      (queryOsv) => queryOsv("big", "1.0.0")
+    );
+    expect(result.status).toBe("error");
+    expect(result).toMatchObject({ error: expect.stringContaining("5 MiB") });
+  });
+
+  test("a malformed OSV_API_URL is reported by the query, not thrown when the module loads", async () => {
+    vi.stubEnv("OSV_API_URL", "not a url");
+    vi.resetModules();
+    const { queryOsv } = await import("../../src/scan/scanners/dependency/osv-client.js");
+    const result = await queryOsv("a", "1.0.0");
+    expect(result).toEqual({ status: "unavailable", error: expect.stringContaining("OSV_API_URL") });
+  });
+});

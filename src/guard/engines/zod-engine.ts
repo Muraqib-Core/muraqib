@@ -20,12 +20,9 @@ interface ZodIssueLike {
   code: string;
 }
 
-export interface ValidationIssue {
-  field: string;
-  message: string;
-  code: string;
-  path: (string | number)[];
-}
+import type { ValidationIssue } from './validation-issue.js';
+
+export type { ValidationIssue };
 
 export interface ZodValidationResult {
   success: boolean;

@@ -105,3 +105,58 @@ test("EnvParser: findings never serialize malformed secret values", () => {
     fs.unlinkSync(tmpFile);
   }
 });
+
+test("EnvParser: accepts an `export` prefix", () => {
+  const tmpFile = path.join(os.tmpdir(), `env-test-export-${Date.now()}.env`);
+  fs.writeFileSync(tmpFile, "export FOO=bar\nexport  QUOTED=\"a b\"\n");
+
+  try {
+    const result = parseEnvFile(tmpFile);
+    assert.equal(result.findings.length, 0);
+    assert.equal(result.parsedData["FOO"], "bar");
+    assert.equal(result.parsedData["QUOTED"], "a b");
+  } finally {
+    fs.unlinkSync(tmpFile);
+  }
+});
+
+test("EnvParser: reads a multi-line quoted value as one entry", () => {
+  const tmpFile = path.join(os.tmpdir(), `env-test-multiline-${Date.now()}.env`);
+  fs.writeFileSync(tmpFile, 'PRIVATE_KEY="-----BEGIN KEY-----\nabc=\n-----END KEY-----"\r\nNEXT=1\n');
+
+  try {
+    const result = parseEnvFile(tmpFile);
+    assert.equal(result.findings.length, 0);
+    assert.equal(result.parsedData["PRIVATE_KEY"], "-----BEGIN KEY-----\nabc=\n-----END KEY-----");
+    assert.equal(result.parsedData["NEXT"], "1");
+    assert.equal(result.parsedLines.find((l) => l.key === "NEXT")?.line, 4);
+  } finally {
+    fs.unlinkSync(tmpFile);
+  }
+});
+
+test("EnvParser: a quote that never closes is still reported", () => {
+  const tmpFile = path.join(os.tmpdir(), `env-test-unclosed-${Date.now()}.env`);
+  fs.writeFileSync(tmpFile, 'BROKEN="never closed\nOTHER=1\n');
+
+  try {
+    const result = parseEnvFile(tmpFile);
+    assert.ok(result.findings.some((f) => f.code.endsWith("unmatched-quotes")));
+  } finally {
+    fs.unlinkSync(tmpFile);
+  }
+});
+
+test("EnvParser: findings use the display name instead of the absolute path", () => {
+  const tmpFile = path.join(os.tmpdir(), `env-test-display-${Date.now()}.env`);
+  fs.writeFileSync(tmpFile, "NOT A LINE\n");
+
+  try {
+    const result = parseEnvFile(tmpFile, ".env");
+    const [finding] = result.findings;
+    assert.equal(finding?.location?.file, ".env");
+    assert.equal(finding?.code, "env-.env-1-missing-equals");
+  } finally {
+    fs.unlinkSync(tmpFile);
+  }
+});
