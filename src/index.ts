@@ -36,6 +36,12 @@ export * from "./core/types.js";
 /** Pure 0-100 security scorecard (severity/domain breakdown, critical hard cap) */
 export * from "./core/scorecard.js";
 export { BaseGuard } from "./core/base-guard.js";
+/** Guards for the workflow audits: bundle budget, render blocking, HTTP optimizer, cache settings and environment validation */
+export { BundleBudgetGuard } from "./rules/bundle-budget-guard.js";
+export { RenderBlockingGuard } from "./core/performance/render-blocking-guard.js";
+export { HttpOptimizerGuard } from "./core/performance/http-optimizer-guard.js";
+export { CachePerformanceGuard } from "./core/performance/cache-performance-guard.js";
+export { EnvGuard, type EnvGuardOptions } from "./core/env-guard.js";
 export { GuardFactory } from "./core/guard-factory.js";
 import { AuditOrchestrator } from "./core/orchestrator.js";
 import { buildAuditContext } from "./core/audit-context.js";

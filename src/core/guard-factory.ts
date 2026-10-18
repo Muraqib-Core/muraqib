@@ -14,7 +14,12 @@ import { MemoryGuard, type MemoryAuditOptions } from "./memory-guard.js";
 import { SecurityGuard } from "./security-guard.js";
 import { NetworkLatencyGuard } from "./performance/network-latency-advisor.js";
 import { ImageGuard } from "./performance/image-guard.js";
+import { RenderBlockingGuard } from "./performance/render-blocking-guard.js";
+import { HttpOptimizerGuard } from "./performance/http-optimizer-guard.js";
+import { CachePerformanceGuard } from "./performance/cache-performance-guard.js";
+import { EnvGuard, type EnvGuardOptions } from "./env-guard.js";
 import { DeadCodeGuard } from "../rules/dead-code-guard.js";
+import { BundleBudgetGuard } from "../rules/bundle-budget-guard.js";
 
 export interface GuardConfig {
   projectRoot?: string;
@@ -27,6 +32,13 @@ export interface GuardConfig {
   imageTargetPath?: string;
   deadCodeTargetPath?: string;
   networkTargetUrl?: string;
+  /** Opt-in guards: they are only created when their setting is present. */
+  bundleTargetPath?: string;
+  renderBlockingTargetPath?: string;
+  httpOptimizer?: { targetPath: string; url: string };
+  envOptions?: EnvGuardOptions;
+  /** Create the cache/compression guard (it reads STATIC_ASSETS_CACHE_MAX_AGE and ENABLE_SERVER_COMPRESSION). */
+  cachePerformance?: boolean;
 }
 
 const MEMORY_OPTION_KEYS = [
@@ -172,6 +184,56 @@ export class GuardFactory {
   }
 
   /**
+   * Create bundle budget guard.
+   *
+   * @param targetPath - Project root whose source files are measured
+   * @returns A guard checking each source file against the 14 KB budget
+   */
+  createBundleBudgetGuard(targetPath: string): BundleBudgetGuard {
+    return new BundleBudgetGuard(targetPath, this.context);
+  }
+
+  /**
+   * Create render blocking guard.
+   *
+   * @param targetPath - Project root holding index.html
+   * @returns A guard checking the head of index.html for render-blocking resources
+   */
+  createRenderBlockingGuard(targetPath: string): RenderBlockingGuard {
+    return new RenderBlockingGuard(targetPath, this.context);
+  }
+
+  /**
+   * Create HTTP optimizer guard.
+   *
+   * @param targetPath - Project root whose static resources are counted
+   * @param url - Live URL to probe
+   * @returns A guard checking the URL's protocol and cookie size
+   */
+  createHttpOptimizerGuard(targetPath: string, url: string): HttpOptimizerGuard {
+    return new HttpOptimizerGuard(targetPath, url, this.context);
+  }
+
+  /**
+   * Create cache performance guard.
+   *
+   * @returns A guard checking the cache and compression environment settings
+   */
+  createCachePerformanceGuard(): CachePerformanceGuard {
+    return new CachePerformanceGuard(this.context);
+  }
+
+  /**
+   * Create env guard.
+   *
+   * @param options - Presets, schedule and safe mode
+   * @returns A guard validating the process environment
+   */
+  createEnvGuard(options?: EnvGuardOptions): EnvGuard {
+    return new EnvGuard(options, this.context);
+  }
+
+  /**
    * Run all guards in parallel and collect results
    */
   async runAllGuards(config: GuardConfig): Promise<AuditResult[]> {
@@ -194,6 +256,11 @@ export class GuardFactory {
       ...(config.networkTargetUrl ? [this.createNetworkLatencyGuard(config.networkTargetUrl)] : []),
       ...(config.imageTargetPath ? [this.createImageGuard(config.imageTargetPath)] : []),
       ...(config.deadCodeTargetPath ? [this.createDeadCodeGuard(config.deadCodeTargetPath)] : []),
+      ...(config.bundleTargetPath ? [this.createBundleBudgetGuard(config.bundleTargetPath)] : []),
+      ...(config.renderBlockingTargetPath ? [this.createRenderBlockingGuard(config.renderBlockingTargetPath)] : []),
+      ...(config.httpOptimizer ? [this.createHttpOptimizerGuard(config.httpOptimizer.targetPath, config.httpOptimizer.url)] : []),
+      ...(config.cachePerformance ? [this.createCachePerformanceGuard()] : []),
+      ...(config.envOptions ? [this.createEnvGuard(config.envOptions)] : []),
     ];
   }
 }

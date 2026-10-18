@@ -241,3 +241,20 @@ describe('BaseGuard', () => {
     });
   });
 });
+
+describe("BaseGuard.skipped", () => {
+  it("keeps status ok but records a skipped info issue", async () => {
+    class SkippingGuard extends BaseGuard {
+      constructor() {
+        super("skipping-guard");
+      }
+      async execute(): Promise<AuditResult> {
+        return this.skipped("nothing to measure");
+      }
+    }
+    const result = await new SkippingGuard().run();
+    expect(result.status).toBe("ok");
+    expect(result.message).toBe("nothing to measure");
+    expect(result.issues).toMatchObject([{ code: "CHECK_SKIPPED", severity: "info", module: "skipping-guard", tags: ["skipped"] }]);
+  });
+});
