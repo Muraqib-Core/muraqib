@@ -10,12 +10,9 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-export interface ValidationIssue {
-  field: string;
-  message: string;
-  code: string;
-  path: (string | number)[];
-}
+import type { ValidationIssue } from './validation-issue.js';
+
+export type { ValidationIssue };
 
 export interface CustomValidationResult {
   success: boolean;

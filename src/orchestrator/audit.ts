@@ -99,6 +99,20 @@ export function createInitialAuditResult(): AuditResult {
   };
 }
 
+/** Runs one audit module, turning a thrown error into a failed result instead of aborting the audit. */
+async function guarded(run: () => ModuleResult | Promise<ModuleResult>): Promise<ModuleResult> {
+  try {
+    return await run();
+  } catch (err: unknown) {
+    return { ok: false, errors: [toMessage(err)] };
+  }
+}
+
+/** The common module outcome: clean when the audit says so, otherwise its reports as errors. */
+function fromReports(clean: boolean, reports: string[]): ModuleResult {
+  return clean ? { ok: true, errors: [] } : { ok: false, errors: reports };
+}
+
 /**
  * Audits image assets for size violations (> 500 KB)
  * @param targetPath - Project root directory
@@ -167,15 +181,10 @@ export async function runNetworkAudit(latencyUrl: string): Promise<ModuleResult>
  * @returns Run memory audit result
  */
 export async function runMemoryAudit(): Promise<ModuleResult> {
-  try {
-    const mem = performMemoryAudit();
-    if (!mem.isOptimized) {
-      return { ok: false, errors: mem.reports };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return guarded(() => {
+    const result = performMemoryAudit();
+    return fromReports(result.isOptimized, result.reports);
+  });
 }
 
 /**
@@ -201,15 +210,10 @@ export async function runSecurityAudit(securityUrl: string): Promise<ModuleResul
  * @returns ModuleResult with dead code locations and severity
  */
 export async function runDeadCodeAudit(targetPath: string): Promise<ModuleResult> {
-  try {
-    const dead = performDeadCodeAudit(targetPath);
-    if (!dead.isClean) {
-      return { ok: false, errors: dead.reports };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return guarded(() => {
+    const result = performDeadCodeAudit(targetPath);
+    return fromReports(result.isClean, result.reports);
+  });
 }
 
 /**
@@ -219,15 +223,10 @@ export async function runDeadCodeAudit(targetPath: string): Promise<ModuleResult
  * @returns Run dependency audit result
  */
 export async function runDependencyAudit(targetPath: string): Promise<ModuleResult> {
-  try {
-    const dep = performDependencyAudit(targetPath);
-    if (!dep.isClean) {
-      return { ok: false, errors: dep.reports };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return guarded(() => {
+    const result = performDependencyAudit(targetPath);
+    return fromReports(result.isClean, result.reports);
+  });
 }
 
 /**
@@ -237,15 +236,10 @@ export async function runDependencyAudit(targetPath: string): Promise<ModuleResu
  * @returns Run async audit result
  */
 export async function runAsyncAudit(targetPath: string): Promise<ModuleResult> {
-  try {
-    const async = performAsyncAudit(targetPath);
-    if (!async.isClean) {
-      return { ok: false, errors: async.reports };
-    }
-    return { ok: true, errors: [] };
-  } catch (err: unknown) {
-    return { ok: false, errors: [toMessage(err)] };
-  }
+  return guarded(() => {
+    const result = performAsyncAudit(targetPath);
+    return fromReports(result.isClean, result.reports);
+  });
 }
 
 /**
