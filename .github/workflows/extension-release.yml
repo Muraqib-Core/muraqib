@@ -59,6 +59,10 @@ jobs:
       - name: Install core dependencies
         run: npm ci
 
+      # The extension's types and runtime come from the core's build output (dist/).
+      - name: Build core
+        run: npm run build
+
       - name: Install extension dependencies
         run: npm ci
         working-directory: extension
