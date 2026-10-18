@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-18
+
 ### Added
 
 - VS Code extension release pipeline: the extension (`extension/`) is no longer private, has a 128x128 icon, and `npm run package` now builds a self-contained `.vsix` (the core and its production dependencies are installed into a clean staging directory, because vsce does not follow the development `file:..` symlink). The `Release VS Code extension` workflow publishes it to the Visual Studio Marketplace (`VSCE_PAT`) and, when `OVSX_PAT` is set, to Open VSX, on an `extension-v<version>` tag; CI now type-checks, lints, tests and packages the extension on every change.
