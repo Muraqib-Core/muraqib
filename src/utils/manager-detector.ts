@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { readJsonFile } from '../shared/fs-safe.js';
 
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
@@ -16,14 +17,10 @@ const LOCK_FILES: ReadonlyArray<readonly [string, PackageManager]> = [
 
 /** The manager named by the `packageManager` field of package.json (e.g. `pnpm@9.1.0`), if any. */
 function readDeclaredManager(basePath: string): PackageManager | undefined {
-  try {
-    const pkg: unknown = JSON.parse(readFileSync(join(basePath, 'package.json'), 'utf8'));
-    const declared = typeof pkg === 'object' && pkg !== null ? (pkg as { packageManager?: unknown }).packageManager : undefined;
-    const name = typeof declared === 'string' ? declared.split('@')[0] : undefined;
-    return SUPPORTED_MANAGERS.find((manager) => manager === name);
-  } catch {
-    return undefined;
-  }
+  const pkg = readJsonFile(join(basePath, 'package.json'));
+  const declared = typeof pkg === 'object' && pkg !== null ? (pkg as { packageManager?: unknown }).packageManager : undefined;
+  const name = typeof declared === 'string' ? declared.split('@')[0] : undefined;
+  return SUPPORTED_MANAGERS.find((manager) => manager === name);
 }
 
 /**

@@ -2,21 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { BaseGuard } from '../base-guard.js';
 import type { AuditResult, AuditIssue, AuditContext } from '../types.js';
+import { SKIPPED_DIR_NAMES } from '../../shared/constants.js';
 
 const MAX_IMAGE_SIZE_BYTES = 500 * 1024;
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
-
-const SKIP_DIR_NAMES = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'coverage',
-  '.next',
-  '.nuxt',
-  'out',
-]);
 
 export interface ImageViolation {
   filePath: string;
@@ -32,7 +22,7 @@ const scanDirectoryForImages = (
   dirPath: string,
   violations: ImageViolation[] = []
 ): ImageViolation[] => {
-  if (SKIP_DIR_NAMES.has(path.basename(dirPath))) {
+  if (SKIPPED_DIR_NAMES.has(path.basename(dirPath))) {
     return violations;
   }
 

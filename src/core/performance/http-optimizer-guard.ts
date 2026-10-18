@@ -1,23 +1,18 @@
-import fs from "fs";
 import path from "path";
 import { BaseGuard } from "../base-guard.js";
 import type { AuditContext, AuditResult } from "../types.js";
 import { analyzeHttpProfile } from "./optimizer-engine.js";
 import { probeHttp } from "./http-probe.js";
+import { DEPENDENCY_DIR } from "../../shared/constants.js";
+import { readDirEntries } from "../../shared/fs-safe.js";
 
 const RESOURCE_PATTERN = /\.(js|css|png|jpe?g|svg|gif|webp|ico|html|woff2?)$/i;
 
 /** Number of static resources under `dir`, skipping `node_modules` and dot directories; unreadable directories count as empty. */
 function countResources(dir: string): number {
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return 0;
-  }
   let count = 0;
-  for (const entry of entries) {
-    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+  for (const entry of readDirEntries(dir)) {
+    if (entry.name === DEPENDENCY_DIR || entry.name.startsWith(".")) continue;
     if (entry.isDirectory()) count += countResources(path.join(dir, entry.name));
     else if (entry.isFile() && RESOURCE_PATTERN.test(entry.name)) count++;
   }

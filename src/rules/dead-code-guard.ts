@@ -3,6 +3,7 @@ import path from "path";
 import { BaseGuard } from "../core/base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "../core/types.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
+import { toPosix } from "../shared/paths.js";
 
 /**
  * Result of a dead code audit
@@ -181,8 +182,6 @@ function readSuppressions(content: string): Suppressions {
   });
   return suppressions;
 }
-
-const toPosix = (relativePath: string): string => relativePath.replace(/\\/g, "/");
 
 /** 1-based line of a character offset. */
 const lineOf = (content: string, index: number): number => content.slice(0, index).split("\n").length;

@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { SKIPPED_DIR_NAMES } from "../../../shared/constants.js";
 
 export interface DockerDiscoveryResult {
   dockerfiles: string[];
@@ -7,16 +8,7 @@ export interface DockerDiscoveryResult {
   dockerignoreFiles: string[];
 }
 
-const IGNORE_DIRS = new Set([
-  "node_modules",
-  "dist",
-  ".git",
-  "vendor",
-  "build",
-  "out",
-  ".next",
-  "coverage"
-]);
+const IGNORE_DIRS: ReadonlySet<string> = new Set([...SKIPPED_DIR_NAMES, "vendor"]);
 
 const COMPOSE_NAMES = new Set([
   "compose.yaml",

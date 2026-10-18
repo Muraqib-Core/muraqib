@@ -12,6 +12,8 @@ import fs from "fs";
 import path from "path";
 import { scanProjectFiles } from "../utils/file-scanner.js";
 import { maskLiteralsAndComments } from "../utils/code-mask.js";
+import { SKIPPED_DIR_NAMES } from "../shared/constants.js";
+import { toPosix } from "../shared/paths.js";
 import { BaseGuard } from "./base-guard.js";
 import { extractImportSpecifiers, findCycles, resolveImportTarget } from "./helpers/import-graph.js";
 import {
@@ -79,15 +81,7 @@ const DEPRECATED_PATTERNS: DeprecatedPattern[] = [
 ];
 
 /** Directory names whose contents are build output or vendored code. */
-const GENERATED_SEGMENTS: ReadonlySet<string> = new Set([
-  "dist",
-  "build",
-  "coverage",
-  "node_modules",
-  "generated",
-  ".next",
-  "out",
-]);
+const GENERATED_SEGMENTS: ReadonlySet<string> = new Set([...SKIPPED_DIR_NAMES, "generated"]);
 
 /** Directories where CommonJS `require()` is acceptable. */
 const REQUIRE_ALLOWED_SEGMENTS: ReadonlySet<string> = new Set(["scripts", "config", "tests"]);
@@ -97,10 +91,6 @@ const LOCK_FILES: ReadonlyArray<{ name: string; collect: (content: string, into:
   { name: "yarn.lock", collect: collectYarnLockVersions },
   { name: "pnpm-lock.yaml", collect: collectPnpmLockVersions },
 ];
-
-function toPosix(value: string): string {
-  return value.split(path.sep).join("/");
-}
 
 /** True when a path lies in a build-output directory or is a declaration file (whole segments only). */
 function isGeneratedPath(posixPath: string): boolean {
