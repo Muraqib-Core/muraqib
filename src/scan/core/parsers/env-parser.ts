@@ -76,6 +76,28 @@ function joinMultilineValue(
   return undefined;
 }
 
+/** Whether a value is wrapped in a matching pair of quotes, has a stray quote at one end, or is unquoted. */
+function quoteState(value: string): "none" | "matched" | "unmatched" {
+  const first = value[0];
+  const last = value[value.length - 1];
+  const opens = first === '"' || first === "'";
+  const closes = last === '"' || last === "'";
+  if (!opens && !closes) return "none";
+  return opens && first === last && value.length > 1 ? "matched" : "unmatched";
+}
+
+/** The value text of the assignment starting at `index`: joins a multi-line quoted value and drops an inline comment. */
+function readRawValue(lines: string[], index: number, assigned: string): { rawValue: string; lastIndex: number } {
+  let rawValue = assigned.trim();
+  let lastIndex = index;
+  const multiline = joinMultilineValue(lines, index, rawValue);
+  if (multiline) {
+    rawValue = multiline.value;
+    lastIndex = multiline.lastIndex;
+  }
+  return { rawValue: stripInlineComment(rawValue).trim(), lastIndex };
+}
+
 /**
  * Parse env file.
  *
@@ -160,28 +182,18 @@ export function parseEnvFile(filePath: string, displayName: string = filePath): 
     }
 
     const key = match[1];
-    let rawValue = match[2] ? match[2].trim() : "";
-
-    const multiline = joinMultilineValue(allLines, index, rawValue);
-    if (multiline) {
-      rawValue = multiline.value;
-      index = multiline.lastIndex;
-    }
-
     // Strip comments only when # appears outside quoted values.
-    rawValue = stripInlineComment(rawValue).trim();
+    const read = readRawValue(allLines, index, match[2] ?? "");
+    const rawValue = read.rawValue;
+    index = read.lastIndex;
 
-    const startsWithQuote = rawValue.startsWith('"') || rawValue.startsWith("'");
-    const endsWithQuote = rawValue.endsWith('"') || rawValue.endsWith("'");
-    const matchesPerfect =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"));
+    const quoting = quoteState(rawValue);
 
     let finalValue = rawValue;
 
     // 4. Check quotes
-    if (startsWithQuote || endsWithQuote) {
-      if (!matchesPerfect) {
+    if (quoting !== "none") {
+      if (quoting === "unmatched") {
         const msg = "Malformed value: Unmatched or missing quotes around the variable value.";
         issues.push({
           line: lineNum,

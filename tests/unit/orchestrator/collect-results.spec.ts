@@ -35,14 +35,14 @@ describe("collectAuditResults", () => {
     expect(results.map((r) => r.module)).toEqual(["security-guard"]);
   });
 
-  it("leaves the scan layer out when the filter does not name it", async () => {
+  it("keeps the scan layer when it was explicitly requested, whatever the module filter", async () => {
     await collectAuditResults({ projectRoot: "/p", modules: ["security"], scan: true });
-    expect(state.scan).not.toHaveBeenCalled();
-  });
-
-  it("runs the scan layer when it is selected or no filter is given", async () => {
-    await collectAuditResults({ projectRoot: "/p", modules: ["scan"], scan: true });
     await collectAuditResults({ projectRoot: "/p", scan: true });
     expect(state.scan).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not run the scan layer unless requested", async () => {
+    await collectAuditResults({ projectRoot: "/p" });
+    expect(state.scan).not.toHaveBeenCalled();
   });
 });

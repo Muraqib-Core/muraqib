@@ -56,9 +56,8 @@ export async function collectAuditResults(options: CollectOptions): Promise<Coll
     : [...unified.results];
 
   let aiAdvisory: string | null = null;
-  // The scan layer is a module of its own: a module filter that does not name it leaves it out.
-  const scanSelected = wanted.length === 0 || wanted.some((w) => "scan".includes(w));
-  if (options.scan && scanSelected) {
+  // `scan` is an explicit opt-in flag, so a module filter narrows the guards but never drops the scan layer.
+  if (options.scan) {
     const outcome = await runScanAudit(root, {
       enableAi: options.aiAdvisory ?? false,
       dockerNative: options.dockerNative ?? false,

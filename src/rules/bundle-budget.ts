@@ -10,7 +10,6 @@ interface BundleViolation {
     filePath: string;
     sizeKB: number;
     limitKB: number;
-    suggestions: string[];
 }
 
 interface BundleAuditResult {
@@ -69,17 +68,14 @@ export const runComprehensiveBundleAudit = (targetPath?: string): BundleAuditRes
         if (sizeKB <= BUNDLE_LIMIT_KB) continue;
 
         const filePath = path.relative(projectRoot, file);
-        violations.push({ filePath, sizeKB: Number(sizeKB.toFixed(2)), limitKB: BUNDLE_LIMIT_KB, suggestions: [] });
+        violations.push({ filePath, sizeKB: Number(sizeKB.toFixed(2)), limitKB: BUNDLE_LIMIT_KB });
 
         error(`❌ [Budget Violation]: ${filePath} is ${sizeKB.toFixed(2)}KB (limit ${BUNDLE_LIMIT_KB}KB).`);
     }
 
-    const projectIssues: string[] = [];
-    projectIssues.forEach(msg => warn(msg));
-
-    if (violations.length === 0 && projectIssues.length === 0) {
+    if (violations.length === 0) {
         log(`✅ [Muraqib]: All ${files.length} source file(s) are within the ${BUNDLE_LIMIT_KB}KB budget.`);
     }
 
-    return { scannedFiles: files.length, skipped: false, violations, projectIssues };
+    return { scannedFiles: files.length, skipped: false, violations, projectIssues: [] };
 };
