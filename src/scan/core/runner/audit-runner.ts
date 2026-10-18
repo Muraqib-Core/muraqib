@@ -5,6 +5,7 @@ import { createScanIssue, type ScanIssue } from "../findings/finding.js";
 import { parseEnvFile } from "../parsers/env-parser.js";
 import { createEnv } from "../../guard/env-validator.js";
 import { EnvValidationError } from "../../guard/errors/env-validation-error.js";
+import { MissingOptionalDependencyError } from "../../../utils/optional-dependency.js";
 import { OsvScanner } from "../../scanners/dependency/osv-engine.js";
 import { CompatibilityEngine } from "../../scanners/compatibility/compatibility-engine.js";
 import { DockerScanner } from "../../scanners/docker/docker-engine.js";
@@ -49,11 +50,22 @@ interface ParsedEnvFiles {
   totalParsedLines: number;
 }
 
-/** Parses every .env file, collecting parser findings and where each key was defined. */
-function parseEnvFiles(context: ProjectContext, collector: FindingCollector): ParsedEnvFiles {
+/**
+ * Parses every .env file, collecting parser findings and where each key was defined.
+ * A file that cannot be read becomes a finding and a coverage gap instead of aborting the run,
+ * so the dependency and Docker scanners still report.
+ */
+function parseEnvFiles(
+  context: ProjectContext,
+  collector: FindingCollector,
+  scannerCoverage: ScannerCoverage[]
+): ParsedEnvFiles {
   const registry: EnvMetaRegistry = {};
   let cleanEnv: Record<string, string> = {};
   let totalParsedLines = 0;
+  const scannedInputs: string[] = [];
+  const skippedInputs: string[] = [];
+  const diagnostics: string[] = [];
   for (const file of context.envFiles) {
     const fullPath = path.join(context.projectPath, file);
     try {
@@ -64,10 +76,31 @@ function parseEnvFiles(context: ProjectContext, collector: FindingCollector): Pa
         registry[p.key] = { fileName: file, line: p.line };
       });
       collector.addMany(result.findings);
+      scannedInputs.push(file);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to read environment file ${file}: ${msg}`, { cause: err });
+      skippedInputs.push(file);
+      diagnostics.push(`Failed to read environment file ${file}: ${msg}`);
+      collector.add(createScanIssue({
+        id: `env-file-unreadable-${file}`,
+        title: `Environment file could not be read: ${file}`,
+        message: `Failed to read environment file ${file}: ${msg}`,
+        severity: "high",
+        category: "reliability",
+        source: "env-parser",
+        confidence: "confirmed",
+        file,
+      }));
     }
+  }
+  if (skippedInputs.length > 0) {
+    scannerCoverage.push({
+      scanner: "env-files",
+      status: scannedInputs.length > 0 ? "partial" : "failed",
+      scannedInputs,
+      skippedInputs,
+      diagnostics,
+    });
   }
   return { cleanEnv, registry, totalParsedLines };
 }
@@ -101,6 +134,20 @@ async function validateSemantics(
     });
     return { engine: guardResult.engine, unknownKeys: guardResult.unknownKeys };
   } catch (err: unknown) {
+    // The engine was auto-detected from the project's package.json but is not installed next to Muraqib:
+    // validate with the built-in engine and say so, rather than failing the whole scan.
+    if (err instanceof MissingOptionalDependencyError && options.engine === undefined) {
+      collector.add(createScanIssue({
+        id: "env-engine-fallback",
+        title: "Validation engine unavailable, using the built-in engine",
+        message: err.message,
+        severity: "low",
+        category: "reliability",
+        source: "preset-guard",
+        confidence: "confirmed",
+      }));
+      return validateSemantics(parsed, { ...options, engine: "custom" }, projectPath, collector);
+    }
     if (!(err instanceof EnvValidationError)) {
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(`Environment validation execution failed: ${msg}`, { cause: err });
@@ -255,7 +302,7 @@ export class AuditRunner {
     const scannerCoverage: ScannerCoverage[] = [];
 
     // 1. Parse .env files
-    const parsed = parseEnvFiles(context, collector);
+    const parsed = parseEnvFiles(context, collector, scannerCoverage);
 
     // 2. Semantic validation
     const { engine, unknownKeys } = await validateSemantics(parsed, options, context.projectPath, collector);
