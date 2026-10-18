@@ -1,5 +1,4 @@
 import { toMessage } from "../shared/utils.js";
-import { setSilentMode } from "../shared/logger.js";
 import {
   type AuditOptions,
   type AuditResult,
@@ -293,7 +292,6 @@ export async function runAuditWorkflow(options: AuditOptions = {}): Promise<Audi
   const silent = options.silent ?? false;
 
   setSilent(silent);
-  setSilentMode(silent);
   renderHeader(targetPath);
 
   const result = createInitialAuditResult();

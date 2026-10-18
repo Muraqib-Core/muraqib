@@ -1,16 +1,22 @@
 import { COLORS } from "../shared/constants.js";
+import { isSilentMode, setSilentMode } from "../shared/logger.js";
 
 const { RESET, RED, GREEN, YELLOW, CYAN, DIM, BOLD } = COLORS;
 
-let isSilent = false;
-
 /**
- * Set silent.
+ * Silences (or restores) the report renderers. They share one flag with the logger, so a single
+ * call silences every piece of console output of the audit.
  *
- * @param silent - Silent
+ * @param silent - True to suppress output
  */
-export function setSilent(silent: boolean): void {
-  isSilent = silent;
+export const setSilent: (silent: boolean) => void = setSilentMode;
+
+// eslint-disable-next-line no-control-regex -- strips SGR color sequences
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
+/** Length of `text` as the terminal shows it, ignoring color escape sequences. */
+function visibleLength(text: string): number {
+  return text.replace(ANSI_PATTERN, "").length;
 }
 
 /**
@@ -21,7 +27,7 @@ export function setSilent(silent: boolean): void {
  * @param message - Message
  */
 export function log(title: string, status: "pass" | "fail" | "warn", message?: string): void {
-  if (isSilent) return;
+  if (isSilentMode()) return;
   const icon = status === "pass"
     ? `${GREEN}[PASS]${RESET}`
     : status === "fail"
@@ -36,7 +42,7 @@ export function log(title: string, status: "pass" | "fail" | "warn", message?: s
  * @param name - Name
  */
 export function section(name: string): void {
-  if (isSilent) return;
+  if (isSilentMode()) return;
   console.log(`
 ${CYAN}${BOLD}${name}${RESET}`);
   console.log(`${DIM}${"-".repeat(60)}${RESET}`);
@@ -48,14 +54,18 @@ ${CYAN}${BOLD}${name}${RESET}`);
  * @param lines - Lines
  */
 export function box(lines: string[]): void {
-  if (isSilent) return;
-  const width = Math.max(...lines.map((l) => l.length), 40);
+  if (isSilentMode()) return;
+  const width = Math.max(...lines.map(visibleLength), 40);
   console.log(`  ${DIM}┌${"─".repeat(width + 2)}┐${RESET}`);
   for (const line of lines) {
-    console.log(`  ${DIM}│${RESET} ${line.padEnd(width)} ${DIM}│${RESET}`);
+    console.log(`  ${DIM}│${RESET} ${line}${" ".repeat(width - visibleLength(line))} ${DIM}│${RESET}`);
   }
   console.log(`  ${DIM}└${"─".repeat(width + 2)}┘${RESET}`);
 }
+
+const HEADER_INNER_WIDTH = 60;
+const HEADER_TITLE = "MURAQIB — COMPREHENSIVE AUDIT REPORT";
+const HEADER_TITLE_LINE = `║${HEADER_TITLE.padStart(Math.floor((HEADER_INNER_WIDTH + HEADER_TITLE.length) / 2)).padEnd(HEADER_INNER_WIDTH)}║`;
 
 /**
  * Render header.
@@ -63,10 +73,10 @@ export function box(lines: string[]): void {
  * @param targetPath - Target path
  */
 export function renderHeader(targetPath: string): void {
-  if (isSilent) return;
+  if (isSilentMode()) return;
   console.log(`
 ${CYAN}${BOLD}╔════════════════════════════════════════════════════════════╗${RESET}`);
-  console.log(`${CYAN}${BOLD}║        MURAQIB — COMPREHENSIVE AUDIT REPORT              ║${RESET}`);
+  console.log(`${CYAN}${BOLD}${HEADER_TITLE_LINE}${RESET}`);
   console.log(`${CYAN}${BOLD}╚════════════════════════════════════════════════════════════╝${RESET}`);
   console.log(`${DIM}Target: ${targetPath}${RESET}
 `);
