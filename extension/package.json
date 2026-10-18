@@ -4,8 +4,8 @@
   "description": "Run Muraqib security, performance and configuration audits from VS Code, with results in the Problems panel and an RTL-friendly report view.",
   "version": "0.1.0",
   "publisher": "muraqib-core",
+  "icon": "images/icon.png",
   "license": "ISC",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Muraqib-Core/muraqib.git",
@@ -88,12 +88,13 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "package": "npm run build:core && npm run build && vsce package --no-dependencies"
+    "package": "npm run build:core && npm run build && node scripts/package.mjs"
   },
   "dependencies": {
     "muraqib-core": "file:.."
   },
   "devDependencies": {
+    "@vscode/vsce": "3.9.0",
     "@types/node": "^25.9.9",
     "@types/vscode": "1.85.0",
     "@vitest/coverage-v8": "^5.0.3",
