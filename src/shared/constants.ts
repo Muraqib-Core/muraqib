@@ -38,3 +38,18 @@ export const CLI_FLAGS = {
   SCHEDULE: "--schedule",
   PRESETS: "--presets",
 } as const;
+
+/** Dependency install folder, never part of the audited source. */
+export const DEPENDENCY_DIR = "node_modules";
+
+/** Version-control metadata folder. */
+export const VCS_DIR = ".git";
+
+/** Folders that hold build output or coverage reports rather than authored source. */
+export const BUILD_OUTPUT_DIRS: readonly string[] = ["dist", "build", "out", "coverage", ".next", ".nuxt"];
+
+/** Folder names (matched against a single path segment) that directory walkers never descend into. */
+export const SKIPPED_DIR_NAMES: ReadonlySet<string> = new Set([DEPENDENCY_DIR, VCS_DIR, ...BUILD_OUTPUT_DIRS]);
+
+/** Folders excluded from source discovery by glob (any depth); kept narrow so authored `build/` or `out/` modules stay audited. */
+export const SOURCE_SCAN_IGNORED_DIRS: readonly string[] = [DEPENDENCY_DIR, "dist", "coverage"];

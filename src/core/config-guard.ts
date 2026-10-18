@@ -7,7 +7,8 @@
  * - `env-parser`: counts the variables a committed environment file defines.
  * - `secret-detector`: tells real secret values from placeholders, so only exposed secrets escalate.
  */
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
+import { readDirEntries } from "../shared/fs-safe.js";
 import { join } from "path";
 import { BaseGuard } from "./base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "./types.js";
@@ -88,13 +89,9 @@ function exposedKeys(entries: readonly EnvEntry[], sensitiveKeys: ReadonlySet<st
 
 /** Lists non-template env files directly inside `root`. */
 function localEnvFiles(root: string): string[] {
-  try {
-    return readdirSync(root, { withFileTypes: true })
-      .filter((d) => d.isFile() && ENV_FILE_PATTERN.test(d.name) && !ENV_TEMPLATE_PATTERN.test(d.name))
-      .map((d) => d.name);
-  } catch {
-    return [];
-  }
+  return readDirEntries(root)
+    .filter((d) => d.isFile() && ENV_FILE_PATTERN.test(d.name) && !ENV_TEMPLATE_PATTERN.test(d.name))
+    .map((d) => d.name);
 }
 
 /**
@@ -161,11 +158,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** True when the directory holds at least one `.ts`/`.tsx` file directly inside it. */
 function hasTypeScriptFiles(dir: string): boolean {
-  try {
-    return readdirSync(dir, { withFileTypes: true }).some((d) => d.isFile() && /\.tsx?$/.test(d.name));
-  } catch {
-    return false;
-  }
+  return readDirEntries(dir).some((d) => d.isFile() && /\.tsx?$/.test(d.name));
 }
 
 /** A project is considered TypeScript when package.json lists `typescript` or `.ts`/`.tsx` files exist in the root or `src`. */

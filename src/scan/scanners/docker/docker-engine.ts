@@ -5,6 +5,7 @@ import path from "node:path";
 import yaml from "yaml";
 import ignore, { type Ignore } from "ignore";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
+import { isWithinRoot } from "../../../shared/paths.js";
 import { createScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 
 const execFileAsync = promisify(execFile);
@@ -15,11 +16,6 @@ const SENSITIVE = [".env", ".env.local", ".env.production", ".env.development"];
 type ComposeDocument = { services?: Record<string, Record<string, unknown>> };
 
 type DockerCommand = (args: string[], cwd: string) => Promise<string>;
-
-function within(root: string, target: string): boolean {
-  const relative = path.relative(root, target);
-  return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
-}
 
 function safeName(name: string): string {
   return name.replace(/[^\w./-]/g, "_").slice(0, 180);
@@ -148,7 +144,7 @@ async function resolveBuildContext(build: unknown, file: string, root: string, s
   let contextReal: string;
   try { contextReal = await fs.realpath(contextPath); }
   catch { return { skip: `Local build context inaccessible for service ${service}.` }; }
-  if (!within(root, contextReal)) return { skip: `Build context outside project skipped for service ${service}.` };
+  if (!isWithinRoot(root, contextReal)) return { skip: `Build context outside project skipped for service ${service}.` };
   return { value: contextReal };
 }
 
@@ -164,7 +160,7 @@ async function readBuildDockerfile(
   let real: string;
   try { real = await fs.realpath(path.resolve(contextReal, dockerfileName)); }
   catch { return { skip: `Build Dockerfile inaccessible for service ${service}.` }; }
-  if (!within(root, real)) return { skip: `Build Dockerfile outside project skipped for service ${service}.` };
+  if (!isWithinRoot(root, real)) return { skip: `Build Dockerfile outside project skipped for service ${service}.` };
   try { return { value: { real, content: await fs.readFile(real, "utf8") } }; }
   catch { return { skip: `Build Dockerfile unreadable for service ${service}.` }; }
 }
@@ -176,7 +172,7 @@ async function readIgnoreRules(dockerfileReal: string, contextReal: string, root
   const selectedIgnore = await fs.stat(specialIgnore).then(() => specialIgnore).catch(() => defaultIgnore);
   try {
     const ignoreReal = await fs.realpath(selectedIgnore);
-    if (!within(root, ignoreReal)) return { skip: `Ignore file outside project skipped for service ${service}.` };
+    if (!isWithinRoot(root, ignoreReal)) return { skip: `Ignore file outside project skipped for service ${service}.` };
     const rules = await fs.readFile(ignoreReal, "utf8");
     if (rules.length > 1024 * 1024) return { skip: `Ignore file too large for service ${service}.` };
     return { value: rules };
@@ -269,7 +265,7 @@ export class DockerScanner implements ScannerEngine {
 
   private async scanDockerfile(file: string, root: string, dockerAvailable: boolean, state: ScanState): Promise<void> {
     const filePath = path.resolve(root, file);
-    if (!within(root, filePath)) {
+    if (!isWithinRoot(root, filePath)) {
       state.skippedInputs.push(file);
       state.partial = true;
       state.diagnostics.push(`Dockerfile outside project skipped: ${safeName(file)}`);
@@ -277,7 +273,7 @@ export class DockerScanner implements ScannerEngine {
     }
     try {
       const real = await fs.realpath(filePath);
-      if (!within(root, real)) throw new Error("outside root");
+      if (!isWithinRoot(root, real)) throw new Error("outside root");
       const content = await fs.readFile(real, "utf8");
       if (content.length > 1024 * 1024) throw new Error("too large");
       state.scannedInputs.push(file);
@@ -321,7 +317,7 @@ export class DockerScanner implements ScannerEngine {
     state: ScanState
   ): Promise<{ value: ComposeDocument } | undefined> {
     const filePath = path.resolve(root, file);
-    if (!within(root, filePath)) {
+    if (!isWithinRoot(root, filePath)) {
       state.skippedInputs.push(file);
       state.partial = true;
       state.diagnostics.push(`Compose file outside project skipped: ${safeName(file)}`);
@@ -329,7 +325,7 @@ export class DockerScanner implements ScannerEngine {
     }
     try {
       const real = await fs.realpath(filePath);
-      if (!within(root, real)) throw new Error("outside root");
+      if (!isWithinRoot(root, real)) throw new Error("outside root");
       const content = await fs.readFile(real, "utf8");
       if (content.length > 1024 * 1024) throw new Error("too large");
       const value = yaml.parse(content) as ComposeDocument;
@@ -349,7 +345,7 @@ export class DockerScanner implements ScannerEngine {
 
   private async validateOverride(additional: string, root: string): Promise<void> {
     const resolved = await fs.realpath(path.resolve(root, additional));
-    if (!within(root, resolved)) throw new Error("override outside root");
+    if (!isWithinRoot(root, resolved)) throw new Error("override outside root");
     const overrideContent = await fs.readFile(resolved, "utf8");
     if (overrideContent.length > 1024 * 1024) throw new Error("override too large");
     yaml.parse(overrideContent);
@@ -512,7 +508,7 @@ export class DockerScanner implements ScannerEngine {
       let candidateReal: string;
       try { candidateReal = await fs.realpath(path.join(contextReal, candidate)); }
       catch { continue; }
-      if (!within(contextReal, candidateReal)) { incomplete = skipped(diagnostics, `Sensitive candidate symlink skipped for service ${service}.`); continue; }
+      if (!isWithinRoot(contextReal, candidateReal)) { incomplete = skipped(diagnostics, `Sensitive candidate symlink skipped for service ${service}.`); continue; }
       if (matcher.ignores(candidate)) continue;
       for (const instruction of instructions(dockerfile.content)) {
         if (!/^(COPY|ADD)\s/i.test(instruction.text) || /\s--from(?:=|\s)/i.test(instruction.text)) continue;

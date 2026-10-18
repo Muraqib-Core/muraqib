@@ -8,6 +8,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { runGit } from "../core/helpers/git-protection.js";
+import { toPosix } from "../shared/paths.js";
 import { DEFAULT_BIN, HOOK_NAMES, isShellHook, removeHookBlock, upsertHookBlock } from "./hook-script.js";
 import type { HookName } from "./hook-script.js";
 
@@ -89,7 +90,7 @@ function readIfExists(file: string): string | undefined {
 /** Project-local Muraqib binary relative to the repository root, if the project has one. */
 function localBin(gitRoot: string, projectRoot: string): string {
   const candidate = path.join(projectRoot, "node_modules", ".bin", "muraqib");
-  const relative = path.relative(gitRoot, candidate).split(path.sep).join("/");
+  const relative = toPosix(path.relative(gitRoot, candidate));
   return fs.existsSync(candidate) && !relative.startsWith("..") ? relative : DEFAULT_BIN;
 }
 

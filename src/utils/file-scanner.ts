@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { globSync } from "glob";
+import { SOURCE_SCAN_IGNORED_DIRS } from "../shared/constants.js";
 
 /**
  * FileScanner: shared helper for reading and searching project files,
@@ -18,7 +19,7 @@ export interface ScanOptions {
 }
 
 /** Ignored at any depth, so nested `node_modules` of a monorepo workspace are skipped too. */
-const ALWAYS_IGNORED = ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.d.ts"];
+const ALWAYS_IGNORED = [...SOURCE_SCAN_IGNORED_DIRS.map((dir) => `**/${dir}/**`), "**/*.d.ts"];
 const TEST_IGNORED = ["tests/**", "**/*.spec.ts"];
 
 /**
