@@ -1,10 +1,7 @@
-**
-!package.json
-!README.md
-!LICENSE
-!CHANGELOG.md
-!dist/**/*.js
-dist/**/*.spec.*
-!node_modules/muraqib-core/package.json
-!node_modules/muraqib-core/dist/**
-!node_modules/muraqib-core/node_modules/**
+# Applied to the staging directory created by scripts/package.mjs (the extension's dist, images and the
+# production install of muraqib-core), not to this folder.
+**/*.map
+**/*.d.ts
+**/*.spec.*
+node_modules/**/*.md
+*.tgz

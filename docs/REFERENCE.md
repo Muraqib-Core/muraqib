@@ -82,8 +82,9 @@ Run `muraqib --help` for the description of each flag.
 | Workflow | File | Triggers | Jobs |
 |----------|------|----------|------|
 | Audit | `.github/workflows/audit.yml` | push, pull_request, workflow_dispatch | `audit` |
-| CI/CD Pipeline | `.github/workflows/ci.yml` | push, pull_request | `lint-and-build`, `test-and-coverage`, `self-audit`, `quality-gate`, `package-contents`, `docs-check`, `security-scan` |
+| CI/CD Pipeline | `.github/workflows/ci.yml` | push, pull_request | `lint-and-build`, `test-and-coverage`, `self-audit`, `extension`, `quality-gate`, `package-contents`, `docs-check`, `security-scan` |
 | Docs | `.github/workflows/docs.yml` | push, schedule, workflow_dispatch | `refresh` |
+| Release VS Code extension | `.github/workflows/extension-release.yml` | push | `release` |
 | Release | `.github/workflows/release.yml` | push | `release` |
 
 ### CI pipeline jobs
@@ -91,7 +92,8 @@ Run `muraqib --help` for the description of each flag.
 - **Lint and Build** (`lint-and-build`) (matrix: node-version 20.12.0, 22.x)
 - **Test and Coverage** (`test-and-coverage`)
 - **Self-Audit (muraqib audit)** (`self-audit`)
-- **Quality Gate** (`quality-gate`) - needs: `lint-and-build`, `test-and-coverage`, `self-audit`, `package-contents`, `security-scan`, `docs-check`
+- **VS Code extension** (`extension`)
+- **Quality Gate** (`quality-gate`) - needs: `lint-and-build`, `test-and-coverage`, `self-audit`, `package-contents`, `security-scan`, `docs-check`, `extension`
 - **Package Contents** (`package-contents`)
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
