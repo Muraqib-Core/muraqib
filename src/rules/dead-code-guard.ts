@@ -161,6 +161,27 @@ export function findUnreachableLines(lines: string[]): number[] {
 
 type ScannedFile = ReturnType<typeof scanProjectFiles>[number];
 
+const SUPPRESSION_MARKER = /\/\/\s*muraqib-(?:ignore-dead|unreachable)\b/;
+
+interface Suppressions {
+  /** A comment-only marker line silences the whole file. */
+  wholeFile: boolean;
+  /** A marker trailing code silences findings reported on that line only. */
+  lines: Set<number>;
+}
+
+/** Reads suppression comments; markers inside string literals do not count because a real comment must start with `//`. */
+function readSuppressions(content: string): Suppressions {
+  const suppressions: Suppressions = { wholeFile: false, lines: new Set() };
+  content.split("\n").forEach((line, index) => {
+    const marker = SUPPRESSION_MARKER.exec(line);
+    if (!marker) return;
+    if (line.slice(0, marker.index).trim() === "") suppressions.wholeFile = true;
+    else suppressions.lines.add(index + 1);
+  });
+  return suppressions;
+}
+
 const toPosix = (relativePath: string): string => relativePath.replace(/\\/g, "/");
 
 /** 1-based line of a character offset. */
@@ -191,19 +212,21 @@ function collectPublicFiles(targetPath: string, scannedFiles: ScannedFile[]): Se
   return publicFiles;
 }
 
-function reportEmptyFunctions({ relativePath, content }: ScannedFile, out: DeadCodeAuditResult): void {
+function reportEmptyFunctions({ relativePath, content }: ScannedFile, suppressed: Set<number>, out: DeadCodeAuditResult): void {
   const emptyFuncRegex = /(?:function\s+(\w+)\s*\([^)]*\)|(\w+)\s*(?::\s*[^=]+)?=\s*(?:async\s*)?\([^)]*\)\s*=>)\s*{\s*}/g;
   let match: RegExpExecArray | null;
   while ((match = emptyFuncRegex.exec(content)) !== null) {
     const name = match[1] || match[2] || "anonymous";
     const lineNum = lineOf(content, match.index);
+    if (suppressed.has(lineNum)) continue;
     out.emptyFunctions.push(`${relativePath}:${lineNum} (${name})`);
     out.reports.push(`Empty function body: ${relativePath}:${lineNum} — "${name}" does nothing`);
   }
 }
 
-function reportUnreachable({ relativePath, content }: ScannedFile, out: DeadCodeAuditResult): void {
+function reportUnreachable({ relativePath, content }: ScannedFile, suppressed: Set<number>, out: DeadCodeAuditResult): void {
   for (const lineNum of findUnreachableLines(content.split("\n"))) {
+    if (suppressed.has(lineNum)) continue;
     out.unreachableBranches.push(`${relativePath}:${lineNum}`);
     out.reports.push(`Unreachable code: ${relativePath}:${lineNum} — statement follows return/throw/break/continue in the same block`);
   }
@@ -249,13 +272,14 @@ function findUnusedExports(
 /** One summary entry per file keeps unused-export noise from burying real findings. */
 function reportUnusedExports(
   file: ScannedFile,
+  suppressed: Set<number>,
   publicFiles: Set<string>,
   identifiersByFile: Map<string, Set<string>>,
   out: DeadCodeAuditResult
 ): void {
   const { relativePath } = file;
   if (isEntryOrBarrel(relativePath) || publicFiles.has(toPosix(relativePath))) return;
-  const unusedInFile = findUnusedExports(file, identifiersByFile);
+  const unusedInFile = findUnusedExports(file, identifiersByFile).filter((e) => !suppressed.has(e.line));
   const [first] = unusedInFile;
   if (!first) return;
   const names = unusedInFile.map((e) => e.name).join(", ");
@@ -273,10 +297,11 @@ function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
   const publicFiles = collectPublicFiles(targetPath, scannedFiles);
 
   for (const file of scannedFiles) {
-    if (file.content.includes("muraqib-ignore-dead") || file.content.includes("muraqib-unreachable")) continue;
-    reportEmptyFunctions(file, out);
-    reportUnreachable(file, out);
-    reportUnusedExports(file, publicFiles, identifiersByFile, out);
+    const suppressions = readSuppressions(file.content);
+    if (suppressions.wholeFile) continue;
+    reportEmptyFunctions(file, suppressions.lines, out);
+    reportUnreachable(file, suppressions.lines, out);
+    reportUnusedExports(file, suppressions.lines, publicFiles, identifiersByFile, out);
   }
 
   out.isClean = out.reports.length === 0;

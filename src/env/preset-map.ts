@@ -13,7 +13,7 @@ export interface VercelEnv {
   VERCEL_DEPLOYMENT_ID?: string;
 }
 
-export interface NeonVercelEnv extends VercelEnv {
+export interface NeonVercelEnv extends VercelEnv { // muraqib-ignore-dead: public preset type, consumed by library users
   DATABASE_URL: string;
   DATABASE_URL_UNPOOLED?: string;
   PGHOST?: string;
