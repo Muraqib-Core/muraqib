@@ -77,13 +77,30 @@ extension/
   tests/      Vitest specs, including XSS and path-traversal cases
 ```
 
-## Publishing to the Marketplace (not done yet)
+## Packaging and publishing
 
-1. Publish `muraqib-core` to npm, then change the dependency in `extension/package.json` from `file:..` to its version range and re-run `npm install` (the `file:` link cannot be packaged).
-2. Set a real `publisher`, add a 128x128 PNG `icon`, remove `"private": true`, and bump `version`.
-3. `npm install -g @vscode/vsce`, then `vsce login <publisher>` with a Marketplace personal access token.
-4. `npm run build && vsce package` (this bundles `node_modules/muraqib-core` per `.vscodeignore`; consider bundling with esbuild to shrink the package), install the `.vsix` locally to smoke-test, then `vsce publish`.
-5. Optionally publish to Open VSX with `ovsx publish`.
+`npm run package` builds the core and the extension and writes `muraqib-vscode-<version>.vsix`. It packages from a clean staging directory (`scripts/package.mjs`) because vsce does not follow the `file:..` symlink: the core is packed into a tarball and installed there with production dependencies only, so the `.vsix` carries the audit engine and runs on a machine that has nothing but VS Code.
+
+```bash
+cd extension
+npm run package
+code --install-extension muraqib-vscode-0.1.0.vsix   # smoke-test in a clean profile
+```
+
+Releases are published by `.github/workflows/extension-release.yml` when a tag `extension-v<version>` is pushed (the version must match `extension/package.json`):
+
+```bash
+# bump "version" in extension/package.json and add an entry to extension/CHANGELOG.md, merge, then:
+git tag extension-v0.1.0 && git push origin extension-v0.1.0
+```
+
+One-time setup:
+
+1. Create the `muraqib-core` publisher at https://marketplace.visualstudio.com/manage (the `publisher` field must match).
+2. Create an Azure DevOps personal access token (organization: all accessible organizations, scope **Marketplace > Manage**) and save it as the repository secret `VSCE_PAT`.
+3. Optional, for Open VSX (VSCodium, Cursor, ...): create the namespace with `npx ovsx create-namespace muraqib-core -p <token>`, then save the token as the repository secret `OVSX_PAT`. Without it the Open VSX step is skipped.
+
+The package is not bundled yet (about 1,300 files, mostly the core's production dependencies); bundling with esbuild would shrink it and silence the vsce warning.
 
 ## License
 
