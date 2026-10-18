@@ -8,7 +8,7 @@
 | Fact | Value |
 |------|-------|
 | Package | `@muraqib/core` |
-| Version | `1.0.3` |
+| Version | `1.1.0` |
 | License | ISC |
 | Node.js | `>=20.12.0` |
 | TypeScript (dev) | `^6.0.3` |

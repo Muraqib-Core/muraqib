@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-18
+
 ### Added
 
 - Guards for the audits that only existed as workflow functions: `BundleBudgetGuard`, `RenderBlockingGuard`, `HttpOptimizerGuard`, `CachePerformanceGuard` and `EnvGuard` (all `BaseGuard`s, exported, with `GuardFactory` methods and opt-in `createAllGuards` settings). `BaseGuard.skipped()` reports a check that had nothing to measure (status `ok` plus an info issue coded `CHECK_SKIPPED`). `runBundleAudit`, `runEnvAudit`, `runPerformanceAudit`, `runOptimizerAudit` and `runRenderBlockingAudit` now run through these guards; their results are unchanged.
