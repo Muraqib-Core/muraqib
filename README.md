@@ -334,14 +334,19 @@ Generated from every class that `extends BaseGuard` (the purpose comes from its 
 | Guard | Source | Purpose |
 |-------|--------|---------|
 | `AsyncGuard` | `src/core/async-guard.ts` | Detects floating promises, missing `await`, and callback-hell patterns in source files. Severity levels used: warning, error. |
+| `BundleBudgetGuard` | `src/rules/bundle-budget-guard.ts` | Checks source files against the 14 KB first-round-trip budget. Severity levels used: warning. A project with no measurable source files is reported as skipped, never as a pass. |
+| `CachePerformanceGuard` | `src/core/performance/cache-performance-guard.ts` | Checks the cache max-age and compression settings read from the environment. Severity levels used: warning. |
 | `CompatibilityGuard` | `src/core/compatibility-guard.ts` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. |
 | `ConfigGuard` | `src/core/config-guard.ts` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, error, warning, info (config `low` maps to info). |
 | `DeadCodeGuard` | `src/rules/dead-code-guard.ts` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. |
 | `DependencyGuard` | `src/core/dependency-guard.ts` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. |
 | `DockerGuard` | `src/core/docker-guard.ts` | Guard-layer adapter over the scan layer's DockerScanner (Dockerfile, compose, .dockerignore rules). Replaces the earlier naive string-matching implementation. |
+| `EnvGuard` | `src/core/env-guard.ts` | Validates the process environment (DATABASE_URL, PORT, cache settings and any presets) with the env engine. Severity levels used: error. |
+| `HttpOptimizerGuard` | `src/core/performance/http-optimizer-guard.ts` | Probes a live URL for its HTTP protocol and cookie size and weighs them against the project's resource count. Severity levels used: warning (an unreachable URL is reported as an error, never as a pass). |
 | `ImageGuard` | `src/core/performance/image-guard.ts` | Audits image assets for oversized files and non-optimal formats. Severity levels used: warning. |
 | `MemoryGuard` | `src/core/memory-guard.ts` | Inspects heap, RSS and external memory usage and flags leak risk against configurable thresholds. Severity levels used: warning, critical, error. |
 | `NetworkLatencyGuard` | `src/core/performance/network-latency-advisor.ts` | NetworkLatencyGuard - measures real response latency and first-payload size of a URL. |
+| `RenderBlockingGuard` | `src/core/performance/render-blocking-guard.ts` | Checks the project's root index.html for scripts and stylesheets in `<head>` that block rendering. Severity levels used: error (synchronous script), warning (stylesheet). No index.html means skipped. |
 | `SecretGuard` | `src/core/secret-guard.ts` | Detects secrets in added lines and reports them as {@link AuditIssue}s (see the file header). |
 | `SecurityGuard` | `src/core/security-guard.ts` | Probes a target URL for missing HTTP security headers and common web vulnerabilities. Severity levels used: error, warning, critical. |
 <!-- AUTO:guards:end -->

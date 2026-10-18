@@ -61,14 +61,19 @@ Run `muraqib --help` for the description of each flag.
 | Guard | Source | Purpose |
 |-------|--------|---------|
 | `AsyncGuard` | `src/core/async-guard.ts` | Detects floating promises, missing `await`, and callback-hell patterns in source files. Severity levels used: warning, error. |
+| `BundleBudgetGuard` | `src/rules/bundle-budget-guard.ts` | Checks source files against the 14 KB first-round-trip budget. Severity levels used: warning. A project with no measurable source files is reported as skipped, never as a pass. |
+| `CachePerformanceGuard` | `src/core/performance/cache-performance-guard.ts` | Checks the cache max-age and compression settings read from the environment. Severity levels used: warning. |
 | `CompatibilityGuard` | `src/core/compatibility-guard.ts` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. |
 | `ConfigGuard` | `src/core/config-guard.ts` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, error, warning, info (config `low` maps to info). |
 | `DeadCodeGuard` | `src/rules/dead-code-guard.ts` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. |
 | `DependencyGuard` | `src/core/dependency-guard.ts` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. |
 | `DockerGuard` | `src/core/docker-guard.ts` | Guard-layer adapter over the scan layer's DockerScanner (Dockerfile, compose, .dockerignore rules). Replaces the earlier naive string-matching implementation. |
+| `EnvGuard` | `src/core/env-guard.ts` | Validates the process environment (DATABASE_URL, PORT, cache settings and any presets) with the env engine. Severity levels used: error. |
+| `HttpOptimizerGuard` | `src/core/performance/http-optimizer-guard.ts` | Probes a live URL for its HTTP protocol and cookie size and weighs them against the project's resource count. Severity levels used: warning (an unreachable URL is reported as an error, never as a pass). |
 | `ImageGuard` | `src/core/performance/image-guard.ts` | Audits image assets for oversized files and non-optimal formats. Severity levels used: warning. |
 | `MemoryGuard` | `src/core/memory-guard.ts` | Inspects heap, RSS and external memory usage and flags leak risk against configurable thresholds. Severity levels used: warning, critical, error. |
 | `NetworkLatencyGuard` | `src/core/performance/network-latency-advisor.ts` | NetworkLatencyGuard - measures real response latency and first-payload size of a URL. |
+| `RenderBlockingGuard` | `src/core/performance/render-blocking-guard.ts` | Checks the project's root index.html for scripts and stylesheets in `<head>` that block rendering. Severity levels used: error (synchronous script), warning (stylesheet). No index.html means skipped. |
 | `SecretGuard` | `src/core/secret-guard.ts` | Detects secrets in added lines and reports them as {@link AuditIssue}s (see the file header). |
 | `SecurityGuard` | `src/core/security-guard.ts` | Probes a target URL for missing HTTP security headers and common web vulnerabilities. Severity levels used: error, warning, critical. |
 
@@ -91,9 +96,9 @@ Run `muraqib --help` for the description of each flag.
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
 
-## Public API (`src/index.ts`, 202 exports)
+## Public API (`src/index.ts`, 208 exports)
 
-### Class (18)
+### Class (23)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -101,16 +106,21 @@ Run `muraqib --help` for the description of each flag.
 | `AsyncGuard` | Detects floating promises, missing `await`, and callback-hell patterns in source files. Severity levels used: warning, error. | `src/core/async-guard.ts` |
 | `AuditOrchestrator` | Audit orchestrator class. | `src/core/orchestrator.ts` |
 | `BaseGuard` | Base guard class. Severity levels used: warning, error, critical, info. | `src/core/base-guard.ts` |
+| `BundleBudgetGuard` | Checks source files against the 14 KB first-round-trip budget. Severity levels used: warning. A project with no measurable source files is reported as skipped, never as a pass. | `src/rules/bundle-budget-guard.ts` |
+| `CachePerformanceGuard` | Checks the cache max-age and compression settings read from the environment. Severity levels used: warning. | `src/core/performance/cache-performance-guard.ts` |
 | `CompatibilityGuard` | Validates dependency compatibility: Node.js engine ranges, end-of-life runtimes and peer dependencies. Severity levels used: error. | `src/core/compatibility-guard.ts` |
 | `ConfigGuard` | Validates configuration and environment files: missing or invalid variables and unsafe settings. Severity levels used: critical, error, warning, info (config `low` maps to info). | `src/core/config-guard.ts` |
 | `CustomEngine` | Custom Validation Engine - Flexible validation for user-defined schemas | `src/guard/engines/custom-engine.ts` |
 | `DeadCodeGuard` | Dead code guard class. Detects empty functions, unreachable branches and unused exports. Severity levels used: warning. | `src/rules/dead-code-guard.ts` |
 | `DependencyGuard` | Analyses dependencies for circular imports, duplicate and outdated packages, and deprecated APIs. Severity levels used: warning, error. | `src/core/dependency-guard.ts` |
 | `DockerGuard` | Guard-layer adapter over the scan layer's DockerScanner (Dockerfile, compose, .dockerignore rules). Replaces the earlier naive string-matching implementation. | `src/core/docker-guard.ts` |
+| `EnvGuard` | Validates the process environment (DATABASE_URL, PORT, cache settings and any presets) with the env engine. Severity levels used: error. | `src/core/env-guard.ts` |
 | `GuardFactory` | Guard factory class. | `src/core/guard-factory.ts` |
+| `HttpOptimizerGuard` | Probes a live URL for its HTTP protocol and cookie size and weighs them against the project's resource count. Severity levels used: warning (an unreachable URL is reported as an error, never as a pass). | `src/core/performance/http-optimizer-guard.ts` |
 | `ImageGuard` | Audits image assets for oversized files and non-optimal formats. Severity levels used: warning. | `src/core/performance/image-guard.ts` |
 | `MemoryGuard` | Inspects heap, RSS and external memory usage and flags leak risk against configurable thresholds. Severity levels used: warning, critical, error. | `src/core/memory-guard.ts` |
 | `NetworkLatencyGuard` | NetworkLatencyGuard - measures real response latency and first-payload size of a URL. | `src/core/performance/network-latency-advisor.ts` |
+| `RenderBlockingGuard` | Checks the project's root index.html for scripts and stylesheets in `<head>` that block rendering. Severity levels used: error (synchronous script), warning (stylesheet). No index.html means skipped. | `src/core/performance/render-blocking-guard.ts` |
 | `SecretGuard` | Detects secrets in added lines and reports them as {@link AuditIssue}s (see the file header). | `src/core/secret-guard.ts` |
 | `SecurityGuard` | Probes a target URL for missing HTTP security headers and common web vulnerabilities. Severity levels used: error, warning, critical. | `src/core/security-guard.ts` |
 | `ValibotEngine` | Valibot Validation Engine - Unified validation interface for Valibot schemas | `src/guard/engines/valibot-engine.ts` |
@@ -217,7 +227,7 @@ Run `muraqib --help` for the description of each flag.
 | `scoreSeverityOf` | Map an issue to a score severity. The scan layer's five-level `level` wins when present; otherwise the guard severity maps `error` to high and `warning` to medium. | `src/core/scorecard.ts` |
 | `uninstallHooks` | Remove the Muraqib hooks. Every managed hook is removed unless `prePush` is the only one asked for. The default `.git/hooks` directory is checked too, so blocks left from before `core.hooksPath` was set are cleaned up. | `src/hooks/install.ts` |
 
-### Interface (75)
+### Interface (76)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -249,6 +259,7 @@ Run `muraqib --help` for the description of each flag.
 | `DependencyAuditResult` | - | `src/core/dependency-guard.ts` |
 | `DetectedSecret` | Detected secret with location and severity. | `src/core/secret-detector.ts` |
 | `DomainBreakdown` | - | `src/core/scorecard.ts` |
+| `EnvGuardOptions` | - | `src/core/env-guard.ts` |
 | `FindSecretsOptions` | Options for {@link findSecrets}. | `src/core/secret-detector.ts` |
 | `GuardFinding` | A structured finding produced by a guard's internal audit. `code` is stable and never derived from message text; `file`/`line` are present only for findings tied to a source location. | `src/core/types.ts` |
 | `GuardOptions` | - | `src/core/types.ts` |
