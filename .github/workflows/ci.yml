@@ -139,10 +139,59 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  extension:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            extension/package-lock.json
+
+      - name: Install core dependencies
+        run: npm ci
+
+      - name: Install extension dependencies
+        run: npm ci
+        working-directory: extension
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: extension
+
+      - name: Lint
+        run: npm run lint
+        working-directory: extension
+
+      - name: Test
+        run: npm test
+        working-directory: extension
+
+      # Proves the .vsix can be built (core bundled from a production install) on every change.
+      - name: Package
+        run: npm run package
+        working-directory: extension
+
+      - name: Upload .vsix
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: muraqib-vscode-vsix
+          path: extension/*.vsix
+          retention-days: 5
+
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [lint-and-build, test-and-coverage, self-audit, package-contents, security-scan, docs-check]
+    needs: [lint-and-build, test-and-coverage, self-audit, package-contents, security-scan, docs-check, extension]
     if: always()
 
     steps:
@@ -194,6 +243,14 @@ jobs:
           fi
           echo "✓ Generated docs passed"
 
+      - name: Check VS Code extension status
+        run: |
+          if [ "${{ needs.extension.result }}" != "success" ]; then
+            echo "❌ VS Code extension checks failed"
+            exit 1
+          fi
+          echo "✓ VS Code extension passed"
+
       - name: Create success badge
         if: success()
         run: |
@@ -207,6 +264,7 @@ jobs:
           echo "- Package contents: ✓"
           echo "- Security scan: ✓"
           echo "- Generated docs: ✓"
+          echo "- VS Code extension: ✓"
 
   package-contents:
     name: Package Contents

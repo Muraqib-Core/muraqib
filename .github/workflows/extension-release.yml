@@ -1,0 +1,105 @@
+name: Release VS Code extension
+
+# The extension has its own version (extension/package.json), separate from the npm package, so it is
+# released with its own tag: `git tag extension-v0.1.0 && git push origin extension-v0.1.0`.
+on:
+  push:
+    tags:
+      - "extension-v*.*.*"
+
+permissions:
+  contents: write
+
+# Never run two releases for the same tag at once, and never cancel a publish midway.
+concurrency:
+  group: extension-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # At job level so the Open VSX step's `if` can see it (a step's own env is not visible to its `if`).
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            extension/package-lock.json
+
+      - name: Verify tag matches extension version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#extension-v}"
+          version="$(node -p "require('./extension/package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag extension-v$tag does not match extension/package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Require the Marketplace token
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "The VSCE_PAT secret is not set (Azure DevOps token with Marketplace > Manage scope)."
+            exit 1
+          fi
+
+      - name: Install core dependencies
+        run: npm ci
+
+      - name: Install extension dependencies
+        run: npm ci
+        working-directory: extension
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: extension
+
+      - name: Lint
+        run: npm run lint
+        working-directory: extension
+
+      - name: Test
+        run: npm test
+        working-directory: extension
+
+      # Builds the core, builds the extension and packages them with a production install of the core.
+      - name: Package
+        run: npm run package
+        working-directory: extension
+
+      - name: Publish to the Visual Studio Marketplace
+        run: npm exec -- vsce publish --packagePath "muraqib-vscode-${VERSION}.vsix"
+        working-directory: extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      # Open VSX (VSCodium, Cursor, Gitpod, ...) is optional: it is published only when OVSX_PAT is set.
+      - name: Publish to Open VSX
+        if: ${{ env.OVSX_PAT != '' }}
+        run: npx --yes ovsx@1.2.0 publish "muraqib-vscode-${VERSION}.vsix"
+        working-directory: extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Create GitHub Release with the .vsix
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Muraqib for VS Code ${{ steps.version.outputs.version }}
+          files: extension/muraqib-vscode-${{ steps.version.outputs.version }}.vsix
+          generate_release_notes: true
+          draft: false
+          prerelease: false
