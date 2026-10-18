@@ -13,6 +13,8 @@ export interface OrchestratorConfig extends GuardConfig {
   parallel?: boolean;
   sortBy?: 'severity' | 'module' | 'time';
   sortOrder?: 'asc' | 'desc';
+  /** Case-insensitive substrings of guard module names; when set, only matching guards are run. */
+  moduleFilter?: string[] | undefined;
 }
 
 const SEVERITY_LEVELS: Record<string, number> = {
@@ -48,7 +50,7 @@ export class AuditOrchestrator {
     const startTime = Date.now();
 
     try {
-      const guards = this.factory.createAllGuards(this.config);
+      const guards = this.selectGuards(this.factory.createAllGuards(this.config));
       const results = this.config.parallel === false
         ? await this.executeGuardsSequentially(guards)
         : await this.executeGuardsInParallel(guards);
@@ -91,6 +93,15 @@ export class AuditOrchestrator {
         },
       };
     }
+  }
+
+  /**
+   * Keep only the guards whose module name matches the configured filter (all guards when none is set)
+   */
+  private selectGuards(guards: BaseGuard[]): BaseGuard[] {
+    const wanted = (this.config.moduleFilter ?? []).map((m) => m.trim().toLowerCase()).filter(Boolean);
+    if (wanted.length === 0) return guards;
+    return guards.filter((guard) => wanted.some((w) => guard.getModule().toLowerCase().includes(w)));
   }
 
   /**

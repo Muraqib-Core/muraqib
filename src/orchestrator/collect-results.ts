@@ -37,6 +37,7 @@ export interface CollectedResults {
  */
 export async function collectAuditResults(options: CollectOptions): Promise<CollectedResults> {
   const root = options.projectRoot;
+  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
   const orchestrator = new AuditOrchestrator(buildAuditContext(root), {
     projectRoot: root,
     asyncTargetPath: root,
@@ -46,16 +47,18 @@ export async function collectAuditResults(options: CollectOptions): Promise<Coll
     imageTargetPath: root,
     deadCodeTargetPath: root,
     securityTargetUrl: options.securityUrl,
+    moduleFilter: wanted,
   });
 
   const unified = await orchestrator.execute();
-  const wanted = options.modules?.map((m) => m.trim().toLowerCase()).filter(Boolean) ?? [];
   const results = wanted.length
     ? unified.results.filter((r) => wanted.some((w) => r.module.toLowerCase().includes(w)))
     : [...unified.results];
 
   let aiAdvisory: string | null = null;
-  if (options.scan) {
+  // The scan layer is a module of its own: a module filter that does not name it leaves it out.
+  const scanSelected = wanted.length === 0 || wanted.some((w) => "scan".includes(w));
+  if (options.scan && scanSelected) {
     const outcome = await runScanAudit(root, {
       enableAi: options.aiAdvisory ?? false,
       dockerNative: options.dockerNative ?? false,
