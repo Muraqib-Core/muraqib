@@ -90,6 +90,13 @@ describe("ResolutionApplier (mocked package manager)", () => {
     );
   });
 
+  test("raises the captured-output limit so a verbose install is not mistaken for a failure", async () => {
+    await applier().apply(plan(), "approved");
+    const options = exec.mock.calls.map((call) => call[2] as { maxBuffer?: number });
+    expect(options.length).toBeGreaterThan(0);
+    for (const option of options) expect(option.maxBuffer).toBeGreaterThan(1024 * 1024);
+  });
+
   test("reports stale when package.json is gone", async () => {
     const a = applier();
     fs.unlinkSync(pkgFile);

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
+import { COMMAND_MAX_BUFFER } from "./resolution-plan.js";
 import type { ResolutionPlan, VerificationStepResult } from "./resolution-plan.js";
 import type { DependencyGraph } from "./dependency-graph.js";
 import { OsvScanner } from "../../scanners/dependency/osv-engine.js";
@@ -21,6 +22,7 @@ function runProjectCommand(graph: DependencyGraph, kind: "typecheck" | "tests"):
     stdio: "pipe",
     env: process.env,
     timeout: kind === "tests" ? 300_000 : 60_000,
+    maxBuffer: COMMAND_MAX_BUFFER,
   });
 }
 
