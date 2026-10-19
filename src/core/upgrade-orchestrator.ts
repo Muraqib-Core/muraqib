@@ -1,10 +1,10 @@
-import { execFile } from 'child_process';
-import semver from 'semver';
-import { log, error as logError, warn as logWarn } from '../shared/logger.js';
-import { getMuraqibNewVersionValue, type VersionUpdateStrategy } from './muraqib-version.js';
-import { MURAQIB_LOCAL_PRESETS, fetchRemoteMuraqibPresets } from '../config/presets.js';
-import type { PackageGroup } from '../config/presets.js';
-import { detectProjectPackageManager } from '../utils/manager-detector.js';
+import { execFile } from "child_process";
+import semver from "semver";
+import { log, error as logError, warn as logWarn } from "../shared/logger.js";
+import { getMuraqibNewVersionValue, type VersionUpdateStrategy } from "./muraqib-version.js";
+import { MURAQIB_LOCAL_PRESETS, fetchRemoteMuraqibPresets } from "../config/presets.js";
+import type { PackageGroup } from "../config/presets.js";
+import { detectProjectPackageManager } from "../utils/manager-detector.js";
 
 /** A single shell-less process invocation. */
 export interface MigrationStep {
@@ -37,7 +37,7 @@ function rule(
   steps: MigrationStep[],
   description: string,
 ): SchemaMigrationRule {
-  const first = steps[0] ?? { command: '', args: [] };
+  const first = steps[0] ?? { command: "", args: [] };
   return { packageName, breakingMajor, migrationCommand, command: first.command, args: first.args, steps, description };
 }
 
@@ -56,7 +56,7 @@ interface CommandOutcome {
  * the arguments are static strings defined in this module, never user input.
  */
 function runCommand(step: MigrationStep, cwd: string, timeout: number): Promise<CommandOutcome> {
-  const isWin = process.platform === 'win32';
+  const isWin = process.platform === "win32";
   const command = isWin ? `${step.command}.cmd` : step.command;
   return new Promise<CommandOutcome>((resolve) => {
     execFile(
@@ -64,7 +64,7 @@ function runCommand(step: MigrationStep, cwd: string, timeout: number): Promise<
       step.args,
       { cwd, timeout, maxBuffer: 10 * 1024 * 1024, shell: isWin, windowsHide: true },
       (err, stdout, stderr) => {
-        const output = `${String(stdout ?? '')}${String(stderr ?? '')}`;
+        const output = `${String(stdout ?? "")}${String(stderr ?? "")}`;
         resolve({ ok: err === null || err === undefined, output });
       },
     );
@@ -72,7 +72,7 @@ function runCommand(step: MigrationStep, cwd: string, timeout: number): Promise<
 }
 
 function tailLines(text: string, count: number): string {
-  return text.split(/\r?\n/).filter((line) => line.trim().length > 0).slice(-count).join('\n');
+  return text.split(/\r?\n/).filter((line) => line.trim().length > 0).slice(-count).join("\n");
 }
 
 /**
@@ -83,14 +83,14 @@ function tailLines(text: string, count: number): string {
  * @returns true if command is safe to execute, false otherwise
  */
 function isValidCommand(cmd: string): boolean {
-  if (!cmd || typeof cmd !== 'string' || cmd.trim().length === 0) {
+  if (!cmd || typeof cmd !== "string" || cmd.trim().length === 0) {
     return false;
   }
   const trimmed = cmd.trim();
   if (trimmed.length > 2000) {
     return false;
   }
-  if (trimmed.includes('\n') || trimmed.includes('\r')) {
+  if (trimmed.includes("\n") || trimmed.includes("\r")) {
     return false;
   }
   return true;
@@ -105,53 +105,53 @@ function isValidCommand(cmd: string): boolean {
  */
 export const SCHEMA_MIGRATIONS_REGISTRY: SchemaMigrationRule[] = [
   rule(
-    'tailwindcss',
+    "tailwindcss",
     4,
-    'npx @tailwindcss/upgrade@latest --yes',
-    [{ command: 'npx', args: ['@tailwindcss/upgrade@latest', '--yes'] }],
-    'تحويل إعدادات tailwind.config.js القديمة إلى نظام CSS-first (@theme) تلقائياً',
+    "npx @tailwindcss/upgrade@latest --yes",
+    [{ command: "npx", args: ["@tailwindcss/upgrade@latest", "--yes"] }],
+    "تحويل إعدادات tailwind.config.js القديمة إلى نظام CSS-first (@theme) تلقائياً",
   ),
   rule(
-    'prisma',
+    "prisma",
     6,
-    'npx prisma format && npx prisma validate',
+    "npx prisma format && npx prisma validate",
     [
-      { command: 'npx', args: ['prisma', 'format'] },
-      { command: 'npx', args: ['prisma', 'validate'] },
+      { command: "npx", args: ["prisma", "format"] },
+      { command: "npx", args: ["prisma", "validate"] },
     ],
-    'تحديث وتدقيق سكيما بريسما لتتوافق مع معايير النسخة 6 القياسية',
+    "تحديث وتدقيق سكيما بريسما لتتوافق مع معايير النسخة 6 القياسية",
   ),
   rule(
-    'next',
+    "next",
     15,
-    'npx @next/codemod@latest next-async-request-api --force',
-    [{ command: 'npx', args: ['@next/codemod@latest', 'next-async-request-api', '--force'] }],
-    'تحويل الـ Params والـ SearchParams لنظام الـ Async الإجباري في Next.js 15',
+    "npx @next/codemod@latest next-async-request-api --force",
+    [{ command: "npx", args: ["@next/codemod@latest", "next-async-request-api", "--force"] }],
+    "تحويل الـ Params والـ SearchParams لنظام الـ Async الإجباري في Next.js 15",
   ),
   rule(
-    'react',
+    "react",
     19,
-    'npx react-codemod@latest update-react-imports --force',
-    [{ command: 'npx', args: ['react-codemod@latest', 'update-react-imports', '--force'] }],
-    'تطهير وتحديث الـ Components والـ Refs لتتوافق مع معايير React 19 الجديدة',
+    "npx react-codemod@latest update-react-imports --force",
+    [{ command: "npx", args: ["react-codemod@latest", "update-react-imports", "--force"] }],
+    "تطهير وتحديث الـ Components والـ Refs لتتوافق مع معايير React 19 الجديدة",
   ),
   rule(
-    'eslint',
+    "eslint",
     9,
-    'npx @eslint/config-inspector@latest --init',
-    [{ command: 'npx', args: ['@eslint/config-inspector@latest', '--init'] }],
-    'ترقية نظام الإعدادات إلى Flat Config وحل مشاكل القواعد المتعارضة تلقائياً',
+    "npx @eslint/config-inspector@latest --init",
+    [{ command: "npx", args: ["@eslint/config-inspector@latest", "--init"] }],
+    "ترقية نظام الإعدادات إلى Flat Config وحل مشاكل القواعد المتعارضة تلقائياً",
   ),
   rule(
-    'zustand',
+    "zustand",
     5,
-    'npx zustand-codemod v5-migration ./src',
-    [{ command: 'npx', args: ['zustand-codemod', 'v5-migration', './src'] }],
-    'تحديث دوال إنشاء الـ Stores وحذف الـ Deprecated signatures لتتوافق مع تزامنية React 19',
+    "npx zustand-codemod v5-migration ./src",
+    [{ command: "npx", args: ["zustand-codemod", "v5-migration", "./src"] }],
+    "تحديث دوال إنشاء الـ Stores وحذف الـ Deprecated signatures لتتوافق مع تزامنية React 19",
   ),
 ];
 
-type ManagerId = 'npm' | 'yarn' | 'pnpm';
+type ManagerId = "npm" | "yarn" | "pnpm";
 
 interface ManagerMeta {
   type: ManagerId;
@@ -159,13 +159,13 @@ interface ManagerMeta {
 }
 
 const MANAGER_META: Record<ManagerId, ManagerMeta> = {
-  npm: { type: 'npm', commands: { lockFile: 'package-lock.json', build: 'npm run build', buildStep: { command: 'npm', args: ['run', 'build'] } } },
-  yarn: { type: 'yarn', commands: { lockFile: 'yarn.lock', build: 'yarn build', buildStep: { command: 'yarn', args: ['build'] } } },
-  pnpm: { type: 'pnpm', commands: { lockFile: 'pnpm-lock.yaml', build: 'pnpm -w build', buildStep: { command: 'pnpm', args: ['-w', 'build'] } } },
+  npm: { type: "npm", commands: { lockFile: "package-lock.json", build: "npm run build", buildStep: { command: "npm", args: ["run", "build"] } } },
+  yarn: { type: "yarn", commands: { lockFile: "yarn.lock", build: "yarn build", buildStep: { command: "yarn", args: ["build"] } } },
+  pnpm: { type: "pnpm", commands: { lockFile: "pnpm-lock.yaml", build: "pnpm -w build", buildStep: { command: "pnpm", args: ["-w", "build"] } } },
 };
 
 function isManagerId(value: string): value is ManagerId {
-  return value === 'npm' || value === 'yarn' || value === 'pnpm';
+  return value === "npm" || value === "yarn" || value === "pnpm";
 }
 
 /**
@@ -181,7 +181,7 @@ export interface OrchestratorConfig { // muraqib-ignore-dead: auto-suppressed by
    * operator (`bump` is handled explicitly and behaves like `replace`); `widen` keeps the current
    * spec and appends the new one (`<current> || <new>`).
    */
-  rangeStrategy: 'replace' | 'widen' | 'bump';
+  rangeStrategy: "replace" | "widen" | "bump";
   remotePresetUrl?: string;
   /** Project directory in which detection, migrations and the build verification run. Defaults to the process cwd. */
   cwd?: string;
@@ -189,17 +189,17 @@ export interface OrchestratorConfig { // muraqib-ignore-dead: auto-suppressed by
   runMigrations?: boolean;
 }
 
-function toVersionStrategy(rangeStrategy: OrchestratorConfig['rangeStrategy']): VersionUpdateStrategy {
+function toVersionStrategy(rangeStrategy: OrchestratorConfig["rangeStrategy"]): VersionUpdateStrategy {
   switch (rangeStrategy) {
-    case 'widen':
-      return 'keep-both';
-    case 'replace':
-    case 'bump':
-      return 'replace';
+    case "widen":
+      return "keep-both";
+    case "replace":
+    case "bump":
+      return "replace";
     default: {
       const exhaustive: never = rangeStrategy;
       void exhaustive;
-      return 'replace';
+      return "replace";
     }
   }
 }
@@ -224,13 +224,13 @@ function validateInputs({
   packageName,
   currentValue,
   newVersion,
-}: Pick<OrchestratorConfig, 'packageName' | 'currentValue' | 'newVersion'>): InputValidation {
-  if (typeof packageName !== 'string' || packageName.trim().length === 0) {
-    logError('❌ [Muraqib Orchestrator Error]: Invalid package name.');
+}: Pick<OrchestratorConfig, "packageName" | "currentValue" | "newVersion">): InputValidation {
+  if (typeof packageName !== "string" || packageName.trim().length === 0) {
+    logError("❌ [Muraqib Orchestrator Error]: Invalid package name.");
     return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
   }
 
-  if (typeof newVersion !== 'string' || newVersion.trim().length === 0) {
+  if (typeof newVersion !== "string" || newVersion.trim().length === 0) {
     logError(`❌ [Muraqib Orchestrator Error]: Invalid new version for ${packageName}.`);
     return { ok: false, result: { updatedVersion: null, schemaMigrated: false } };
   }
@@ -238,13 +238,13 @@ function validateInputs({
   const coercedNew = semver.coerce(newVersion);
   if (!coercedNew) {
     logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-new-version] "${newVersion}" is not a version number.`);
-    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-new-version' } };
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: "invalid-new-version" } };
   }
 
   const coercedCurrent = semver.coerce(currentValue);
   if (!coercedCurrent || !semver.valid(coercedCurrent)) {
     logWarn(`⚠️  [Muraqib Guard]: Skipping package "${packageName}". Reason: [invalid-version syntax]`);
-    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: 'invalid-version' } };
+    return { ok: false, result: { updatedVersion: null, schemaMigrated: false, skipReason: "invalid-version" } };
   }
 
   return { ok: true, coercedNew };
@@ -265,12 +265,12 @@ async function announcePresetGroup(packageName: string, remotePresetUrl: string 
 
   if (matchedPreset) {
     log(`\n📦 [Muraqib Manager]: Package "${packageName}" matches active preset group: [${matchedPreset.groupName}]`);
-    log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(', ')}) simultaneously.`);
+    log(`🔗 [Grouping Activation]: Muraqib will sync and update all sibling packages: (${matchedPreset.packages.join(", ")}) simultaneously.`);
   }
 }
 
 /** `rejected` means the migration command failed validation and the whole upgrade must be abandoned. */
-type MigrationOutcome = 'migrated' | 'not-migrated' | 'rejected';
+type MigrationOutcome = "migrated" | "not-migrated" | "rejected";
 
 /**
  * Runs the breaking-major codemod registered for this package and target major, if there is one.
@@ -288,11 +288,11 @@ async function migrateSchema(
 
   if (!migrationRule) {
     log(`ℹ️  [Info]: No core schema modifications required for ${packageName} v${targetMajor}.`);
-    return 'not-migrated';
+    return "not-migrated";
   }
   if (!runMigrations) {
     log(`ℹ️  [Info]: Migration for ${packageName} v${targetMajor} skipped (runMigrations is disabled): ${migrationRule.migrationCommand}`);
-    return 'not-migrated';
+    return "not-migrated";
   }
 
   log(`⚠️  [Schema Alert]: ${packageName} v${targetMajor} introduces breaking configuration changes!`);
@@ -300,19 +300,19 @@ async function migrateSchema(
 
   if (!isValidCommand(migrationRule.migrationCommand)) {
     logError(`❌ [Security Error]: Migration command validation failed. Invalid command syntax.`);
-    return 'rejected';
+    return "rejected";
   }
 
   for (const step of migrationRule.steps) {
     const outcome = await runCommand(step, cwd, MIGRATION_TIMEOUT_MS);
     if (!outcome.ok) {
       const tail = tailLines(outcome.output, OUTPUT_TAIL_LINES);
-      logError(`❌ [Error]: Automated schema migration failed for ${packageName} at "${step.command} ${step.args.join(' ')}". Proceeding with cautious testing.${tail ? `\n${tail}` : ''}`);
-      return 'not-migrated';
+      logError(`❌ [Error]: Automated schema migration failed for ${packageName} at "${step.command} ${step.args.join(" ")}". Proceeding with cautious testing.${tail ? `\n${tail}` : ""}`);
+      return "not-migrated";
     }
   }
   log(`✅ [Success]: Automated syntax for ${packageName} has been auto-healed!`);
-  return 'migrated';
+  return "migrated";
 }
 
 /** Runs the project's build and logs the result; false when the build command is invalid or the build fails. */
@@ -336,7 +336,7 @@ async function verifyBuild(
     return true;
   }
   const tail = tailLines(build.output, OUTPUT_TAIL_LINES);
-  logError(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!${tail ? `\n${tail}` : ''}`);
+  logError(`💥 [Integrity Failure]: Project build failed after updating ${packageName}!${tail ? `\n${tail}` : ""}`);
   log(`⚠️  [Warning]: Build failed. The current version "${currentValue}" is returned unchanged; Muraqib did not modify package.json.`);
   log(`🔍 [Next Steps]: Fix the build errors shown above, then run "${targetBuildCommand}" again.`);
   return false;
@@ -381,7 +381,7 @@ export async function runMuraqibUpgradeOrchestrator({
   const { coercedNew } = validation;
   let schemaMigrated = false;
   const detected = String(detectProjectPackageManager(cwd));
-  const envMeta = MANAGER_META[isManagerId(detected) ? detected : 'npm'];
+  const envMeta = MANAGER_META[isManagerId(detected) ? detected : "npm"];
   log(`🔍 [Muraqib Environment]: Active Package Manager detected: [${envMeta.type.toUpperCase()}] via "${envMeta.commands.lockFile}"`);
 
   await announcePresetGroup(packageName, remotePresetUrl);
@@ -397,8 +397,8 @@ export async function runMuraqibUpgradeOrchestrator({
     log(`\n[Muraqib Engine]: Version bumped for ${packageName} to ${updatedVersionValue} 🎉`);
 
     const migration = await migrateSchema(packageName, semver.major(coercedNew), cwd, runMigrations);
-    if (migration === 'rejected') return { updatedVersion: currentValue, schemaMigrated: false };
-    schemaMigrated = migration === 'migrated';
+    if (migration === "rejected") return { updatedVersion: currentValue, schemaMigrated: false };
+    schemaMigrated = migration === "migrated";
 
     if (!(await verifyBuild(envMeta, packageName, currentValue, cwd))) {
       return { updatedVersion: currentValue, schemaMigrated: false };

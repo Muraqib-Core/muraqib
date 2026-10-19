@@ -1,4 +1,4 @@
-import { CronExpressionParser } from 'cron-parser';
+import { CronExpressionParser } from "cron-parser";
 import * as logger from "../shared/logger.js";
 
 /**
@@ -13,14 +13,14 @@ import * as logger from "../shared/logger.js";
  * @returns True when the audit may run
  */
 export function isWithinSchedule(scheduleString?: string): boolean {
-  if (!scheduleString || scheduleString.trim() === '') {
+  if (!scheduleString || scheduleString.trim() === "") {
     return true;
   }
 
   const now = new Date();
   const currentDay = now.getDay();
 
-  if (scheduleString.toLowerCase() === 'on weekends') {
+  if (scheduleString.toLowerCase() === "on weekends") {
     return currentDay === 5 || currentDay === 6 || currentDay === 0;
   }
 

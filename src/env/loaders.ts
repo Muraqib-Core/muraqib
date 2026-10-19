@@ -171,8 +171,8 @@ export function loadEnv(options: LoadEnvOptions = {}): Record<string, string> {
 
 function isSensitiveVariable(name: string): boolean {
   const sensitivePatterns = [
-    'PASSWORD', 'SECRET', 'TOKEN', 'KEY', 'CREDENTIAL',
-    'DATABASE_URL', 'API_KEY', 'AUTH', 'PRIVATE', 'APIKEY'
+    "PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL",
+    "DATABASE_URL", "API_KEY", "AUTH", "PRIVATE", "APIKEY"
   ];
   return sensitivePatterns.some(pattern => name.toUpperCase().includes(pattern));
 }

@@ -92,15 +92,14 @@ export function formatText(report: AuditReport): string {
     for (const [moduleName, moduleData] of Object.entries(report.modules)) {
       if (typeof moduleData === "object" && moduleData !== null) {
         let status = "❓";
-        if ("status" in moduleData) {
-          const statusValue = (moduleData as unknown as { status: string }).status;
-          status = statusValue;
-        } else if ("issues" in moduleData) {
-          const issuesValue = (moduleData as unknown as { issues: unknown[] }).issues;
-          status = Array.isArray(issuesValue) && issuesValue.length > 0 ? "⚠️" : "✅";
+        const { status: moduleStatus, issues } = moduleData as { status?: unknown; issues?: unknown };
+        if (typeof moduleStatus === "string") {
+          status = moduleStatus;
+        } else if (Array.isArray(issues)) {
+          status = issues.length > 0 ? "⚠️" : "✅";
         }
         lines.push(`  ${status} ${moduleName}`);
-        lines.push(...formatIssueLines((moduleData as { issues?: unknown }).issues));
+        lines.push(...formatIssueLines(issues));
       }
     }
   }

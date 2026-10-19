@@ -80,7 +80,7 @@ function copySources(text: string): string[] | null {
     try {
       const values: unknown = JSON.parse(body);
       return Array.isArray(values) && values.length > 1 && values.every(v => typeof v === "string")
-        ? values.slice(0, -1) as string[] : null;
+        ? values.slice(0, -1) : null;
     } catch { return null; }
   }
   const values = body.split(/\s+/);

@@ -12,46 +12,46 @@
  * - File scanning and path filtering
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { AsyncGuard } from '../../../src/core/async-guard.js';
-import * as fileScanner from '../../../src/utils/file-scanner.js';
+import { describe, it, expect, vi } from "vitest";
+import { AsyncGuard } from "../../../src/core/async-guard.js";
+import * as fileScanner from "../../../src/utils/file-scanner.js";
 
-vi.mock('../../../src/utils/file-scanner.js', () => ({
+vi.mock("../../../src/utils/file-scanner.js", () => ({
   scanProjectFiles: vi.fn(),
 }));
 
-describe('AsyncGuard', () => {
+describe("AsyncGuard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('Literals and comments are not code', () => {
-    it('ignores promise chains inside template literals (embedded browser scripts)', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Literals and comments are not code", () => {
+    it("ignores promise chains inside template literals (embedded browser scripts)", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/webview/tabs-script.ts',
+          relativePath: "src/webview/tabs-script.ts",
           content: [
-            'export const SCRIPT = `',
-            '  navigator.clipboard.writeText(text).then(done, function () { fallback(); });',
-            '  fetch(url);',
-            '  new Promise(function (resolve) { resolve(); });',
-            '`;',
-          ].join('\n'),
+            "export const SCRIPT = `",
+            "  navigator.clipboard.writeText(text).then(done, function () { fallback(); });",
+            "  fetch(url);",
+            "  new Promise(function (resolve) { resolve(); });",
+            "`;",
+          ].join("\n"),
         },
       ]);
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
       expect(result.issues).toHaveLength(0);
     });
 
-    it('ignores patterns that only appear in comments and strings', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("ignores patterns that only appear in comments and strings", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/notes.ts',
+          relativePath: "src/notes.ts",
           content: "// fetch(url)\nconst hint = 'call x.then(y) here';\n",
         },
       ]);
@@ -61,88 +61,88 @@ describe('AsyncGuard', () => {
       expect(result.issues).toHaveLength(0);
     });
 
-    it('still reports the real promise chain next to an embedded script', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("still reports the real promise chain next to an embedded script", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/mixed.ts',
-          content: 'const s = `a.then(b)`;\nload().then(use);\n',
+          relativePath: "src/mixed.ts",
+          content: "const s = `a.then(b)`;\nload().then(use);\n",
         },
       ]);
 
       const result = await guard.execute();
 
       expect(result.issues).toHaveLength(1);
-      expect(result.issues[0]?.message).toContain('src/mixed.ts:2');
+      expect(result.issues[0]?.message).toContain("src/mixed.ts:2");
     });
   });
 
-  describe('Rejection handling heuristics', () => {
+  describe("Rejection handling heuristics", () => {
     const run = async (content: string) => {
-      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([{ relativePath: 'src/a.ts', content }]);
-      return new AsyncGuard({ targetPath: '/project' }).execute();
+      vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([{ relativePath: "src/a.ts", content }]);
+      return new AsyncGuard({ targetPath: "/project" }).execute();
     };
 
-    it('does not flag a promise whose executor cannot reject', async () => {
+    it("does not flag a promise whose executor cannot reject", async () => {
       for (const content of [
-        'const p = new Promise((resolve) => { resolve(1); });',
-        'const p = new Promise(resolve => resolve(1));',
-        'const p = new Promise(function (resolve) { resolve(1); });',
-        'const p = new Promise(async (resolve) => { resolve(1); });',
+        "const p = new Promise((resolve) => { resolve(1); });",
+        "const p = new Promise(resolve => resolve(1));",
+        "const p = new Promise(function (resolve) { resolve(1); });",
+        "const p = new Promise(async (resolve) => { resolve(1); });",
       ]) {
         expect((await run(content)).issues, content).toHaveLength(0);
       }
     });
 
-    it('still flags a promise whose executor can reject', async () => {
+    it("still flags a promise whose executor can reject", async () => {
       const result = await run('const p = new Promise((resolve, reject) => { reject(new Error("x")); });');
       expect(result.issues).toHaveLength(1);
-      expect(result.issues[0]?.message).toContain('Unhandled Promise');
+      expect(result.issues[0]?.message).toContain("Unhandled Promise");
     });
 
-    it('accepts a .catch placed after a long multi-line .then callback', async () => {
+    it("accepts a .catch placed after a long multi-line .then callback", async () => {
       const result = await run(
-        ['main()', '  .then((code) => {', '    // 1', '    // 2', '    // 3', '    // 4', '    done(code);', '  })', '  .catch((error) => {', '    fail(error);', '  });'].join('\n')
+        ["main()", "  .then((code) => {", "    // 1", "    // 2", "    // 3", "    // 4", "    done(code);", "  })", "  .catch((error) => {", "    fail(error);", "  });"].join("\n")
       );
       expect(result.issues).toHaveLength(0);
     });
 
-    it('follows .then().finally().catch() chains', async () => {
-      const result = await run('load()\n  .then(a)\n  .finally(b)\n  .catch(c);');
+    it("follows .then().finally().catch() chains", async () => {
+      const result = await run("load()\n  .then(a)\n  .finally(b)\n  .catch(c);");
       expect(result.issues).toHaveLength(0);
     });
 
-    it('accepts the two-argument .then(onFulfilled, onRejected) form', async () => {
-      const result = await run('load().then(ok, (e) => { report(e); });');
+    it("accepts the two-argument .then(onFulfilled, onRejected) form", async () => {
+      const result = await run("load().then(ok, (e) => { report(e); });");
       expect(result.issues).toHaveLength(0);
     });
 
-    it('does not treat commas inside callbacks as an onRejected argument', async () => {
-      const result = await run('load().then((a) => combine(a, 1));');
+    it("does not treat commas inside callbacks as an onRejected argument", async () => {
+      const result = await run("load().then((a) => combine(a, 1));");
       expect(result.issues).toHaveLength(1);
-      expect(result.issues[0]?.message).toContain('Promise chain without .catch()');
+      expect(result.issues[0]?.message).toContain("Promise chain without .catch()");
     });
 
-    it('flags a chain that ends without a catch', async () => {
-      const result = await run('load()\n  .then(a)\n  .then(b);');
+    it("flags a chain that ends without a catch", async () => {
+      const result = await run("load()\n  .then(a)\n  .then(b);");
       expect(result.issues.length).toBeGreaterThan(0);
     });
 
-    it('does not crash on an unterminated .then(', async () => {
-      const result = await run('load().then(');
+    it("does not crash on an unterminated .then(", async () => {
+      const result = await run("load().then(");
       expect(result.issues).toHaveLength(1);
     });
   });
 
   // ===== CLEAN CODE TESTS =====
 
-  describe('Clean Async Code', () => {
-    it('should pass with properly handled promises', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Clean Async Code", () => {
+    it("should pass with properly handled promises", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `async function fetchUser() {
   return fetch('/api/user').then(r => r.json()).catch(err => console.error(err));
 }`,
@@ -151,16 +151,16 @@ describe('AsyncGuard', () => {
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
       expect(result.issues.length).toBe(0);
     });
 
-    it('should pass with proper async/await usage', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should pass with proper async/await usage", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/handler.ts',
+          relativePath: "src/handler.ts",
           content: `async function handleRequest() {
   try {
     const data = await fetchData();
@@ -174,51 +174,51 @@ describe('AsyncGuard', () => {
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
       expect(result.issues.length).toBe(0);
     });
 
-    it('should ignore async-guard and security-guard files', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should ignore async-guard and security-guard files", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/core/async-guard.ts',
+          relativePath: "src/core/async-guard.ts",
           content: `new Promise((resolve) => { resolve(); });`, // This would normally be flagged
         },
         {
-          relativePath: 'src/core/security-guard.ts',
+          relativePath: "src/core/security-guard.ts",
           content: `new Promise((resolve) => { resolve(); });`, // This would normally be flagged
         },
       ]);
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
       expect(result.issues.length).toBe(0);
     });
 
-    it('should return ok with empty file list', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should return ok with empty file list", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([]);
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
-      expect(result.message).toContain('No async/await issues');
+      expect(result.status).toBe("ok");
+      expect(result.message).toContain("No async/await issues");
     });
   });
 
   // ===== UNHANDLED PROMISE TESTS =====
 
-  describe('Unhandled Promise Detection', () => {
-    it('should detect unhandled new Promise()', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Unhandled Promise Detection", () => {
+    it("should detect unhandled new Promise()", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/index.ts',
+          relativePath: "src/index.ts",
           content: `const p = new Promise((resolve, reject) => {
   resolve();
 });`,
@@ -228,21 +228,21 @@ describe('AsyncGuard', () => {
       const result = await guard.execute();
 
       // Unhandled Promise has error severity, so status is 'issues'
-      expect(result.status).toBe('issues');
+      expect(result.status).toBe("issues");
       expect(
-        result.issues.some((i) => i.message.includes('Unhandled Promise'))
+        result.issues.some((i) => i.message.includes("Unhandled Promise"))
       ).toBe(true);
       expect(
-        result.issues.some((i) => i.severity === 'error')
+        result.issues.some((i) => i.severity === "error")
       ).toBe(true);
     });
 
-    it('should allow Promise with .catch()', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow Promise with .catch()", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/index.ts',
+          relativePath: "src/index.ts",
           content: `const p = new Promise((resolve, reject) => {
   resolve();
 }).catch(err => console.error(err));`,
@@ -251,15 +251,15 @@ describe('AsyncGuard', () => {
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should track line numbers for unhandled promises', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should track line numbers for unhandled promises", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/test.ts',
+          relativePath: "src/test.ts",
           content: `line 1
 line 2
 new Promise((resolve, reject) => { resolve(); })
@@ -269,22 +269,22 @@ line 4`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('issues');
+      expect(result.status).toBe("issues");
       expect(
-        result.issues.some((i) => i.message.includes(':3'))
+        result.issues.some((i) => i.message.includes(":3"))
       ).toBe(true);
     });
   });
 
   // ===== MISSING AWAIT TESTS =====
 
-  describe('Missing Await Detection', () => {
-    it('should detect missing await on async function call', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Missing Await Detection", () => {
+    it("should detect missing await on async function call", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -295,18 +295,18 @@ loadUser();`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('warning');
+      expect(result.status).toBe("warning");
       expect(
-        result.issues.some((i) => i.message.includes('Missing await'))
+        result.issues.some((i) => i.message.includes("Missing await"))
       ).toBe(true);
     });
 
-    it('should allow async function call with await', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow async function call with await", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -317,15 +317,15 @@ const user = await loadUser();`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow async function call with return', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow async function call with return", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -336,15 +336,15 @@ return loadUser();`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow async function call in if statement', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow async function call in if statement", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -355,15 +355,15 @@ if (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow async function call in for loop', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow async function call in for loop", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -374,15 +374,15 @@ for (let i = 0; loadUser(); i++) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow async function call in while loop', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow async function call in while loop", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/app.ts',
+          relativePath: "src/app.ts",
           content: `async function loadUser() {
   return db.query('SELECT * FROM users');
 }
@@ -393,19 +393,19 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
   });
 
   // ===== CALLBACK HELL TESTS =====
 
-  describe('Callback Hell Detection', () => {
-    it('should detect deeply nested callbacks', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Callback Hell Detection", () => {
+    it("should detect deeply nested callbacks", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/legacy.ts',
+          relativePath: "src/legacy.ts",
           // Line with >= 3 closing parens AND contains "callback"
           content: `someFunc(callback, (err, result) => { handle(callback) })`,
         },
@@ -416,16 +416,16 @@ while (loadUser()) { }`,
       // Callback hell detection
       expect(result.issues.length).toBeGreaterThan(0);
       expect(
-        result.issues.some((i) => i.message.includes('callback hell'))
+        result.issues.some((i) => i.message.includes("callback hell"))
       ).toBe(true);
     });
 
-    it('should detect callback with depth >= 3', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should detect callback with depth >= 3", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/old.ts',
+          relativePath: "src/old.ts",
           // Single line with >= 3 closing parens AND contains 'cb' word boundary
           content: `run(err => run(err => run(err => console.log(cb))))`,
         },
@@ -436,16 +436,16 @@ while (loadUser()) { }`,
       // Should detect callback hell pattern
       expect(result.issues.length).toBeGreaterThan(0);
       expect(
-        result.issues.some((i) => i.message.includes('callback hell'))
+        result.issues.some((i) => i.message.includes("callback hell"))
       ).toBe(true);
     });
 
-    it('should suggest async/await as solution', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should suggest async/await as solution", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/legacy.ts',
+          relativePath: "src/legacy.ts",
           content: `db.query('SELECT', (err, result) => {
   if (err) callback(err);
   else callback(null, result)))
@@ -457,7 +457,7 @@ while (loadUser()) { }`,
 
       expect(
         result.issues.some((i) =>
-          i.recommendation.includes('async/await')
+          i.recommendation.includes("async/await")
         )
       ).toBe(true);
     });
@@ -465,13 +465,13 @@ while (loadUser()) { }`,
 
   // ===== FLOATING PROMISE TESTS =====
 
-  describe('Floating Promise Detection', () => {
-    it('should detect floating fetch call', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Floating Promise Detection", () => {
+    it("should detect floating fetch call", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `function handleClick() {
   fetch('/api/data');
 }`,
@@ -481,18 +481,18 @@ while (loadUser()) { }`,
       const result = await guard.execute();
 
       // Floating Promise has error severity, so status is 'issues'
-      expect(result.status).toBe('issues');
+      expect(result.status).toBe("issues");
       expect(
-        result.issues.some((i) => i.message.includes('Floating Promise'))
+        result.issues.some((i) => i.message.includes("Floating Promise"))
       ).toBe(true);
     });
 
-    it('should detect floating axios call', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should detect floating axios call", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/api.ts',
+          relativePath: "src/api.ts",
           // Pattern matches /\b(?:fetch|axios|request|query)\s*\(/
           // So it needs axios( or axios (
           content: `function loadData() {
@@ -505,17 +505,17 @@ while (loadUser()) { }`,
       const result = await guard.execute();
 
       // axios( pattern should match
-      expect(result.issues.some((i) => i.message.includes('Floating Promise'))).toBe(
+      expect(result.issues.some((i) => i.message.includes("Floating Promise"))).toBe(
         true
       );
     });
 
-    it('should detect floating request call', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should detect floating request call", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/http.ts',
+          relativePath: "src/http.ts",
           content: `function sendRequest() {
   request({ url: 'http://example.com' });
 }`,
@@ -524,17 +524,17 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.issues.some((i) => i.message.includes('Floating Promise'))).toBe(
+      expect(result.issues.some((i) => i.message.includes("Floating Promise"))).toBe(
         true
       );
     });
 
-    it('should detect floating query call', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should detect floating query call", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/db.ts',
+          relativePath: "src/db.ts",
           content: `function getData() {
   query('SELECT * FROM users');
 }`,
@@ -543,17 +543,17 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.issues.some((i) => i.message.includes('Floating Promise'))).toBe(
+      expect(result.issues.some((i) => i.message.includes("Floating Promise"))).toBe(
         true
       );
     });
 
-    it('should allow fetch with await', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow fetch with await", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `async function handleClick() {
   const data = await fetch('/api/data');
 }`,
@@ -562,15 +562,15 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow fetch with return', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow fetch with return", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `function getData() {
   return fetch('/api/data');
 }`,
@@ -579,15 +579,15 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow fetch with const/let/var assignment', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow fetch with const/let/var assignment", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `function loadData() {
   const promise = fetch('/api/data');
   let p = axios.get('/users');
@@ -598,15 +598,15 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow fetch in if statement', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow fetch in if statement", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `function load() {
   if (fetch('/api/data')) { }
 }`,
@@ -615,15 +615,15 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should allow fetch in for loop', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow fetch in for loop", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service.ts',
+          relativePath: "src/service.ts",
           content: `function load() {
   for (let i = 0; fetch('/api'); i++) { }
 }`,
@@ -632,19 +632,19 @@ while (loadUser()) { }`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
   });
 
   // ===== PROMISE CHAIN TESTS =====
 
-  describe('Promise Chain Error Handling', () => {
-    it('should detect promise chain without .catch()', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Promise Chain Error Handling", () => {
+    it("should detect promise chain without .catch()", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/promise.ts',
+          relativePath: "src/promise.ts",
           content: `fetch('/api/data')
   .then(r => r.json())
   .then(data => console.log(data))`,
@@ -654,16 +654,16 @@ while (loadUser()) { }`,
       const result = await guard.execute();
 
       expect(
-        result.issues.some((i) => i.message.includes('without .catch()'))
+        result.issues.some((i) => i.message.includes("without .catch()"))
       ).toBe(true);
     });
 
-    it('should allow promise chain with .catch()', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should allow promise chain with .catch()", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/promise.ts',
+          relativePath: "src/promise.ts",
           content: `fetch('/api/data')
   .then(r => r.json())
   .then(data => console.log(data))
@@ -674,16 +674,16 @@ while (loadUser()) { }`,
       const result = await guard.execute();
 
       expect(
-        result.issues.some((i) => i.message.includes('without .catch()'))
+        result.issues.some((i) => i.message.includes("without .catch()"))
       ).toBe(false);
     });
 
-    it('should handle multiple .then() chains', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should handle multiple .then() chains", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/promise.ts',
+          relativePath: "src/promise.ts",
           content: `fetch('/api/users')
   .then(r => r.json())
   .then(users => users.map(u => u.id))
@@ -696,20 +696,20 @@ while (loadUser()) { }`,
 
       // The nextWindow includes .catch() so it should not warn
       expect(
-        result.issues.some((i) => i.message.includes('without .catch()'))
+        result.issues.some((i) => i.message.includes("without .catch()"))
       ).toBe(false);
     });
   });
 
   // ===== MULTIPLE ISSUES TESTS =====
 
-  describe('Multiple Async Issues', () => {
-    it('should report all issues in a file', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Multiple Async Issues", () => {
+    it("should report all issues in a file", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/messy.ts',
+          relativePath: "src/messy.ts",
           content: `new Promise((resolve, reject) => resolve());
 
 fetch('/api/data');
@@ -736,17 +736,17 @@ db.query('SELECT', (err, result) => {
 
   // ===== INTEGRATION TESTS =====
 
-  describe('AsyncGuard Integration', () => {
-    it('should scan multiple files', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("AsyncGuard Integration", () => {
+    it("should scan multiple files", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/service1.ts',
+          relativePath: "src/service1.ts",
           content: `fetch('/api/1');`,
         },
         {
-          relativePath: 'src/service2.ts',
+          relativePath: "src/service2.ts",
           content: `axios.get('/api/2');`,
         },
       ]);
@@ -757,8 +757,8 @@ db.query('SELECT', (err, result) => {
       expect(result.issues.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('should skip TypeScript only scanning', () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should skip TypeScript only scanning", () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([]);
 
@@ -768,27 +768,27 @@ db.query('SELECT', (err, result) => {
 
       // Verify that scanning was called with TypeScript file type
       expect(fileScanner.scanProjectFiles).toHaveBeenCalledWith(
-        '/project',
-        ['ts']
+        "/project",
+        ["ts"]
       );
     });
 
-    it('should include module name in result', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should include module name in result", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([]);
 
       const result = await guard.execute();
 
-      expect(result.module).toBe('async-guard');
+      expect(result.module).toBe("async-guard");
     });
 
-    it('should create issues with appropriate severity', async () => {
-      const guard = new AsyncGuard({ targetUrl: '/project' });
+    it("should create issues with appropriate severity", async () => {
+      const guard = new AsyncGuard({ targetUrl: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/test.ts',
+          relativePath: "src/test.ts",
           content: `fetch('/api');
 
 loadUser();`,
@@ -798,44 +798,44 @@ loadUser();`,
       const result = await guard.execute();
 
       const floatingPromiseIssue = result.issues.find((i) =>
-        i.message.includes('Floating Promise')
+        i.message.includes("Floating Promise")
       );
       const missingAwaitIssue = result.issues.find((i) =>
-        i.message.includes('Missing await')
+        i.message.includes("Missing await")
       );
 
       // Floating promises are error severity
       if (floatingPromiseIssue) {
-        expect(floatingPromiseIssue.severity).toBe('error');
+        expect(floatingPromiseIssue.severity).toBe("error");
       }
 
       // Missing await is warning severity
       if (missingAwaitIssue) {
-        expect(missingAwaitIssue.severity).toBe('warning');
+        expect(missingAwaitIssue.severity).toBe("warning");
       }
     });
 
-    it('should handle files with no content', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should handle files with no content", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/empty.ts',
-          content: '',
+          relativePath: "src/empty.ts",
+          content: "",
         },
       ]);
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
 
-    it('should handle files with only comments', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should handle files with only comments", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/commented.ts',
+          relativePath: "src/commented.ts",
           content: `// This is a comment
 // import stuff
 const x = 1;`,
@@ -844,19 +844,19 @@ const x = 1;`,
 
       const result = await guard.execute();
 
-      expect(result.status).toBe('ok');
+      expect(result.status).toBe("ok");
     });
   });
 
   // ===== EDGE CASE TESTS =====
 
-  describe('Edge Cases', () => {
-    it('should handle Promise in string literals', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+  describe("Edge Cases", () => {
+    it("should handle Promise in string literals", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/strings.ts',
+          relativePath: "src/strings.ts",
           content: `const str = "new Promise(resolve => resolve())"`,
         },
       ]);
@@ -868,12 +868,12 @@ const x = 1;`,
       expect(result).toBeDefined();
     });
 
-    it('should handle fetch in string literals', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should handle fetch in string literals", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/strings.ts',
+          relativePath: "src/strings.ts",
           content: `const url = "fetch('/api/data')"; `,
         },
       ]);
@@ -885,12 +885,12 @@ const x = 1;`,
       expect(result).toBeDefined();
     });
 
-    it('should handle Promise in comments', async () => {
-      const guard = new AsyncGuard({ targetPath: '/project' });
+    it("should handle Promise in comments", async () => {
+      const guard = new AsyncGuard({ targetPath: "/project" });
 
       vi.mocked(fileScanner.scanProjectFiles).mockReturnValue([
         {
-          relativePath: 'src/commented.ts',
+          relativePath: "src/commented.ts",
           content: `// new Promise(resolve => resolve())
 const x = 1;`,
         },

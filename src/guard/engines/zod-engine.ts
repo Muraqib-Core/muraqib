@@ -1,8 +1,7 @@
 /**
  * Zod Validation Engine
  * Wrapper for Zod schema validation with structured error reporting
- */
-/**
+ *
  * NOTE: these are the PUBLIC schema wrappers (exported from src/index.ts).
  * Each wraps a schema supplied by the caller and reports structured issues.
  * They are intentionally separate from src/scan/guard/engines, which build
@@ -10,8 +9,8 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-import { z, ZodError } from 'zod';
-import type { ZodSchema } from 'zod';
+import { z, ZodError } from "zod";
+import type { ZodSchema } from "zod";
 
 /** Minimal shape of a Zod issue that this engine reads. */
 interface ZodIssueLike {
@@ -20,7 +19,8 @@ interface ZodIssueLike {
   code: string;
 }
 
-import type { ValidationIssue } from './validation-issue.js';
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
 
 export type { ValidationIssue };
 
@@ -40,7 +40,7 @@ export class ZodEngine {
 
   constructor(schema: ZodSchema, strict = false) {
     if (!schema) {
-      throw new Error('Schema is required');
+      throw new Error("Schema is required");
     }
     this.schema = schema;
     this.strict = strict;
@@ -58,39 +58,23 @@ export class ZodEngine {
         errors: [],
       };
     } catch (error) {
-      if (error instanceof ZodError) {
-        const issues = this.parseZodError(error);
-        return {
-          success: false,
-          errors: issues,
-          raw: error,
-        };
-      }
-
-      return {
-        success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
-      };
+      return this.failureFrom(error);
     }
+  }
+
+  /** Converts a thrown value into a failed result (Zod issues when it is a ZodError). */
+  private failureFrom(error: unknown): ZodValidationResult {
+    if (error instanceof ZodError) {
+      return { success: false, errors: this.parseZodError(error), raw: error };
+    }
+    return { success: false, errors: [unknownErrorIssue(error)] };
   }
 
   /**
    * Validate data with strict mode (throws on error)
    */
   validateStrict(data: unknown): unknown {
-    const result = this.validate(data);
-    if (!result.success) {
-      const messages = result.errors.map(e => `${e.field}: ${e.message}`).join('; ');
-      throw new Error(`Validation failed: ${messages}`);
-    }
-    return result.data;
+    return dataOrThrow(this.validate(data));
   }
 
   /**
@@ -110,26 +94,7 @@ export class ZodEngine {
 
       return this.validate(data);
     } catch (error) {
-      if (error instanceof ZodError) {
-        const issues = this.parseZodError(error);
-        return {
-          success: false,
-          errors: issues,
-          raw: error,
-        };
-      }
-
-      return {
-        success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
-      };
+      return this.failureFrom(error);
     }
   }
 
@@ -165,10 +130,10 @@ export class ZodEngine {
    */
   merge(other: ZodSchema): ZodEngine {
     if (this.schema instanceof z.ZodObject && other instanceof z.ZodObject) {
-      const merged = (this.schema as z.ZodObject).merge(other as z.ZodObject);
+      const merged = (this.schema).merge(other);
       return new ZodEngine(merged, this.strict);
     }
-    throw new Error('Can only merge ZodObject schemas');
+    throw new Error("Can only merge ZodObject schemas");
   }
 
   /**
@@ -193,10 +158,10 @@ export class ZodEngine {
   private parseZodError(error: ZodError): ValidationIssue[] {
     const issues: ReadonlyArray<ZodIssueLike> = error.issues ?? [];
     return issues.map((err) => ({
-      field: (err.path ?? []).map(String).join('.') || 'root',
+      field: (err.path ?? []).map(String).join(".") || "root",
       message: err.message,
       code: err.code,
-      path: (err.path ?? []).filter((k): k is string | number => typeof k !== 'symbol'),
+      path: (err.path ?? []).filter((k): k is string | number => typeof k !== "symbol"),
     }));
   }
 
@@ -238,16 +203,16 @@ export function batchValidateZod(
  */
 export function composeZodSchemas(...schemas: ZodSchema[]): ZodEngine {
   if (schemas.length === 0) {
-    throw new Error('At least one schema is required');
+    throw new Error("At least one schema is required");
   }
 
   let composed = schemas[0] as ZodSchema;
   for (let i = 1; i < schemas.length; i++) {
     const schema = schemas[i];
     if (schema && composed instanceof z.ZodObject && schema instanceof z.ZodObject) {
-      composed = (composed as z.ZodObject).merge(schema as z.ZodObject);
+      composed = (composed).merge(schema);
     }
   }
 
-  return new ZodEngine(composed as ZodSchema);
+  return new ZodEngine(composed);
 }

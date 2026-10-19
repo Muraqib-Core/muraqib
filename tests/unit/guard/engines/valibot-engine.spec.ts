@@ -1,77 +1,77 @@
-import { describe, it, expect } from 'vitest';
-import { ValibotEngine, createValibotEngine, batchValidateValibot } from '../../../../src/guard/engines/valibot-engine';
-import type { BaseSchema } from 'valibot';
+import { describe, it, expect } from "vitest";
+import { ValibotEngine, createValibotEngine, batchValidateValibot } from "../../../../src/guard/engines/valibot-engine";
+import type { BaseSchema } from "valibot";
 
 // Mock Valibot schema
 const createMockSchema = (): BaseSchema<unknown, unknown> => ({
   async parse(input: unknown) {
-    if (typeof input !== 'object' || input === null) {
-      throw new Error('Expected object');
+    if (typeof input !== "object" || input === null) {
+      throw new Error("Expected object");
     }
     return input;
   },
 } as unknown as BaseSchema<unknown, unknown>);
 
-describe('ValibotEngine', () => {
-  describe('constructor', () => {
-    it('should create engine with valid schema', () => {
+describe("ValibotEngine", () => {
+  describe("constructor", () => {
+    it("should create engine with valid schema", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       expect(engine).toBeInstanceOf(ValibotEngine);
     });
 
-    it('should throw if schema is null', () => {
+    it("should throw if schema is null", () => {
       expect(() => new ValibotEngine(null as unknown as BaseSchema<unknown, unknown>)).toThrow(
-        'Schema is required'
+        "Schema is required"
       );
     });
 
-    it('should set strict mode', () => {
+    it("should set strict mode", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema, true);
       expect(engine).toBeInstanceOf(ValibotEngine);
     });
   });
 
-  describe('validate', () => {
-    it('should return result object with expected properties', () => {
+  describe("validate", () => {
+    it("should return result object with expected properties", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
       const result = engine.validate(data);
 
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('errors');
+      expect(result).toHaveProperty("success");
+      expect(result).toHaveProperty("errors");
       expect(Array.isArray(result.errors)).toBe(true);
     });
 
-    it('should handle errors gracefully', () => {
+    it("should handle errors gracefully", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       const result = engine.validate(null);
 
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('errors');
+      expect(result).toHaveProperty("success");
+      expect(result).toHaveProperty("errors");
     });
 
-    it('should handle unknown errors', () => {
-      const schema = { parse: () => { throw new Error('Test error'); } } as unknown as BaseSchema<
+    it("should handle unknown errors", () => {
+      const schema = { parse: () => { throw new Error("Test error"); } } as unknown as BaseSchema<
         unknown,
         unknown
       >;
       const engine = new ValibotEngine(schema);
-      const result = engine.validate({ test: 'data' });
+      const result = engine.validate({ test: "data" });
 
       expect(result.success).toBe(false);
-      expect(result.errors[0].code).toBe('UNKNOWN_ERROR');
+      expect(result.errors[0].code).toBe("UNKNOWN_ERROR");
     });
   });
 
-  describe('validateStrict', () => {
-    it('should return data or throw', () => {
+  describe("validateStrict", () => {
+    it("should return data or throw", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
 
       try {
         const result = engine.validateStrict(data);
@@ -81,7 +81,7 @@ describe('ValibotEngine', () => {
       }
     });
 
-    it('should handle null values appropriately', () => {
+    it("should handle null values appropriately", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
 
@@ -93,40 +93,40 @@ describe('ValibotEngine', () => {
     });
   });
 
-  describe('validatePartial', () => {
-    it('should return result object', () => {
+  describe("validatePartial", () => {
+    it("should return result object", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
       const result = engine.validatePartial(data);
 
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('errors');
+      expect(result).toHaveProperty("success");
+      expect(result).toHaveProperty("errors");
     });
 
-    it('should handle non-object data', () => {
+    it("should handle non-object data", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
-      const result = engine.validatePartial('string');
+      const result = engine.validatePartial("string");
 
       expect(result).toBeDefined();
-      expect(result).toHaveProperty('success');
+      expect(result).toHaveProperty("success");
     });
   });
 
-  describe('getSchemaInfo', () => {
-    it('should return schema info', () => {
+  describe("getSchemaInfo", () => {
+    it("should return schema info", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       const info = engine.getSchemaInfo();
 
-      expect(info).toHaveProperty('type');
-      expect(typeof info.type === 'string').toBe(true);
+      expect(info).toHaveProperty("type");
+      expect(typeof info.type === "string").toBe(true);
     });
   });
 
-  describe('optional and nullable', () => {
-    it('should create optional engine', () => {
+  describe("optional and nullable", () => {
+    it("should create optional engine", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       const optional = engine.optional();
@@ -134,7 +134,7 @@ describe('ValibotEngine', () => {
       expect(optional).toBeInstanceOf(ValibotEngine);
     });
 
-    it('should create nullable engine', () => {
+    it("should create nullable engine", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       const nullable = engine.nullable();
@@ -143,8 +143,8 @@ describe('ValibotEngine', () => {
     });
   });
 
-  describe('transform', () => {
-    it('should create transformed engine', () => {
+  describe("transform", () => {
+    it("should create transformed engine", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
       const transformed = engine.transform(data => ({ ...data, transformed: true }));
@@ -153,8 +153,8 @@ describe('ValibotEngine', () => {
     });
   });
 
-  describe('getSchema', () => {
-    it('should return the schema', () => {
+  describe("getSchema", () => {
+    it("should return the schema", () => {
       const schema = createMockSchema();
       const engine = new ValibotEngine(schema);
 
@@ -163,15 +163,15 @@ describe('ValibotEngine', () => {
   });
 });
 
-describe('createValibotEngine', () => {
-  it('should create engine', () => {
+describe("createValibotEngine", () => {
+  it("should create engine", () => {
     const schema = createMockSchema();
     const engine = createValibotEngine(schema);
 
     expect(engine).toBeInstanceOf(ValibotEngine);
   });
 
-  it('should create engine with strict mode', () => {
+  it("should create engine with strict mode", () => {
     const schema = createMockSchema();
     const engine = createValibotEngine(schema, true);
 
@@ -179,8 +179,8 @@ describe('createValibotEngine', () => {
   });
 });
 
-describe('batchValidateValibot', () => {
-  it('should validate multiple items', () => {
+describe("batchValidateValibot", () => {
+  it("should validate multiple items", () => {
     const schema = createMockSchema();
     const items = [{ a: 1 }, { b: 2 }];
     const results = batchValidateValibot(schema, items);
@@ -190,17 +190,17 @@ describe('batchValidateValibot', () => {
     expect(results[1].item).toEqual({ b: 2 });
   });
 
-  it('should return validation results', () => {
+  it("should return validation results", () => {
     const schema = createMockSchema();
     const items = [{ valid: true }, null];
     const results = batchValidateValibot(schema, items);
 
     expect(results).toHaveLength(2);
-    expect(results[0]).toHaveProperty('valid');
-    expect(results[1]).toHaveProperty('valid');
+    expect(results[0]).toHaveProperty("valid");
+    expect(results[1]).toHaveProperty("valid");
   });
 
-  it('should collect errors for invalid items', () => {
+  it("should collect errors for invalid items", () => {
     const schema = createMockSchema();
     const items = [null];
     const results = batchValidateValibot(schema, items);

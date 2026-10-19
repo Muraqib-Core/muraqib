@@ -17,7 +17,7 @@ function walkLegacyDependencies(deps: unknown, into: PackageVersions): void {
   for (const [name, entry] of Object.entries(deps)) {
     if (!isRecord(entry)) continue;
     const version = entry["version"];
-    if (typeof version === "string" && !/^(?:file|link|git|github|https?):/.test(version)) {
+    if (typeof version === "string" && !/^(?:file|link|git(?:\+[a-z]+)?|github|https?):/.test(version)) {
       addVersion(into, name, version);
     }
     walkLegacyDependencies(entry["dependencies"], into);
@@ -110,6 +110,12 @@ export function collectPnpmLockVersions(content: string, into: PackageVersions):
     if (raw === undefined) continue;
 
     const key = raw.replace(/^\//, "").replace(/\(.*$/, "");
+    // v5 keys (`name/1.2.3_peer@4`) can contain `@` in the peer suffix, so try them before the `name@version` form.
+    const legacy = /^(.+)\/(\d+\.[^/_@]*)(?:_.*)?$/.exec(key);
+    if (legacy !== null) {
+      addVersion(into, legacy[1] ?? "", legacy[2] ?? "");
+      continue;
+    }
     const modern = /^(@?[^@]+)@(.+)$/.exec(key);
     if (modern !== null) {
       addVersion(into, modern[1] ?? "", modern[2] ?? "");

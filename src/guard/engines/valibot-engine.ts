@@ -10,15 +10,15 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-import type { BaseSchema, BaseIssue } from 'valibot';
-import { nonEmpty } from '../../utils/defaults.js';
-import { requireOptionalDependency } from '../../utils/optional-dependency.js';
+import type { BaseSchema, BaseIssue } from "valibot";
+import { nonEmpty } from "../../utils/defaults.js";
+import { requireOptionalDependency } from "../../utils/optional-dependency.js";
 
-type ValibotModule = typeof import('valibot');
+type ValibotModule = typeof import("valibot");
 
 /** Load valibot on first use; the engine API is synchronous so this resolves synchronously. */
 function loadValibot(): ValibotModule {
-  return requireOptionalDependency<ValibotModule>('valibot', "engine 'valibot'");
+  return requireOptionalDependency<ValibotModule>("valibot", "engine 'valibot'");
 }
 
 /** One step of a Valibot issue path (`issue.path`), e.g. an object key or array index. */
@@ -26,7 +26,8 @@ interface PathNode {
   key?: unknown;
 }
 
-import type { ValidationIssue } from './validation-issue.js';
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
 
 export type { ValidationIssue };
 
@@ -46,7 +47,7 @@ export class ValibotEngine {
 
   constructor(schema: BaseSchema<unknown, unknown, BaseIssue<unknown>>, strict = false) {
     if (!schema) {
-      throw new Error('Schema is required');
+      throw new Error("Schema is required");
     }
     this.schema = schema;
     this.strict = strict;
@@ -78,14 +79,7 @@ export class ValibotEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
+        errors: [unknownErrorIssue(error)],
       };
     }
   }
@@ -94,12 +88,7 @@ export class ValibotEngine {
    * Validate data with strict mode (throws on error)
    */
   validateStrict(data: unknown): unknown {
-    const result = this.validate(data);
-    if (!result.success) {
-      const messages = result.errors.map(e => `${e.field}: ${e.message}`).join('; ');
-      throw new Error(`Validation failed: ${messages}`);
-    }
-    return result.data;
+    return dataOrThrow(this.validate(data));
   }
 
   /**
@@ -107,7 +96,7 @@ export class ValibotEngine {
    */
   validatePartial(data: unknown): ValibotValidationResult {
     try {
-      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+      if (typeof data === "object" && data !== null && !Array.isArray(data)) {
         const result = this.validate(data);
         if (result.success) {
           return result;
@@ -123,14 +112,7 @@ export class ValibotEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
+        errors: [unknownErrorIssue(error)],
       };
     }
   }
@@ -185,8 +167,8 @@ export class ValibotEngine {
   private parseValibotIssues(issues: BaseIssue<unknown>[]): ValidationIssue[] {
     return issues.map(issue => ({
       field: this.getFieldPath(issue),
-      message: nonEmpty(issue.message, 'Validation error'),
-      code: nonEmpty((issue as { type?: string }).type, 'VALIDATION_ERROR'),
+      message: nonEmpty(issue.message, "Validation error"),
+      code: nonEmpty((issue as { type?: string }).type, "VALIDATION_ERROR"),
       path: this.extractPath(issue),
     }));
   }
@@ -196,7 +178,7 @@ export class ValibotEngine {
    */
   private getFieldPath(issue: BaseIssue<unknown>): string {
     const path = this.extractPath(issue);
-    return path.length > 0 ? path.join('.') : 'root';
+    return path.length > 0 ? path.join(".") : "root";
   }
 
   /**
@@ -206,7 +188,7 @@ export class ValibotEngine {
     const items: readonly PathNode[] = (issue as { path?: readonly PathNode[] }).path ?? [];
     const pathArray: (string | number)[] = [];
     for (const item of items) {
-      if (typeof item.key === 'string' || typeof item.key === 'number') {
+      if (typeof item.key === "string" || typeof item.key === "number") {
         pathArray.push(item.key);
       }
     }

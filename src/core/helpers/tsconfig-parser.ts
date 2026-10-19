@@ -80,7 +80,7 @@ function dropTrailingComma(text: string, i: number): ScanStep {
 
 function stripJsonCommentsAndTrailingCommas(input: string): string {
   // Remove UTF-8 BOM if present
-  const text = input.startsWith('﻿') ? input.slice(1) : input;
+  const text = input.startsWith("﻿") ? input.slice(1) : input;
   return scanOutsideStrings(scanOutsideStrings(text, dropComment), dropTrailingComma);
 }
 

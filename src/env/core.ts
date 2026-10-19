@@ -118,7 +118,7 @@ export function createEnv<
     if (!opts.silent) {
       logger.log(`⏭️ [Muraqib Guards]: Validation skipped (skipValidation=true).`);
     }
-    return process.env as unknown as Env;
+    return process.env as Env;
   }
 
   const isServer = opts.isServer ?? typeof window === "undefined";
@@ -153,7 +153,7 @@ export function createEnv<
     emptyStringAsUndefined: shouldSanitize,
   });
 
-  const data = (validatedGuard?.data ?? validatedGuard) as unknown as Env;
+  const data = (validatedGuard?.data ?? validatedGuard) as Env;
   if (isServer) return data;
 
   const serverOnlyKeys = Object.keys(serverFields).filter((key) => !(key in clientFields));
@@ -185,7 +185,7 @@ export function safeCreateEnv<
     if (data === null) {
       return { success: false, error: [{ path: "schedule", message: "Outside allowed schedule window." }] };
     }
-    return { success: true, data: data as InferSchema<TServer> & InferSchema<TClient> & IntersectExtension<TExtends> };
+    return { success: true, data: data };
   } catch (e: unknown) {
     type MuraqibError = Error & { isMuraqibCustom?: boolean; errors?: { path: string; message: string }[] };
     const me = e as MuraqibError;

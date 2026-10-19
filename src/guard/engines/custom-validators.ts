@@ -1,7 +1,7 @@
 /**
  * Reusable validators for CustomEngine (re-exported from custom-engine.ts)
  */
-import type { ValidationIssue } from './custom-engine.js';
+import type { ValidationIssue } from "./custom-engine.js";
 
 /**
  * Common validators for reuse
@@ -11,12 +11,12 @@ export const commonValidators = {
    * Validate that data is a string
    */
   isString: (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'string') {
+    if (typeof data !== "string") {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Expected string, got ${typeof data}`,
-          code: 'TYPE_ERROR',
+          code: "TYPE_ERROR",
           path: [],
         },
       ];
@@ -28,12 +28,12 @@ export const commonValidators = {
    * Validate that data is a number
    */
   isNumber: (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'number' || isNaN(data)) {
+    if (typeof data !== "number" || isNaN(data)) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Expected number, got ${typeof data}`,
-          code: 'TYPE_ERROR',
+          code: "TYPE_ERROR",
           path: [],
         },
       ];
@@ -45,13 +45,13 @@ export const commonValidators = {
    * Validate string length
    */
   stringLength: (min: number, max: number) => (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'string') return null;
+    if (typeof data !== "string") return null;
     if (data.length < min || data.length > max) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `String length must be between ${min} and ${max}, got ${data.length}`,
-          code: 'LENGTH_ERROR',
+          code: "LENGTH_ERROR",
           path: [],
         },
       ];
@@ -63,13 +63,13 @@ export const commonValidators = {
    * Validate number range
    */
   numberRange: (min: number, max: number) => (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'number') return null;
+    if (typeof data !== "number") return null;
     if (data < min || data > max) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Number must be between ${min} and ${max}, got ${data}`,
-          code: 'RANGE_ERROR',
+          code: "RANGE_ERROR",
           path: [],
         },
       ];
@@ -81,14 +81,14 @@ export const commonValidators = {
    * Validate email format
    */
   isEmail: (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'string') return null;
+    if (typeof data !== "string") return null;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(data)) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Invalid email format: ${data}`,
-          code: 'EMAIL_ERROR',
+          code: "EMAIL_ERROR",
           path: [],
         },
       ];
@@ -103,9 +103,9 @@ export const commonValidators = {
     if (!Array.isArray(data)) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Expected array, got ${typeof data}`,
-          code: 'TYPE_ERROR',
+          code: "TYPE_ERROR",
           path: [],
         },
       ];
@@ -121,9 +121,9 @@ export const commonValidators = {
     if (data.length < min || data.length > max) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Array length must be between ${min} and ${max}, got ${data.length}`,
-          code: 'LENGTH_ERROR',
+          code: "LENGTH_ERROR",
           path: [],
         },
       ];
@@ -135,12 +135,12 @@ export const commonValidators = {
    * Validate object
    */
   isObject: (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
       return [
         {
-          field: 'root',
+          field: "root",
           message: `Expected object, got ${typeof data}`,
-          code: 'TYPE_ERROR',
+          code: "TYPE_ERROR",
           path: [],
         },
       ];
@@ -152,7 +152,7 @@ export const commonValidators = {
    * Validate required properties
    */
   requiredProps: (props: string[]) => (data: unknown): ValidationIssue[] | null => {
-    if (typeof data !== 'object' || data === null) return null;
+    if (typeof data !== "object" || data === null) return null;
     const obj = data as Record<string, unknown>;
     const errors: ValidationIssue[] = [];
 
@@ -161,7 +161,7 @@ export const commonValidators = {
         errors.push({
           field: prop,
           message: `Required property '${prop}' is missing`,
-          code: 'REQUIRED_ERROR',
+          code: "REQUIRED_ERROR",
           path: [prop],
         });
       }

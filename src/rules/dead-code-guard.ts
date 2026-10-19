@@ -318,7 +318,7 @@ export class DeadCodeGuard extends BaseGuard {
   private targetPath: string;
 
   constructor(targetPath: string, context?: AuditContext) {
-    super('dead-code-guard', context);
+    super("dead-code-guard", context);
     this.targetPath = targetPath;
   }
 
@@ -329,13 +329,13 @@ export class DeadCodeGuard extends BaseGuard {
     for (const emptyFunc of result.emptyFunctions) {
       issues.push(
         this.createIssue(
-          'EMPTY_FUNCTION',
-          'warning',
-          'Empty Function Detected',
+          "EMPTY_FUNCTION",
+          "warning",
+          "Empty Function Detected",
           `Dead code detected: ${emptyFunc}`,
           undefined,
-          'Remove unused functions or add implementation',
-          ['dead-code', 'code-quality']
+          "Remove unused functions or add implementation",
+          ["dead-code", "code-quality"]
         )
       );
     }
@@ -343,13 +343,13 @@ export class DeadCodeGuard extends BaseGuard {
     for (const unreachable of result.unreachableBranches) {
       issues.push(
         this.createIssue(
-          'UNREACHABLE_CODE',
-          'warning',
-          'Unreachable Code',
+          "UNREACHABLE_CODE",
+          "warning",
+          "Unreachable Code",
           `Code after control flow statement: ${unreachable}`,
           undefined,
-          'Remove or refactor unreachable code paths',
-          ['dead-code', 'control-flow']
+          "Remove or refactor unreachable code paths",
+          ["dead-code", "control-flow"]
         )
       );
     }
@@ -357,23 +357,23 @@ export class DeadCodeGuard extends BaseGuard {
     for (const unused of result.unusedExports) {
       issues.push(
         this.createIssue(
-          'UNUSED_EXPORT',
-          'info',
-          'Potentially Unused Export',
+          "UNUSED_EXPORT",
+          "info",
+          "Potentially Unused Export",
           `Export not used elsewhere: ${unused}`,
           undefined,
-          'Remove if truly unused or import in dependent modules',
-          ['dead-code', 'exports']
+          "Remove if truly unused or import in dependent modules",
+          ["dead-code", "exports"]
         )
       );
     }
 
-    const status = result.isClean ? 'ok' : 'warning';
+    const status = result.isClean ? "ok" : "warning";
     return this.createResult(
       status,
       issues,
-      status === 'ok'
-        ? '✅ No dead code detected'
+      status === "ok"
+        ? "✅ No dead code detected"
         : `⚠️ Found ${result.reports.length} potential dead code issues`
     );
   }

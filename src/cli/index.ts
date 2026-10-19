@@ -123,8 +123,8 @@ const FLAG_HANDLERS: ReadonlyMap<string, FlagHandler> = new Map<string, FlagHand
   ["-o", valueFlag((o, value) => { o.output = value; })],
   ["--project", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
   ["-p", valueFlag((o, value) => { o.projectRoot = nonEmpty(value, process.cwd()); })],
-  ["--modules", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
-  ["-m", valueFlag((o, value) => { o.modules = value?.split(",") || []; })],
+  ["--modules", valueFlag((o, value) => { o.modules = value?.split(",") ?? []; })],
+  ["-m", valueFlag((o, value) => { o.modules = value?.split(",") ?? []; })],
   ["--security-url", valueFlag((o, value) => { o.securityUrl = value; })],
   ["--env", valueFlag(setEnvMode)],
   ["-e", valueFlag(setEnvMode)],
@@ -518,6 +518,7 @@ async function runCommand(command: NonNullable<ExtendedCliOptions["command"]>, o
       // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
       if (options.projectRoot) process.chdir(options.projectRoot);
       return runScanLayer(["resolve"]);
+    case "audit":
     default:
       return runAuditCommand(options);
   }

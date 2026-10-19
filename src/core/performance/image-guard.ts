@@ -1,12 +1,12 @@
-import fs from 'fs';
-import path from 'path';
-import { BaseGuard } from '../base-guard.js';
-import type { AuditResult, AuditIssue, AuditContext } from '../types.js';
-import { SKIPPED_DIR_NAMES } from '../../shared/constants.js';
+import fs from "fs";
+import path from "path";
+import { BaseGuard } from "../base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "../types.js";
+import { SKIPPED_DIR_NAMES } from "../../shared/constants.js";
 
 const MAX_IMAGE_SIZE_BYTES = 500 * 1024;
 
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 
 export interface ImageViolation {
   filePath: string;
@@ -82,7 +82,7 @@ export class ImageGuard extends BaseGuard {
   private targetPath?: string | undefined;
 
   constructor(targetPath?: string, context?: AuditContext) {
-    super('image-guard', context);
+    super("image-guard", context);
     this.targetPath = targetPath;
   }
 
@@ -98,23 +98,23 @@ export class ImageGuard extends BaseGuard {
     for (const violation of result.violations) {
       issues.push(
         this.createIssue(
-          'IMAGE_SIZE_EXCEEDED',
-          'warning',
-          'Large Image Detected',
+          "IMAGE_SIZE_EXCEEDED",
+          "warning",
+          "Large Image Detected",
           `Image '${violation.filePath}' is ${violation.sizeKB}KB (exceeds 500KB limit)`,
           { file: violation.filePath },
           violation.recommendation,
-          ['performance', 'image']
+          ["performance", "image"]
         )
       );
     }
 
-    const status = result.violations.length === 0 ? 'ok' : 'warning';
+    const status = result.violations.length === 0 ? "ok" : "warning";
     return this.createResult(
       status,
       issues,
-      status === 'ok'
-        ? '✅ All images optimized (< 500KB)'
+      status === "ok"
+        ? "✅ All images optimized (< 500KB)"
         : `⚠️ ${result.violations.length} image(s) exceed size limit`
     );
   }
