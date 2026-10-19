@@ -118,7 +118,7 @@ export function createEnv<
     if (!opts.silent) {
       logger.log(`⏭️ [Muraqib Guards]: Validation skipped (skipValidation=true).`);
     }
-    return process.env as unknown as Env;
+    return process.env as Env;
   }
 
   const isServer = opts.isServer ?? typeof window === "undefined";
@@ -153,7 +153,7 @@ export function createEnv<
     emptyStringAsUndefined: shouldSanitize,
   });
 
-  const data = (validatedGuard?.data ?? validatedGuard) as unknown as Env;
+  const data = (validatedGuard?.data ?? validatedGuard) as Env;
   if (isServer) return data;
 
   const serverOnlyKeys = Object.keys(serverFields).filter((key) => !(key in clientFields));
