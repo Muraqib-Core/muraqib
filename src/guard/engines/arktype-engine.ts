@@ -14,6 +14,7 @@ import type { Type } from 'arktype';
 import { nonEmpty } from '../../utils/defaults.js';
 
 import type { ValidationIssue } from './validation-issue.js';
+import { dataOrThrow, unknownErrorIssue } from './validation-issue.js';
 
 export type { ValidationIssue };
 
@@ -61,14 +62,7 @@ export class ArktypeEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
+        errors: [unknownErrorIssue(error)],
         raw: error instanceof Error ? error.message : String(error),
       };
     }
@@ -78,12 +72,7 @@ export class ArktypeEngine {
    * Validate data with strict mode (throws on error)
    */
   validateStrict(data: unknown): unknown {
-    const result = this.validate(data);
-    if (!result.success) {
-      const messages = result.errors.map(e => `${e.field}: ${e.message}`).join('; ');
-      throw new Error(`Validation failed: ${messages}`);
-    }
-    return result.data;
+    return dataOrThrow(this.validate(data));
   }
 
   /**
@@ -99,14 +88,7 @@ export class ArktypeEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
+        errors: [unknownErrorIssue(error)],
         raw: error instanceof Error ? error.message : String(error),
       };
     }

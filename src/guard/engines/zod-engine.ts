@@ -20,6 +20,7 @@ interface ZodIssueLike {
 }
 
 import type { ValidationIssue } from './validation-issue.js';
+import { dataOrThrow, unknownErrorIssue } from './validation-issue.js';
 
 export type { ValidationIssue };
 
@@ -57,39 +58,23 @@ export class ZodEngine {
         errors: [],
       };
     } catch (error) {
-      if (error instanceof ZodError) {
-        const issues = this.parseZodError(error);
-        return {
-          success: false,
-          errors: issues,
-          raw: error,
-        };
-      }
-
-      return {
-        success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
-      };
+      return this.failureFrom(error);
     }
+  }
+
+  /** Converts a thrown value into a failed result (Zod issues when it is a ZodError). */
+  private failureFrom(error: unknown): ZodValidationResult {
+    if (error instanceof ZodError) {
+      return { success: false, errors: this.parseZodError(error), raw: error };
+    }
+    return { success: false, errors: [unknownErrorIssue(error)] };
   }
 
   /**
    * Validate data with strict mode (throws on error)
    */
   validateStrict(data: unknown): unknown {
-    const result = this.validate(data);
-    if (!result.success) {
-      const messages = result.errors.map(e => `${e.field}: ${e.message}`).join('; ');
-      throw new Error(`Validation failed: ${messages}`);
-    }
-    return result.data;
+    return dataOrThrow(this.validate(data));
   }
 
   /**
@@ -109,26 +94,7 @@ export class ZodEngine {
 
       return this.validate(data);
     } catch (error) {
-      if (error instanceof ZodError) {
-        const issues = this.parseZodError(error);
-        return {
-          success: false,
-          errors: issues,
-          raw: error,
-        };
-      }
-
-      return {
-        success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'UNKNOWN_ERROR',
-            path: [],
-          },
-        ],
-      };
+      return this.failureFrom(error);
     }
   }
 
