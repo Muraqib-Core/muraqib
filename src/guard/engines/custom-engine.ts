@@ -10,8 +10,8 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-import type { ValidationIssue } from './validation-issue.js';
-import { dataOrThrow, unknownErrorIssue } from './validation-issue.js';
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
 
 export type { ValidationIssue };
 
@@ -103,9 +103,9 @@ export class CustomEngine {
           success: false,
           errors: [
             {
-              field: 'root',
-              message: `Value is ${data === undefined ? 'undefined' : 'null'} but schema does not allow it`,
-              code: 'NULL_VALIDATION_ERROR',
+              field: "root",
+              message: `Value is ${data === undefined ? "undefined" : "null"} but schema does not allow it`,
+              code: "NULL_VALIDATION_ERROR",
               path: [],
             },
           ],
@@ -131,7 +131,7 @@ export class CustomEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [unknownErrorIssue(error, 'VALIDATION_ERROR')],
+        errors: [unknownErrorIssue(error, "VALIDATION_ERROR")],
       };
     }
   }
@@ -155,7 +155,7 @@ export class CustomEngine {
    */
   getSchemaInfo(): { type: string; description?: string | undefined } {
     return {
-      type: 'CustomSchema',
+      type: "CustomSchema",
       description: `Custom validation with ${this.validators.length} validator(s) and ${this.transforms.length} transform(s)`,
     };
   }
@@ -261,4 +261,4 @@ export function batchValidateCustom(
   });
 }
 
-export { commonValidators } from './custom-validators.js';
+export { commonValidators } from "./custom-validators.js";

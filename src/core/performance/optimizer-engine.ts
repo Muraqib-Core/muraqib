@@ -22,14 +22,14 @@ export const analyzeHttpProfile = (
   const notes: string[] = [];
 
   if (resourceCount > 50) {
-    issues.push('Note: The page loads more than 50 resources which may indicate heavy bundling or many network requests.');
+    issues.push("Note: The page loads more than 50 resources which may indicate heavy bundling or many network requests.");
   }
 
   if (cookiesSize > 2 * 1024) {
     issues.push("تحذير: حجم الكوكيز يتجاوز 2KB. كل طلب سيتم تحميله ببيانات غير ضرورية.");
   }
 
-  if (protocol === 'HTTP/2') {
+  if (protocol === "HTTP/2") {
     notes.push("ملاحظة: أنتِ تستخدمين HTTP/2. تأكدي من إزالة الـ Domain Sharding والـ Bundle-ing غير الضروري.");
   } else {
     issues.push("تنبيه: أنتِ على بروتوكول قديم (HTTP/1.x). قد تحتاجين لدمج الملفات (Concatenation) للالتفاف على القيود.");

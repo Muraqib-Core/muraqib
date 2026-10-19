@@ -1,4 +1,4 @@
-export type EnvUpdateStrategy = 'replace' | 'keep-both' | 'merge'; // muraqib-ignore-dead: auto-suppressed by script for EnvUpdateStrategy
+export type EnvUpdateStrategy = "replace" | "keep-both" | "merge"; // muraqib-ignore-dead: auto-suppressed by script for EnvUpdateStrategy
 
 export interface NewEnvConfig { // muraqib-ignore-dead: auto-suppressed by script for NewEnvConfig
   currentValue: string;          // القيمة القديمة من ملف الـ .env الحالي
@@ -34,8 +34,8 @@ export function getNewEnvValue({ // muraqib-ignore-dead: auto-suppressed by scri
 }: NewEnvConfig): string {
   
   // 1️⃣ تطهير المدخلات (Sanitization) من الفراغات وعلامات التنصيص الزائدة
-  const cleanCurrent = currentValue ? stripMatchingQuotes(currentValue) : '';
-  const cleanNew = newValue ? stripMatchingQuotes(newValue) : '';
+  const cleanCurrent = currentValue ? stripMatchingQuotes(currentValue) : "";
+  const cleanNew = newValue ? stripMatchingQuotes(newValue) : "";
 
   // صمام أمان: لحماية المطور، إذا كانت القيمة الجديدة فارغة لا نعدل شيئاً
   if (!cleanNew) {
@@ -51,19 +51,19 @@ export function getNewEnvValue({ // muraqib-ignore-dead: auto-suppressed by scri
   switch (updateStrategy) {
     
     // استراتيجية الاستبدال الصريح والفوري
-    case 'replace':
+    case "replace":
       return cleanNew;
 
     // استراتيجية التوسيع والحفاظ على القيمتين معاً كـ Fallback (Widen Strategy)
-    case 'keep-both':
+    case "keep-both":
       return `"${cleanCurrent}" || "${cleanNew}"`;
 
     // استراتيجية الدمج الذكي للبيانات (مثل دمج المصفوفات أو الروابط المكملة)
-    case 'merge':
-      if (cleanCurrent.includes(',') || cleanNew.includes(',')) {
+    case "merge":
+      if (cleanCurrent.includes(",") || cleanNew.includes(",")) {
         // ندمج القيم ونحذف المكرر باستخدام Set لضمان نظافة الداتا
-        const uniqueValues = Array.from(new Set([...cleanCurrent.split(','), ...cleanNew.split(',')]));
-        return uniqueValues.filter((value): value is string => typeof value === 'string').join(',');
+        const uniqueValues = Array.from(new Set([...cleanCurrent.split(","), ...cleanNew.split(",")]));
+        return uniqueValues.filter((value): value is string => typeof value === "string").join(",");
       }
       return `${cleanCurrent};${cleanNew}`;
 

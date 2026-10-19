@@ -9,8 +9,8 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-import { z, ZodError } from 'zod';
-import type { ZodSchema } from 'zod';
+import { z, ZodError } from "zod";
+import type { ZodSchema } from "zod";
 
 /** Minimal shape of a Zod issue that this engine reads. */
 interface ZodIssueLike {
@@ -19,8 +19,8 @@ interface ZodIssueLike {
   code: string;
 }
 
-import type { ValidationIssue } from './validation-issue.js';
-import { dataOrThrow, unknownErrorIssue } from './validation-issue.js';
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
 
 export type { ValidationIssue };
 
@@ -40,7 +40,7 @@ export class ZodEngine {
 
   constructor(schema: ZodSchema, strict = false) {
     if (!schema) {
-      throw new Error('Schema is required');
+      throw new Error("Schema is required");
     }
     this.schema = schema;
     this.strict = strict;
@@ -133,7 +133,7 @@ export class ZodEngine {
       const merged = (this.schema).merge(other);
       return new ZodEngine(merged, this.strict);
     }
-    throw new Error('Can only merge ZodObject schemas');
+    throw new Error("Can only merge ZodObject schemas");
   }
 
   /**
@@ -158,10 +158,10 @@ export class ZodEngine {
   private parseZodError(error: ZodError): ValidationIssue[] {
     const issues: ReadonlyArray<ZodIssueLike> = error.issues ?? [];
     return issues.map((err) => ({
-      field: (err.path ?? []).map(String).join('.') || 'root',
+      field: (err.path ?? []).map(String).join(".") || "root",
       message: err.message,
       code: err.code,
-      path: (err.path ?? []).filter((k): k is string | number => typeof k !== 'symbol'),
+      path: (err.path ?? []).filter((k): k is string | number => typeof k !== "symbol"),
     }));
   }
 
@@ -203,7 +203,7 @@ export function batchValidateZod(
  */
 export function composeZodSchemas(...schemas: ZodSchema[]): ZodEngine {
   if (schemas.length === 0) {
-    throw new Error('At least one schema is required');
+    throw new Error("At least one schema is required");
   }
 
   let composed = schemas[0] as ZodSchema;

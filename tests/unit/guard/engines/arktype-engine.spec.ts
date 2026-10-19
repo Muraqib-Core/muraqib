@@ -1,69 +1,69 @@
-import { describe, it, expect } from 'vitest';
-import { ArktypeEngine, createArktypeEngine, batchValidateArktype } from '../../../../src/guard/engines/arktype-engine';
-import type { Type } from 'arktype';
+import { describe, it, expect } from "vitest";
+import { ArktypeEngine, createArktypeEngine, batchValidateArktype } from "../../../../src/guard/engines/arktype-engine";
+import type { Type } from "arktype";
 
 // Mock ArkType schema
 const createMockArktypeSchema = (): Type<unknown> => ({
   __is: (value: unknown): value is unknown => {
-    return typeof value === 'object' && value !== null;
+    return typeof value === "object" && value !== null;
   },
 } as unknown as Type<unknown>);
 
-describe('ArktypeEngine', () => {
-  describe('constructor', () => {
-    it('should create engine with valid schema', () => {
+describe("ArktypeEngine", () => {
+  describe("constructor", () => {
+    it("should create engine with valid schema", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
       expect(engine.getSchema()).toBe(schema);
     });
 
-    it('should throw if schema is null', () => {
+    it("should throw if schema is null", () => {
       expect(() => new ArktypeEngine(null as unknown as Type<unknown>)).toThrow(
-        'Schema is required'
+        "Schema is required"
       );
     });
 
-    it('should set strict mode', () => {
+    it("should set strict mode", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema, true);
       expect(engine).toBeDefined();
     });
   });
 
-  describe('validate', () => {
-    it('should validate data', () => {
+  describe("validate", () => {
+    it("should validate data", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
       const result = engine.validate(data);
 
       expect(result).toBeDefined();
       expect(result.errors).toBeDefined();
     });
 
-    it('should handle validation errors', () => {
+    it("should handle validation errors", () => {
       const schema = { __is: (_value: unknown): _value is unknown => false } as unknown as Type<unknown>;
       const engine = new ArktypeEngine(schema);
-      const result = engine.validate({ test: 'data' });
+      const result = engine.validate({ test: "data" });
 
       expect(result).toBeDefined();
     });
 
-    it('should handle exceptions gracefully', () => {
-      const schema = { __is: () => { throw new Error('Validation error'); } } as unknown as Type<unknown>;
+    it("should handle exceptions gracefully", () => {
+      const schema = { __is: () => { throw new Error("Validation error"); } } as unknown as Type<unknown>;
       const engine = new ArktypeEngine(schema);
-      const result = engine.validate({ test: 'data' });
+      const result = engine.validate({ test: "data" });
 
       expect(result.success).toBe(false);
-      expect(result.errors[0].code).toBe('UNKNOWN_ERROR');
+      expect(result.errors[0].code).toBe("UNKNOWN_ERROR");
     });
   });
 
-  describe('validateStrict', () => {
-    it('should handle validation results', () => {
+  describe("validateStrict", () => {
+    it("should handle validation results", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
 
       try {
         const result = engine.validateStrict(data);
@@ -73,7 +73,7 @@ describe('ArktypeEngine', () => {
       }
     });
 
-    it('should throw for invalid input when appropriate', () => {
+    it("should throw for invalid input when appropriate", () => {
       const schema = {
         __is: (_value: unknown): _value is unknown => false,
       } as unknown as Type<unknown>;
@@ -87,27 +87,27 @@ describe('ArktypeEngine', () => {
     });
   });
 
-  describe('validatePartial', () => {
-    it('should validate partial objects', () => {
+  describe("validatePartial", () => {
+    it("should validate partial objects", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
-      const data = { name: 'test' };
+      const data = { name: "test" };
       const result = engine.validatePartial(data);
 
       expect(result).toBeDefined();
     });
 
-    it('should handle non-object data', () => {
+    it("should handle non-object data", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
-      const result = engine.validatePartial('string');
+      const result = engine.validatePartial("string");
 
       expect(result).toBeDefined();
     });
   });
 
-  describe('getSchemaInfo', () => {
-    it('should return schema info', () => {
+  describe("getSchemaInfo", () => {
+    it("should return schema info", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
       const info = engine.getSchemaInfo();
@@ -116,8 +116,8 @@ describe('ArktypeEngine', () => {
     });
   });
 
-  describe('optional and nullable', () => {
-    it('should create optional engine', () => {
+  describe("optional and nullable", () => {
+    it("should create optional engine", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
       const optional = engine.optional();
@@ -125,7 +125,7 @@ describe('ArktypeEngine', () => {
       expect(optional).toBeInstanceOf(ArktypeEngine);
     });
 
-    it('should create nullable engine', () => {
+    it("should create nullable engine", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
       const nullable = engine.nullable();
@@ -134,8 +134,8 @@ describe('ArktypeEngine', () => {
     });
   });
 
-  describe('transform', () => {
-    it('should create transformed engine', () => {
+  describe("transform", () => {
+    it("should create transformed engine", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
       const transformed = engine.transform(data => ({ ...data, transformed: true }));
@@ -144,8 +144,8 @@ describe('ArktypeEngine', () => {
     });
   });
 
-  describe('getSchema', () => {
-    it('should return the schema', () => {
+  describe("getSchema", () => {
+    it("should return the schema", () => {
       const schema = createMockArktypeSchema();
       const engine = new ArktypeEngine(schema);
 
@@ -154,15 +154,15 @@ describe('ArktypeEngine', () => {
   });
 });
 
-describe('createArktypeEngine', () => {
-  it('should create engine', () => {
+describe("createArktypeEngine", () => {
+  it("should create engine", () => {
     const schema = createMockArktypeSchema();
     const engine = createArktypeEngine(schema);
 
     expect(engine).toBeInstanceOf(ArktypeEngine);
   });
 
-  it('should create engine with strict mode', () => {
+  it("should create engine with strict mode", () => {
     const schema = createMockArktypeSchema();
     const engine = createArktypeEngine(schema, true);
 
@@ -170,8 +170,8 @@ describe('createArktypeEngine', () => {
   });
 });
 
-describe('batchValidateArktype', () => {
-  it('should validate multiple items', () => {
+describe("batchValidateArktype", () => {
+  it("should validate multiple items", () => {
     const schema = createMockArktypeSchema();
     const items = [{ a: 1 }, { b: 2 }];
     const results = batchValidateArktype(schema, items);
@@ -181,16 +181,16 @@ describe('batchValidateArktype', () => {
     expect(results[1].item).toEqual({ b: 2 });
   });
 
-  it('should track valid/invalid status', () => {
+  it("should track valid/invalid status", () => {
     const schema = createMockArktypeSchema();
-    const items = [{ valid: true }, 'invalid'];
+    const items = [{ valid: true }, "invalid"];
     const results = batchValidateArktype(schema, items);
 
     expect(results[0]).toBeDefined();
     expect(results[1]).toBeDefined();
   });
 
-  it('should collect errors', () => {
+  it("should collect errors", () => {
     const schema = createMockArktypeSchema();
     const items = [{}];
     const results = batchValidateArktype(schema, items);

@@ -10,11 +10,11 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-import type { Type } from 'arktype';
-import { nonEmpty } from '../../utils/defaults.js';
+import type { Type } from "arktype";
+import { nonEmpty } from "../../utils/defaults.js";
 
-import type { ValidationIssue } from './validation-issue.js';
-import { dataOrThrow, unknownErrorIssue } from './validation-issue.js';
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
 
 export type { ValidationIssue };
 
@@ -34,7 +34,7 @@ export class ArktypeEngine {
 
   constructor(schema: Type<unknown>, strict = false) {
     if (!schema) {
-      throw new Error('Schema is required');
+      throw new Error("Schema is required");
     }
     this.schema = schema;
     this.strict = strict;
@@ -47,7 +47,7 @@ export class ArktypeEngine {
     try {
       const result = this.schema(data);
 
-      if (typeof result === 'string' || (result && typeof result === 'object' && 'message' in result)) {
+      if (typeof result === "string" || (result && typeof result === "object" && "message" in result)) {
         return {
           success: false,
           errors: this.parseArktypeError(result),
@@ -80,7 +80,7 @@ export class ArktypeEngine {
    */
   validatePartial(data: unknown): ArktypeValidationResult {
     try {
-      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+      if (typeof data === "object" && data !== null && !Array.isArray(data)) {
         return this.validate(data);
       }
 
@@ -143,7 +143,7 @@ export class ArktypeEngine {
    */
   private parseArktypeError(error: unknown): ValidationIssue[] {
     const errorString = String(error);
-    const lines = errorString.split('\n').filter(l => l.trim());
+    const lines = errorString.split("\n").filter(l => l.trim());
 
     return lines.map((line, index) => {
       const fieldMatch = line.match(/(?:at\s)?([a-zA-Z_$][a-zA-Z0-9_$]*)/);
@@ -152,8 +152,8 @@ export class ArktypeEngine {
 
       return {
         field,
-        message: line.replace(/^at\s/, '').trim(),
-        code: 'ARKTYPE_ERROR',
+        message: line.replace(/^at\s/, "").trim(),
+        code: "ARKTYPE_ERROR",
         path: pathArray,
       };
     });

@@ -1,6 +1,6 @@
-import semver from 'semver';
+import semver from "semver";
 
-export type VersionUpdateStrategy = 'replace' | 'keep-both';
+export type VersionUpdateStrategy = "replace" | "keep-both";
 
 export interface MuraqibVersionConfig { // muraqib-ignore-dead: auto-suppressed by script for MuraqibVersionConfig
   currentVersion: string;
@@ -35,7 +35,7 @@ export function getMuraqibNewVersionValue({
   packageName: _packageName,
 }: MuraqibVersionConfig): string | null {
 
-  if (typeof currentVersion !== 'string' || typeof newVersion !== 'string') {
+  if (typeof currentVersion !== "string" || typeof newVersion !== "string") {
     return currentVersion;
   }
 
@@ -61,17 +61,17 @@ export function getMuraqibNewVersionValue({
     return cleanCurrent;
   }
 
-  const firstComparator = cleanCurrent.split(/\s+|\|\|/).find((part) => part.length > 0) ?? '';
-  const prefix = RANGE_PREFIX.exec(firstComparator)?.[0] ?? '';
+  const firstComparator = cleanCurrent.split(/\s+|\|\|/).find((part) => part.length > 0) ?? "";
+  const prefix = RANGE_PREFIX.exec(firstComparator)?.[0] ?? "";
 
   const pureNewVersion = semver.clean(cleanNew) ?? coercedNew.version;
   const formattedNewVersion = `${prefix}${pureNewVersion}`;
 
   switch (updateStrategy) {
-    case 'replace':
+    case "replace":
       return formattedNewVersion;
 
-    case 'keep-both':
+    case "keep-both":
       return `${cleanCurrent} || ${formattedNewVersion}`;
 
     default: {

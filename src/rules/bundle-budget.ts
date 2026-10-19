@@ -1,11 +1,11 @@
-import fs from 'fs';
-import path from 'path';
-import { log, error, warn } from '../shared/logger.js';
-import { SKIPPED_DIR_NAMES } from '../shared/constants.js';
-import { readDirEntries } from '../shared/fs-safe.js';
+import fs from "fs";
+import path from "path";
+import { log, error, warn } from "../shared/logger.js";
+import { SKIPPED_DIR_NAMES } from "../shared/constants.js";
+import { readDirEntries } from "../shared/fs-safe.js";
 
 const BUNDLE_LIMIT_KB = 14;
-const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js', '.svelte', '.vue'];
+const SUPPORTED_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".svelte", ".vue"];
 
 interface BundleViolation {
     filePath: string;
@@ -27,12 +27,12 @@ const collectSourceFiles = (dir: string, found: string[] = []): string[] => {
     for (const entry of readDirEntries(dir)) {
         // Match on the entry's own name only, never on a substring of the full path.
         const name = path.basename(entry.name);
-        if (name.startsWith('.') || entry.isSymbolicLink()) continue;
+        if (name.startsWith(".") || entry.isSymbolicLink()) continue;
 
         const fullPath = path.join(dir, name);
         if (entry.isDirectory()) {
             if (!SKIPPED_DIR_NAMES.has(name)) collectSourceFiles(fullPath, found);
-        } else if (entry.isFile() && SUPPORTED_EXTENSIONS.includes(path.extname(name)) && !name.endsWith('.d.ts')) {
+        } else if (entry.isFile() && SUPPORTED_EXTENSIONS.includes(path.extname(name)) && !name.endsWith(".d.ts")) {
             found.push(fullPath);
         }
     }

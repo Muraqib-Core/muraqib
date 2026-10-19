@@ -1,7 +1,7 @@
 import type { AgentIssue, AgentReport } from "../src/core/types.js";
 
 export const XSS_PAYLOADS: readonly string[] = [
-  '<script>alert(1)</script>',
+  "<script>alert(1)</script>",
   '"><img src=x onerror=alert(1)>',
   "'; document.location='http://evil.example'; '",
   "</style><script>steal()</script>",

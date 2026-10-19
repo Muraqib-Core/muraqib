@@ -1,6 +1,6 @@
-import { BaseGuard } from '../base-guard.js';
-import type { AuditContext, AuditIssue, AuditResult } from '../types.js';
-import * as logger from '../../shared/logger.js';
+import { BaseGuard } from "../base-guard.js";
+import type { AuditContext, AuditIssue, AuditResult } from "../types.js";
+import * as logger from "../../shared/logger.js";
 
 /** Maximum first-response payload (KB) that fits the initial TCP congestion window. */
 const MAX_PAYLOAD_KB = 14;
@@ -34,11 +34,11 @@ export const analyzeLatency = (requestTimeMs: number, payloadSizeKb: number): La
   const reports: string[] = [];
 
   if (payloadSizeKb > MAX_PAYLOAD_KB) {
-    reports.push('تحذير: حجم الاستجابة الأولى يتجاوز 14KB. هذا سيسبب رحلة إضافية (Round Trip) بناءً على قيود TCP.');
+    reports.push("تحذير: حجم الاستجابة الأولى يتجاوز 14KB. هذا سيسبب رحلة إضافية (Round Trip) بناءً على قيود TCP.");
   }
 
   if (requestTimeMs > MAX_LATENCY_MS) {
-    reports.push('تنبيه: التأخير يتجاوز 300ms. الـ Interaction أصبح بطيئاً (Sluggish) من منظور المستخدم.');
+    reports.push("تنبيه: التأخير يتجاوز 300ms. الـ Interaction أصبح بطيئاً (Sluggish) من منظور المستخدم.");
   }
 
   return {
@@ -64,7 +64,7 @@ export const performLiveLatencyAudit = async (url: string): Promise<LatencyAudit
     const body = await response.arrayBuffer();
     const endTime = Date.now();
     const requestTimeMs = endTime - startTime;
-    const contentLength = response.headers.get('content-length');
+    const contentLength = response.headers.get("content-length");
     const payloadSizeKb = contentLength
       ? parseInt(contentLength, 10) / 1024
       : body.byteLength / 1024;
@@ -122,7 +122,7 @@ export class NetworkLatencyGuard extends BaseGuard {
    * @param context - Optional AuditContext with project metadata
    */
   constructor(options: NetworkLatencyGuardOptions, context?: AuditContext) {
-    super('network-latency-guard', context);
+    super("network-latency-guard", context);
     this.targetUrl = options.targetUrl;
   }
 
@@ -135,13 +135,13 @@ export class NetworkLatencyGuard extends BaseGuard {
 
     if (!result.reachable) {
       const unreachable: AuditIssue = this.createIssue(
-        'NETWORK_001',
-        'error',
-        'Target unreachable',
+        "NETWORK_001",
+        "error",
+        "Target unreachable",
         result.reports[0] ?? `تعذّر الوصول إلى ${this.targetUrl}`,
         undefined,
-        'Verify the URL is correct and the server is running.',
-        ['network']
+        "Verify the URL is correct and the server is running.",
+        ["network"]
       );
       return this.issues([unreachable]);
     }
@@ -153,24 +153,24 @@ export class NetworkLatencyGuard extends BaseGuard {
     const found: AuditIssue[] = [];
     if (result.payloadSizeKb > MAX_PAYLOAD_KB) {
       found.push(this.createIssue(
-        'NETWORK_002',
-        'warning',
-        'Large first response',
-        analyzeLatency(0, result.payloadSizeKb).reports[0] ?? '',
+        "NETWORK_002",
+        "warning",
+        "Large first response",
+        analyzeLatency(0, result.payloadSizeKb).reports[0] ?? "",
         undefined,
-        'Reduce the first response below 14KB (compress, split or defer content).',
-        ['network', 'payload']
+        "Reduce the first response below 14KB (compress, split or defer content).",
+        ["network", "payload"]
       ));
     }
     if (result.requestTimeMs > MAX_LATENCY_MS) {
       found.push(this.createIssue(
-        'NETWORK_003',
-        'warning',
-        'High latency',
-        analyzeLatency(result.requestTimeMs, 0).reports[0] ?? '',
+        "NETWORK_003",
+        "warning",
+        "High latency",
+        analyzeLatency(result.requestTimeMs, 0).reports[0] ?? "",
         undefined,
-        'Investigate server response time, caching and CDN usage.',
-        ['network', 'latency']
+        "Investigate server response time, caching and CDN usage.",
+        ["network", "latency"]
       ));
     }
     return this.issues(found);

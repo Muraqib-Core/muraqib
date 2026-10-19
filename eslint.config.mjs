@@ -19,6 +19,7 @@ export default [
     rules: {
       "no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "error",
+      quotes: ["error", "double", { avoidEscape: true, allowTemplateLiterals: true }],
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },

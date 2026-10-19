@@ -3,16 +3,16 @@
  * Executes guards in parallel, aggregates results, and provides unified reporting
  */
 
-import type { BaseGuard } from './base-guard.js';
-import { GuardFactory } from './guard-factory.js';
-import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult } from './types.js';
-import type { GuardConfig } from './guard-factory.js';
+import type { BaseGuard } from "./base-guard.js";
+import { GuardFactory } from "./guard-factory.js";
+import type { AuditResult, AuditIssue, AuditContext, UnifiedAuditResult } from "./types.js";
+import type { GuardConfig } from "./guard-factory.js";
 import * as logger from "../shared/logger.js";
 
 export interface OrchestratorConfig extends GuardConfig {
   parallel?: boolean;
-  sortBy?: 'severity' | 'module' | 'time';
-  sortOrder?: 'asc' | 'desc';
+  sortBy?: "severity" | "module" | "time";
+  sortOrder?: "asc" | "desc";
   /** Case-insensitive substrings of guard module names; when set, only matching guards are run. */
   moduleFilter?: string[] | undefined;
 }
@@ -36,8 +36,8 @@ export class AuditOrchestrator {
     this.context = context;
     this.config = {
       parallel: true,
-      sortBy: 'severity',
-      sortOrder: 'asc',
+      sortBy: "severity",
+      sortOrder: "asc",
       ...config,
     };
     this.factory = GuardFactory.create(context);
@@ -66,10 +66,10 @@ export class AuditOrchestrator {
         issues: sorted,
         summary: {
           totalIssues: sorted.length,
-          critical: sorted.filter((i) => i.severity === 'critical').length,
-          errors: sorted.filter((i) => i.severity === 'error').length,
-          warnings: sorted.filter((i) => i.severity === 'warning').length,
-          info: sorted.filter((i) => i.severity === 'info').length,
+          critical: sorted.filter((i) => i.severity === "critical").length,
+          errors: sorted.filter((i) => i.severity === "error").length,
+          warnings: sorted.filter((i) => i.severity === "warning").length,
+          info: sorted.filter((i) => i.severity === "info").length,
           duration,
           timestamp: this.context.timestamp,
         },
@@ -111,16 +111,16 @@ export class AuditOrchestrator {
     const moduleName = guard ? guard.getModule() : `guard-${index}`;
     const message = reason instanceof Error ? reason.message : String(reason);
     return {
-      status: 'error',
+      status: "error",
       module: moduleName,
       issues: [
         {
-          code: 'GUARD_REJECTED',
-          severity: 'error',
-          title: 'Guard Execution Failed',
+          code: "GUARD_REJECTED",
+          severity: "error",
+          title: "Guard Execution Failed",
           message,
-          recommendation: 'Check logs for details',
-          tags: ['orchestrator', 'error'],
+          recommendation: "Check logs for details",
+          tags: ["orchestrator", "error"],
           module: moduleName,
         },
       ],
@@ -138,7 +138,7 @@ export class AuditOrchestrator {
     const results = await Promise.allSettled(promises);
 
     return results.map((result, index) =>
-      result.status === 'fulfilled' ? result.value : this.rejectedResult(guards[index], index, result.reason)
+      result.status === "fulfilled" ? result.value : this.rejectedResult(guards[index], index, result.reason)
     );
   }
 
@@ -161,7 +161,7 @@ export class AuditOrchestrator {
    * Module name of an issue: explicit module, else first tag, else 'unknown'
    */
   private issueModule(issue: AuditIssue): string {
-    return issue.module ?? issue.tags?.[0] ?? 'unknown';
+    return issue.module ?? issue.tags?.[0] ?? "unknown";
   }
 
   /**
@@ -186,23 +186,23 @@ export class AuditOrchestrator {
   private sortIssues(issues: AuditIssue[]): AuditIssue[] {
     const sorted = [...issues];
 
-    if (this.config.sortBy === 'severity') {
+    if (this.config.sortBy === "severity") {
       sorted.sort((a, b) => {
         const aLevel = SEVERITY_LEVELS[a.severity] ?? 99;
         const bLevel = SEVERITY_LEVELS[b.severity] ?? 99;
 
-        if (this.config.sortOrder === 'asc') {
+        if (this.config.sortOrder === "asc") {
           return aLevel - bLevel;
         } else {
           return bLevel - aLevel;
         }
       });
-    } else if (this.config.sortBy === 'module') {
+    } else if (this.config.sortBy === "module") {
       sorted.sort((a, b) => {
         const aModule = this.issueModule(a);
         const bModule = this.issueModule(b);
 
-        if (this.config.sortOrder === 'asc') {
+        if (this.config.sortOrder === "asc") {
           return aModule.localeCompare(bModule);
         } else {
           return bModule.localeCompare(aModule);
@@ -219,7 +219,7 @@ export class AuditOrchestrator {
   printSummary(result: UnifiedAuditResult): void {
     const { summary } = result;
 
-    logger.log('\n=== Muraqib Audit Summary ===');
+    logger.log("\n=== Muraqib Audit Summary ===");
     logger.log(`✓ Timestamp: ${new Date(summary.timestamp).toISOString()}`);
     logger.log(`✓ Duration: ${this.formatDuration(summary.duration)}`);
     logger.log(`✓ Total Issues: ${summary.totalIssues}`);
@@ -229,19 +229,19 @@ export class AuditOrchestrator {
     logger.log(`  ℹ️  Info: ${summary.info ?? 0}`);
 
     if (summary.totalIssues === 0) {
-      logger.log('\n✅ All audits passed!');
+      logger.log("\n✅ All audits passed!");
     } else {
       logger.log(`\n📋 Found ${summary.totalIssues} issue(s) to address.`);
     }
 
-    logger.log('============================\n');
+    logger.log("============================\n");
   }
 
   /**
    * Utility: format duration for display
    */
   private formatDuration(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '0ms';
+    if (!Number.isFinite(ms) || ms <= 0) return "0ms";
     if (ms < 1000) return `${Math.round(ms)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   }

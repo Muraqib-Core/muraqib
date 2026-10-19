@@ -1,5 +1,5 @@
 // src/controllers/tag.controller.ts
-import { type Request, type Response, type NextFunction } from 'express';
+import { type Request, type Response, type NextFunction } from "express";
 import { TagService } from "../services/tag.service.js";
 
 export const TagController = { // muraqib-ignore-dead: auto-suppressed by script for TagController
