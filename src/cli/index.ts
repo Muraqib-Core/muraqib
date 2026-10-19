@@ -518,6 +518,7 @@ async function runCommand(command: NonNullable<ExtendedCliOptions["command"]>, o
       // `muraqib -p <dir> resolve ...` : run the real resolution workflow in the target project
       if (options.projectRoot) process.chdir(options.projectRoot);
       return runScanLayer(["resolve"]);
+    case "audit":
     default:
       return runAuditCommand(options);
   }

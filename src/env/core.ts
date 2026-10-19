@@ -185,7 +185,7 @@ export function safeCreateEnv<
     if (data === null) {
       return { success: false, error: [{ path: "schedule", message: "Outside allowed schedule window." }] };
     }
-    return { success: true, data: data as InferSchema<TServer> & InferSchema<TClient> & IntersectExtension<TExtends> };
+    return { success: true, data: data };
   } catch (e: unknown) {
     type MuraqibError = Error & { isMuraqibCustom?: boolean; errors?: { path: string; message: string }[] };
     const me = e as MuraqibError;

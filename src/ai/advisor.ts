@@ -279,7 +279,7 @@ function parseAdvisorySuggestions(jsonText: string): AdvisorySuggestion[] {
         priority: Math.min(
           5,
           Math.max(1, Number(typed.priority) || 3)
-        ) as number,
+        ),
       };
 
       if (

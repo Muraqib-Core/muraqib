@@ -130,7 +130,7 @@ export class ZodEngine {
    */
   merge(other: ZodSchema): ZodEngine {
     if (this.schema instanceof z.ZodObject && other instanceof z.ZodObject) {
-      const merged = (this.schema as z.ZodObject).merge(other as z.ZodObject);
+      const merged = (this.schema).merge(other);
       return new ZodEngine(merged, this.strict);
     }
     throw new Error('Can only merge ZodObject schemas');
@@ -210,9 +210,9 @@ export function composeZodSchemas(...schemas: ZodSchema[]): ZodEngine {
   for (let i = 1; i < schemas.length; i++) {
     const schema = schemas[i];
     if (schema && composed instanceof z.ZodObject && schema instanceof z.ZodObject) {
-      composed = (composed as z.ZodObject).merge(schema as z.ZodObject);
+      composed = (composed).merge(schema);
     }
   }
 
-  return new ZodEngine(composed as ZodSchema);
+  return new ZodEngine(composed);
 }

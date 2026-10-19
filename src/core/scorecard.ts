@@ -180,6 +180,7 @@ export function scoreSeverityOf(issue: Pick<ClassifiableIssue, "severity" | "lev
       return "medium";
     case "low":
       return "low";
+    case "info":
     default:
       return "info";
   }
