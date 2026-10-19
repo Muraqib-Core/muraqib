@@ -218,7 +218,7 @@ export function performNewFeatureAudit(path: string): NewFeatureResult {
 ### 2. Add Tests
 
 ```typescript
-// src/core/new-feature-guard.spec.ts
+// tests/unit/core/new-feature-guard.spec.ts
 describe("New Feature Guard", () => {
   it("should detect issues", () => {
     const result = performNewFeatureAudit("./test");

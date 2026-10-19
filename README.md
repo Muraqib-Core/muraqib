@@ -393,7 +393,7 @@ npm test
 npm test -- --watch
 
 # Run specific test file
-npm test -- src/core/base-guard.spec.ts
+npm test -- tests/unit/core/base-guard.spec.ts
 
 # Generate coverage report
 npm test -- --coverage
@@ -511,8 +511,7 @@ src/
     ├── config/ + types/   # Scan configuration and types
 
 tests/
-├── unit/                  # Guard-layer tests (core, rules, env, cli, ai, ...)
-├── scan/                  # Scan-layer tests (OSV, Docker, resolution, ...)
+├── unit/                  # All unit tests, mirroring src/ (core, rules, env, cli, ai, scan, ...)
 ├── validate.spec.ts
 └── fixtures.ts            # Shared test data
 
