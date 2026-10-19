@@ -4,6 +4,7 @@ import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contract
 import { createScanIssue, type DependencyType, type ScanIssueInput } from "../../core/findings/finding.js";
 import { queryOsv, type OsvVulnerability, type OsvVulnerabilityEvent } from "./osv-client.js";
 import { nonEmpty } from "../../../utils/defaults.js";
+import { compareVersions } from "../../../utils/version-compare.js";
 
 interface PackageToScan {
   name: string;
@@ -17,8 +18,8 @@ const PRERELEASE_MARKERS = ["-beta", "-rc", "-alpha"];
 /** The event list of every range of every affected entry, skipping entries that have none. */
 function* eventLists(vulns: OsvVulnerability[]): Generator<OsvVulnerabilityEvent[]> {
   for (const vuln of vulns) {
-    for (const item of vuln.affected || []) {
-      for (const range of item.ranges || []) {
+    for (const item of vuln.affected ?? []) {
+      for (const range of item.ranges ?? []) {
         if (range.events) yield range.events;
       }
     }
@@ -213,7 +214,7 @@ export class OsvScanner implements ScannerEngine {
                 id: v.id,
                 summary: v.summary,
                 details: v.details,
-                ranges: v.affected?.flatMap((a) => a.ranges || []) || [],
+                ranges: v.affected?.flatMap((a) => a.ranges ?? []) ?? [],
               })),
               affectedRanges,
               fixedVersions: allFixedVersions,
@@ -253,16 +254,7 @@ export class OsvScanner implements ScannerEngine {
         }
       }
     }
-    return Array.from(fixedSet).sort((a, b) => {
-      const pa = a.split(".").map((n) => parseInt(n.replace(/\D/g, ""), 10) || 0);
-      const pb = b.split(".").map((n) => parseInt(n.replace(/\D/g, ""), 10) || 0);
-      for (let i = 0; i < 3; i++) {
-        if ((pa[i] ?? 0) !== (pb[i] ?? 0)) {
-          return (pa[i] ?? 0) - (pb[i] ?? 0);
-        }
-      }
-      return 0;
-    });
+    return Array.from(fixedSet).sort(compareVersions);
   }
 
   private extractAffectedRanges(vulns: OsvVulnerability[]): string[] {
