@@ -307,7 +307,7 @@ Run `muraqib --help` for the description of each flag.
 | `ValibotValidationResult` | - | `src/guard/engines/valibot-engine.ts` |
 | `ValidationIssue` | One validation failure in the unified shape every public engine reports. | `src/guard/engines/validation-issue.ts` |
 | `VariableMetadata` | - | `src/ai/safe-metadata.ts` |
-| `WorkflowAuditResult` | Aggregated result from all 13 audit modules | `src/orchestrator/audit.ts` |
+| `WorkflowAuditResult` | Aggregated result from all audit modules | `src/orchestrator/audit.ts` |
 | `ZodValidationResult` | - | `src/guard/engines/zod-engine.ts` |
 
 ### Namespace (1)

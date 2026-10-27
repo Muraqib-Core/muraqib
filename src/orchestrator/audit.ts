@@ -62,7 +62,7 @@ export interface ModuleResult {
 }
 
 /**
- * Aggregated result from all 13 audit modules
+ * Aggregated result from all audit modules
  * @interface AuditResult
  */
 export interface AuditResult {
