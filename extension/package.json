@@ -83,18 +83,17 @@
   },
   "scripts": {
     "build:core": "npm --prefix .. run build",
-    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/clean-dist.mjs && tsc --noEmit && node scripts/bundle.mjs",
     "type-check": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "package": "npm run build:core && npm run build && node scripts/package.mjs"
   },
-  "dependencies": {
-    "muraqib-core": "file:.."
-  },
   "devDependencies": {
     "@vscode/vsce": "3.9.0",
+    "esbuild": "^0.28.2",
+    "muraqib-core": "file:..",
     "@types/node": "^25.9.9",
     "@types/vscode": "1.85.0",
     "@vitest/coverage-v8": "^5.0.3",

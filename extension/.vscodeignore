@@ -1,5 +1,4 @@
-# Applied to the staging directory created by scripts/package.mjs (the extension's dist, images and the
-# production install of muraqib-core), not to this folder.
+# Applied to the staging directory created by scripts/package.mjs (the bundled dist and images), not to this folder.
 **/*.map
 **/*.d.ts
 **/*.spec.*
