@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "muraqib-core",
   "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -22,11 +26,6 @@
     "node": ">=18.0.0"
   },
   "main": "./dist/host/extension.js",
-  "activationEvents": [
-    "onCommand:muraqib.runAudit",
-    "onCommand:muraqib.showDocumentation",
-    "onCommand:muraqib.showLastReport"
-  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
