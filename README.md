@@ -26,7 +26,7 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 - **Auth/Crypto Validation**: Security protocols and cryptographic best practices
 - **Security Headers Analysis**: HTTP security header validation
 
-###  Performance (13+ Modules)
+###  Performance
 - **Memory Management**: Heap leak detection and memory profile analysis
 - **Bundle Optimization**: Size monitoring and budget enforcement (14 KB default)
 - **Network Analysis**: Latency measurement and optimization recommendations
@@ -626,10 +626,9 @@ npm run lint -- --fix      # Auto-fix issues
 <type>(<scope>): <subject>
 
 <body>
-
-Co-Authored-By: <name> <email>
-Claude-Session: <link>
 ```
+
+Example: `fix(secret-guard): ignore placeholder tokens in .env.example`
 
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
