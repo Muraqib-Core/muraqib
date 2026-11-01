@@ -4,6 +4,8 @@ Thank you for your interest in contributing to Muraqib Core! This document provi
 
 ## Code of Conduct
 
+The full text is in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). In short:
+
 - Be respectful and inclusive
 - Focus on the code, not the person
 - Help others learn and grow
