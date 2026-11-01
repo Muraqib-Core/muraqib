@@ -14,7 +14,7 @@ text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 <rect x="10" y="14" width="224" height="312" rx="18" fill="#151517" stroke="#2a2a2e"/>
 <g clip-path="url(#cc0)"><rect x="10" y="14" width="224" height="3" fill="#E7A141" fill-opacity=".85"/><rect class="s0" x="10" y="14" width="90" height="312" fill="url(#sh)"/></g>
 <text class="m" x="34" y="54" font-size="14" fill="#E7A141" font-weight="700">01</text>
-<g class="i0" transform="translate(34 72)" fill="none" stroke="#E7A141" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" color="#E7A141"><path d="M22 4 L37 10 V22 C37 31 30 37 22 41 C14 37 7 31 7 22 V10 Z" /><circle cx="22" cy="20" r="4"/><path d="M22 24 V30"/></g>
+<g class="i0" transform="translate(34 72)" fill="none" stroke="#E7A141" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" color="#E7A141"><rect x="8" y="19" width="28" height="20" rx="5"/><path d="M14 19 V13 a8 8 0 0 1 16 0 V19"/><circle cx="22" cy="28" r="2.4" fill="currentColor"/><path d="M22 30 V34"/></g>
 <text x="34" y="158" font-size="25" font-weight="700" fill="#f2f2f2">Security</text>
 <text x="34" y="190" font-size="14.5" fill="#a1a1aa">Secrets, injection, auth,</text><text x="34" y="212" font-size="14.5" fill="#a1a1aa">crypto and HTTP security</text><text x="34" y="234" font-size="14.5" fill="#a1a1aa">headers.</text>
 <rect x="34" y="264" width="176" height="2" rx="1" fill="#2a2a2e"/>

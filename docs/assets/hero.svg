@@ -1,19 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="540" viewBox="0 0 1000 540" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="440" viewBox="0 0 1000 440" role="img" aria-labelledby="t d">
 <title id="t">Muraqib — the guardian for your dev environment</title>
-<desc id="d">Animated banner: a watchful eye inside a shield, the name Muraqib in Latin and Arabic script, and the command npx @muraqib/core audit being typed, above rolling amber waves.</desc>
+<desc id="d">Animated banner: the name Muraqib in Latin and Arabic script, and the command npx @muraqib/core audit being typed, above rolling amber waves.</desc>
 <style>
 text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
 .m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
 
 @keyframes wv0{from{transform:translateX(0px)}to{transform:translateX(-500px)}}.wv0{animation:wv0 16s linear infinite}@keyframes wv1{from{transform:translateX(-400px)}to{transform:translateX(0px)}}.wv1{animation:wv1 11s linear infinite}@keyframes wv2{from{transform:translateX(0px)}to{transform:translateX(-300px)}}.wv2{animation:wv2 7s linear infinite}@keyframes fl{0%{transform:translateY(0);opacity:0}15%{opacity:1}85%{opacity:.9}100%{transform:translateY(-160px);opacity:0}}.p0{animation:fl 15.34s -0.76s linear infinite}.p1{animation:fl 15.86s -15.43s linear infinite}.p2{animation:fl 14s -10.92s linear infinite}.p3{animation:fl 11.33s -1.04s linear infinite}.p4{animation:fl 15.84s -1.93s linear infinite}.p5{animation:fl 12.59s -9.73s linear infinite}.p6{animation:fl 12.31s -4.34s linear infinite}.p7{animation:fl 8.42s -7.36s linear infinite}.p8{animation:fl 8.6s -2.18s linear infinite}.p9{animation:fl 10.91s -1.95s linear infinite}.p10{animation:fl 11.89s -8.82s linear infinite}.p11{animation:fl 14.46s -7.28s linear infinite}.p12{animation:fl 14.96s -3.1s linear infinite}.p13{animation:fl 7.47s -2.2s linear infinite}.p14{animation:fl 13.81s -5.76s linear infinite}.p15{animation:fl 8.84s -6s linear infinite}.p16{animation:fl 10.03s -1.01s linear infinite}.p17{animation:fl 13.96s -3.23s linear infinite}.p18{animation:fl 14.4s -8.1s linear infinite}.p19{animation:fl 15.96s -14.54s linear infinite}.p20{animation:fl 15.86s -15.1s linear infinite}.p21{animation:fl 9.17s -8.48s linear infinite}.p22{animation:fl 8.67s -0.23s linear infinite}.p23{animation:fl 10.3s -5.06s linear infinite}.p24{animation:fl 10.67s -5.74s linear infinite}.p25{animation:fl 8.62s -6.44s linear infinite}.p26{animation:fl 7.76s -4.55s linear infinite}.p27{animation:fl 11.16s -3s linear infinite}.p28{animation:fl 14.09s -7.92s linear infinite}.p29{animation:fl 8.84s -8.44s linear infinite}
-@keyframes rip{0%{transform:scale(.55);opacity:.55}100%{transform:scale(2.6);opacity:0}}
-.rip{transform-box:fill-box;transform-origin:center;animation:rip 5.4s ease-out infinite}
-@keyframes look{0%,8%{transform:translate(0,0)}22%{transform:translate(-9px,-1px)}38%{transform:translate(9px,-2px)}54%{transform:translate(4px,3px)}70%{transform:translate(-5px,1px)}86%,100%{transform:translate(0,0)}}
-.look{animation:look 8s ease-in-out infinite}
-@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
-.blink{transform-box:fill-box;transform-origin:center;animation:blink 8s ease-in-out infinite}
-@keyframes glow{0%,100%{opacity:.55}50%{opacity:1}}
-.glow{animation:glow 4s ease-in-out infinite}
 @keyframes sheen{0%{transform:translateX(-520px)}55%,100%{transform:translateX(620px)}}
 .sheen{animation:sheen 7s ease-in-out infinite}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
@@ -26,50 +18,35 @@ text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica N
 @media (prefers-reduced-motion: reduce){*{animation:none!important}}
 </style>
 <defs>
-<clipPath id="card"><rect width="1000" height="540" rx="22"/></clipPath>
-<radialGradient id="halo" cx="50%" cy="22%" r="60%"><stop offset="0" stop-color="#E7A141" stop-opacity=".26"/><stop offset=".55" stop-color="#E7A141" stop-opacity=".06"/><stop offset="1" stop-color="#E7A141" stop-opacity="0"/></radialGradient>
+<clipPath id="card"><rect width="1000" height="440" rx="22"/></clipPath>
+<radialGradient id="halo" cx="50%" cy="34%" r="60%"><stop offset="0" stop-color="#E7A141" stop-opacity=".26"/><stop offset=".55" stop-color="#E7A141" stop-opacity=".06"/><stop offset="1" stop-color="#E7A141" stop-opacity="0"/></radialGradient>
 <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e0e10" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>
 <linearGradient id="band" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E7A141" stop-opacity="0"/><stop offset=".5" stop-color="#f6cf94"/><stop offset="1" stop-color="#E7A141" stop-opacity="0"/></linearGradient>
 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#fff" stroke-opacity=".035"/></pattern>
-<filter id="blur"><feGaussianBlur stdDeviation="9"/></filter>
-<clipPath id="pillClip"><rect x="340" y="420" width="330" height="38"/></clipPath>
-<clipPath id="titleClip"><text x="500" y="292" text-anchor="middle" font-size="96" font-weight="800" letter-spacing="-2">Muraqib</text></clipPath></defs>
+<clipPath id="pillClip"><rect x="340" y="320" width="330" height="38"/></clipPath>
+<clipPath id="titleClip"><text x="500" y="192" text-anchor="middle" font-size="96" font-weight="800" letter-spacing="-2">Muraqib</text></clipPath></defs>
 
 <g clip-path="url(#card)">
-  <rect width="1000" height="540" fill="#0e0e10"/>
-  <rect width="1000" height="540" fill="url(#grid)"/>
-  <rect width="1000" height="540" fill="url(#halo)"/>
+  <rect width="1000" height="440" fill="#0e0e10"/>
+  <rect width="1000" height="440" fill="url(#grid)"/>
+  <rect width="1000" height="440" fill="url(#halo)"/>
   <g><circle class="p0" cx="238.78" cy="405.01" r="2.27" fill="#E7A141" fill-opacity="0.68"/><circle class="p1" cx="360.99" cy="136.57" r="0.97" fill="#E7A141" fill-opacity="0.52"/><circle class="p2" cx="451.86" cy="290.93" r="2.25" fill="#E7A141" fill-opacity="0.46"/><circle class="p3" cx="474.11" cy="385.87" r="1.67" fill="#E7A141" fill-opacity="0.62"/><circle class="p4" cx="834.2" cy="231.73" r="1.23" fill="#E7A141" fill-opacity="0.48"/><circle class="p5" cx="456.32" cy="153.7" r="1.07" fill="#E7A141" fill-opacity="0.29"/><circle class="p6" cx="605.57" cy="409.02" r="1.44" fill="#E7A141" fill-opacity="0.41"/><circle class="p7" cx="512.47" cy="342.05" r="1.54" fill="#E7A141" fill-opacity="0.56"/><circle class="p8" cx="379.31" cy="430.86" r="1.96" fill="#E7A141" fill-opacity="0.71"/><circle class="p9" cx="587.99" cy="273.75" r="1.22" fill="#E7A141" fill-opacity="0.25"/><circle class="p10" cx="691.64" cy="357.13" r="1.15" fill="#E7A141" fill-opacity="0.69"/><circle class="p11" cx="371.34" cy="246.88" r="2.33" fill="#E7A141" fill-opacity="0.49"/><circle class="p12" cx="785.71" cy="418.64" r="1.58" fill="#E7A141" fill-opacity="0.39"/><circle class="p13" cx="949.68" cy="343.04" r="1.3" fill="#E7A141" fill-opacity="0.66"/><circle class="p14" cx="760.01" cy="185.72" r="2.02" fill="#E7A141" fill-opacity="0.41"/><circle class="p15" cx="352.27" cy="184.12" r="2.89" fill="#E7A141" fill-opacity="0.6"/><circle class="p16" cx="440.37" cy="203.8" r="2.06" fill="#E7A141" fill-opacity="0.44"/><circle class="p17" cx="465.9" cy="354.18" r="2.87" fill="#E7A141" fill-opacity="0.59"/><circle class="p18" cx="585.01" cy="143.76" r="2.58" fill="#E7A141" fill-opacity="0.68"/><circle class="p19" cx="56.87" cy="353.05" r="1.85" fill="#E7A141" fill-opacity="0.35"/><circle class="p20" cx="281.88" cy="384.49" r="2.75" fill="#E7A141" fill-opacity="0.26"/><circle class="p21" cx="883.68" cy="194.36" r="3.15" fill="#E7A141" fill-opacity="0.67"/><circle class="p22" cx="647.85" cy="295.45" r="1.69" fill="#E7A141" fill-opacity="0.25"/><circle class="p23" cx="134.95" cy="358.5" r="1.01" fill="#E7A141" fill-opacity="0.75"/><circle class="p24" cx="189.03" cy="292.76" r="2.02" fill="#E7A141" fill-opacity="0.28"/><circle class="p25" cx="676.95" cy="193.21" r="1.86" fill="#E7A141" fill-opacity="0.62"/><circle class="p26" cx="431.51" cy="156.44" r="2.99" fill="#E7A141" fill-opacity="0.33"/><circle class="p27" cx="845.01" cy="236.45" r="2.33" fill="#E7A141" fill-opacity="0.42"/><circle class="p28" cx="682.07" cy="214.51" r="0.83" fill="#E7A141" fill-opacity="0.55"/><circle class="p29" cx="763.3" cy="286.09" r="1.49" fill="#E7A141" fill-opacity="0.65"/></g>
 
-  <g transform="translate(500 120)">
-    <g fill="none" stroke="#E7A141" stroke-width="2">
-      <circle class="rip" r="58"/><circle class="rip" r="58" style="animation-delay:1.8s"/><circle class="rip" r="58" style="animation-delay:3.6s"/>
-    </g>
-    <g class="glow"><circle r="64" fill="#E7A141" fill-opacity=".16" filter="url(#blur)"/></g>
-    <g transform="scale(1.02) translate(-64 -64)">
-      <path d="M64 14 L102 28 V60 C102 85 86 104 64 114 C42 104 26 85 26 60 V28 Z" fill="#151517" stroke="#E7A141" stroke-width="5" stroke-linejoin="round"/>
-      <g class="blink">
-        <path d="M36 62 C46 46 56 40 64 40 C72 40 82 46 92 62 C82 78 72 84 64 84 C56 84 46 78 36 62 Z" fill="#0e0e10" stroke="#f2f2f2" stroke-width="4" stroke-linejoin="round"/>
-        <g class="look"><circle cx="64" cy="62" r="11" fill="#E7A141"/><circle cx="64" cy="62" r="4.5" fill="#0e0e10"/><circle cx="67.5" cy="58.5" r="2" fill="#fff" fill-opacity=".8"/></g>
-      </g>
-    </g>
-  </g>
-
-  <g class="r1"><text x="500" y="292" text-anchor="middle" font-size="96" font-weight="800" letter-spacing="-2" fill="#f2f2f2">Muraqib</text></g>
+  <g class="r1"><text x="500" y="192" text-anchor="middle" font-size="96" font-weight="800" letter-spacing="-2" fill="#f2f2f2">Muraqib</text></g>
   <g clip-path="url(#titleClip)"><rect class="sheen" x="40" y="200" width="420" height="110" fill="url(#band)" opacity=".9"/></g>
-  <g class="r2"><text x="500" y="344" text-anchor="middle" font-size="34" font-weight="600" fill="#E7A141" direction="rtl">مراقب</text></g>
-  <g class="r3"><text x="500" y="392" text-anchor="middle" font-size="22" fill="#a1a1aa">The guardian for your dev environment.</text></g>
+  <g class="r2"><text x="500" y="244" text-anchor="middle" font-size="34" font-weight="600" fill="#E7A141" direction="rtl">مراقب</text></g>
+  <g class="r3"><text x="500" y="292" text-anchor="middle" font-size="22" fill="#a1a1aa">The guardian for your dev environment.</text></g>
 
   <g class="r4">
-    <rect x="325" y="416" width="350" height="46" rx="12" fill="#151517" stroke="#2a2a2e"/>
-    <text class="m" x="347" y="446" font-size="20" fill="#6fbf73">$</text>
-    <text class="m" x="372" y="446" font-size="20" fill="#f2f2f2">npx @muraqib/core audit</text>
-    <g clip-path="url(#pillClip)"><rect class="cover" x="368" y="424" width="300" height="30" fill="#151517"/></g>
-    <rect class="cur" x="652" y="428" width="10" height="22" fill="#E7A141"/>
+    <rect x="325" y="316" width="350" height="46" rx="12" fill="#151517" stroke="#2a2a2e"/>
+    <text class="m" x="347" y="346" font-size="20" fill="#6fbf73">$</text>
+    <text class="m" x="372" y="346" font-size="20" fill="#f2f2f2">npx @muraqib/core audit</text>
+    <g clip-path="url(#pillClip)"><rect class="cover" x="368" y="324" width="300" height="30" fill="#151517"/></g>
+    <rect class="cur" x="652" y="328" width="10" height="22" fill="#E7A141"/>
   </g>
 
-  <rect x="0" y="470" width="1000" height="70" fill="url(#fade)"/>
-  <g><g class="wv0"><path d="M0 500 Q125 474 250 500 Q375 526 500 500 Q625 474 750 500 Q875 526 1000 500 Q1125 474 1250 500 Q1375 526 1500 500 Q1625 474 1750 500 Q1875 526 2000 500 L2000 540 L0 540 Z" fill="#E7A141" fill-opacity="0.18"/></g><g class="wv1"><path d="M0 512 Q100 480 200 512 Q300 544 400 512 Q500 480 600 512 Q700 544 800 512 Q900 480 1000 512 Q1100 544 1200 512 Q1300 480 1400 512 Q1500 544 1600 512 Q1700 480 1800 512 L1800 540 L0 540 Z" fill="#E7A141" fill-opacity="0.22"/></g><g class="wv2"><path d="M0 522 Q75 502 150 522 Q225 542 300 522 Q375 502 450 522 Q525 542 600 522 Q675 502 750 522 Q825 542 900 522 Q975 502 1050 522 Q1125 542 1200 522 Q1275 502 1350 522 Q1425 542 1500 522 Q1575 502 1650 522 L1600 540 L0 540 Z" fill="#E7A141" fill-opacity="0.3"/></g></g>
-  <rect x="0.5" y="0.5" width="999" height="539" rx="22" fill="none" stroke="#2a2a2e"/>
+  <rect x="0" y="370" width="1000" height="70" fill="url(#fade)"/>
+  <g><g class="wv0"><path d="M0 400 Q125 374 250 400 Q375 426 500 400 Q625 374 750 400 Q875 426 1000 400 Q1125 374 1250 400 Q1375 426 1500 400 Q1625 374 1750 400 Q1875 426 2000 400 L2000 440 L0 440 Z" fill="#E7A141" fill-opacity="0.18"/></g><g class="wv1"><path d="M0 412 Q100 380 200 412 Q300 444 400 412 Q500 380 600 412 Q700 444 800 412 Q900 380 1000 412 Q1100 444 1200 412 Q1300 380 1400 412 Q1500 444 1600 412 Q1700 380 1800 412 L1800 440 L0 440 Z" fill="#E7A141" fill-opacity="0.22"/></g><g class="wv2"><path d="M0 422 Q75 402 150 422 Q225 442 300 422 Q375 402 450 422 Q525 442 600 422 Q675 402 750 422 Q825 442 900 422 Q975 402 1050 422 Q1125 442 1200 422 Q1275 402 1350 422 Q1425 442 1500 422 Q1575 402 1650 422 L1600 440 L0 440 Z" fill="#E7A141" fill-opacity="0.3"/></g></g>
+  <rect x="0.5" y="0.5" width="999" height="439" rx="22" fill="none" stroke="#2a2a2e"/>
 </g>
 </svg>

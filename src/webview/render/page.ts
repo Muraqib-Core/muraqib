@@ -13,12 +13,6 @@ export interface RenderOptions {
 const NONCE_PATTERN = /^[A-Za-z0-9+/_=-]{8,}$/;
 const TAB_ID_PATTERN = /^[a-z][a-z0-9-]*$/;
 
-const LOGO_SVG =
-  '<svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Muraqib logo" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">' +
-  '<path d="M32 5 10 13v17c0 14 9.5 24.5 22 29 12.5-4.5 22-15 22-29V13z"/>' +
-  '<path d="M18 33c4-6.5 9-9.5 14-9.5S42 26.5 46 33c-4 6.5-9 9.5-14 9.5S22 39.5 18 33z"/>' +
-  '<circle cx="32" cy="33" r="3.5" fill="currentColor" stroke="none"/></svg>';
-
 function validate(content: PageContent, options: RenderOptions): void {
   if (!NONCE_PATTERN.test(options.nonce)) {
     throw new Error("Invalid CSP nonce: expected at least 8 base64/base64url characters");
@@ -86,7 +80,7 @@ export function renderPage(content: PageContent, options: RenderOptions): string
     `<style nonce="${nonce}">${PAGE_STYLES}</style>` +
     `<noscript><style nonce="${nonce}">${NOSCRIPT_STYLES}</style></noscript></head><body>` +
     `<a class="skip" href="#content">${escapeHtml(content.labels.skipToContent)}</a>` +
-    `<div class="page"><header class="hero">${LOGO_SVG}<div>` +
+    `<div class="page"><header class="hero"><div>` +
     `<h1>${escapeHtml(content.name)}<span class="version">v${escapeHtml(content.version)}</span></h1>` +
     `<p class="tagline">${escapeHtml(content.tagline)}</p><ul class="chips">${badges}</ul></div></header>` +
     `<div class="layout"><main id="content"><nav class="tabs" role="tablist" aria-label="${escapeHtml(content.labels.tabsLabel)}">` +

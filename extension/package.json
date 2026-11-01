@@ -4,7 +4,6 @@
   "description": "Run Muraqib security, performance and configuration audits from VS Code, with results in the Problems panel and an RTL-friendly report view.",
   "version": "0.1.0",
   "publisher": "muraqib-core",
-  "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#0f172a",
     "theme": "dark"
