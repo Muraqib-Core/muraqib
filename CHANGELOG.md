@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The shield-and-eye logo: it is gone from the documentation web view and from the VS Code extension (`images/icon.png` and `icon.svg` were deleted and the manifest `icon` field was removed), and the README no longer uses it.
+
 ## [1.1.0] - 2026-10-18
 
 ### Added
