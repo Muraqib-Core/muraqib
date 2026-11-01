@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="330" viewBox="0 0 1000 330" role="img" aria-labelledby="t d">
+<title id="t">Muraqib security scorecard</title>
+<desc id="d">A gauge filling to 80 out of 100, grade B, with domain bars: Security 100 (A), Dependencies 88 (B) and Code Quality 92 (A). The score formula is shown above the bars.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
+@keyframes ring{0%,4.17%{stroke-dashoffset:100}25%,91.67%{stroke-dashoffset:20}96.67%,100%{stroke-dashoffset:100}}
+.ring{stroke-dasharray:100;animation:ring 12s cubic-bezier(.2,.7,.2,1) infinite}
+@keyframes num{0%,5%{opacity:0}11.67%,91.67%{opacity:1}96.67%,100%{opacity:0}}.num{animation:num 12s linear infinite}@keyframes db0{0%,10%{transform:scaleX(0)}23.33%,91.67%{transform:scaleX(1)}96.67%,100%{transform:scaleX(0)}}.db0{transform-box:fill-box;transform-origin:left;animation:db0 12s cubic-bezier(.2,.7,.2,1) infinite}@keyframes db1{0%,14.17%{transform:scaleX(0)}27.5%,91.67%{transform:scaleX(1)}96.67%,100%{transform:scaleX(0)}}.db1{transform-box:fill-box;transform-origin:left;animation:db1 12s cubic-bezier(.2,.7,.2,1) infinite}@keyframes db2{0%,18.33%{transform:scaleX(0)}31.67%,91.67%{transform:scaleX(1)}96.67%,100%{transform:scaleX(0)}}.db2{transform-box:fill-box;transform-origin:left;animation:db2 12s cubic-bezier(.2,.7,.2,1) infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+<defs></defs>
+
+<rect width="1000" height="330" fill="#0e0e10" rx="22"/>
+<rect x="0.5" y="0.5" width="999" height="329" rx="22" fill="none" stroke="#2a2a2e"/>
+<circle cx="175" cy="165" r="92" fill="none" stroke="#2a2a2e" stroke-width="16"/>
+<circle class="ring" pathLength="100" cx="175" cy="165" r="92" fill="none" stroke="#E7A141" stroke-width="16" stroke-linecap="round" transform="rotate(-90 175 165)"/>
+<g class="num"><text x="175" y="175" text-anchor="middle" font-size="66" font-weight="800" fill="#f2f2f2">80</text>
+<text class="m" x="175" y="203" text-anchor="middle" font-size="14" fill="#6e6e77">/ 100 · grade <tspan fill="#E7A141" font-weight="800">B</tspan></text></g>
+<text x="400" y="62" font-size="28" font-weight="800" fill="#f2f2f2">Security scorecard</text>
+<text class="m" x="400" y="88" font-size="13" fill="#6e6e77">100 − 25·critical − 10·high − 4·medium − 1·low · critical caps at 59</text>
+<text x="400" y="130" font-size="15" fill="#a1a1aa">Security</text>
+<text class="m" x="830" y="130" font-size="15" text-anchor="end" fill="#f2f2f2">100/100 <tspan fill="#6fbf73" font-weight="800">A</tspan></text>
+<rect x="400" y="140" width="430" height="8" rx="4" fill="#2a2a2e"/>
+<rect class="db0" x="400" y="140" width="430" height="8" rx="4" fill="#6fbf73"/><text x="400" y="182" font-size="15" fill="#a1a1aa">Dependencies</text>
+<text class="m" x="830" y="182" font-size="15" text-anchor="end" fill="#f2f2f2">88/100 <tspan fill="#E7A141" font-weight="800">B</tspan></text>
+<rect x="400" y="192" width="430" height="8" rx="4" fill="#2a2a2e"/>
+<rect class="db1" x="400" y="192" width="378.4" height="8" rx="4" fill="#E7A141"/><text x="400" y="234" font-size="15" fill="#a1a1aa">Code Quality</text>
+<text class="m" x="830" y="234" font-size="15" text-anchor="end" fill="#f2f2f2">92/100 <tspan fill="#6fbf73" font-weight="800">A</tspan></text>
+<rect x="400" y="244" width="430" height="8" rx="4" fill="#2a2a2e"/>
+<rect class="db2" x="400" y="244" width="395.6" height="8" rx="4" fill="#6fbf73"/>
+<text class="m" x="400" y="302" font-size="12.5" fill="#6e6e77">Real output of  muraqib audit --report  run on this repository.</text>
+</svg>
