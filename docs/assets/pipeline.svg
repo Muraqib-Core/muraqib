@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="290" viewBox="0 0 1000 290" role="img" aria-labelledby="t d">
+<title id="t">Write, Commit, Review, Ship</title>
+<desc id="d">A four-step pipeline: Write (muraqib agent), Commit (muraqib hook install), Review (muraqib audit --report in CI) and Ship (exit code 0). A glowing dot travels along the line and lights each step.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
+@keyframes dot{0%,7.27%{transform:translateX(0);opacity:0}10%{opacity:1}80%{transform:translateX(750px);opacity:1}84.55%,100%{transform:translateX(750px);opacity:0}}
+.dot{animation:dot 11s linear infinite}
+@keyframes prog{0%,7.27%{stroke-dashoffset:1}80%,94.55%{stroke-dashoffset:0}98.18%,100%{stroke-dashoffset:1}}
+.prog{stroke-dasharray:1;animation:prog 11s linear infinite}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}@keyframes nd0{0%,7.27%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}9.55%{fill:#E7A141;stroke:#E7A141;transform:scale(1.22)}12.73%,94.55%{fill:#1c1c1f;stroke:#E7A141;transform:scale(1)}98.18%,100%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}}.nd0{transform-box:fill-box;transform-origin:center;stroke:#E7A141;animation:nd0 11s ease-out infinite}@keyframes ring0{0%,7.27%{transform:scale(.8);opacity:0}8.18%{opacity:.7}19.09%,100%{transform:scale(2.2);opacity:0}}.rg0{transform-box:fill-box;transform-origin:center;animation:ring0 11s ease-out infinite}.col0{animation:rise .8s 0.15s both}@keyframes nd1{0%,31.52%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}33.79%{fill:#E7A141;stroke:#E7A141;transform:scale(1.22)}36.97%,94.55%{fill:#1c1c1f;stroke:#E7A141;transform:scale(1)}98.18%,100%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}}.nd1{transform-box:fill-box;transform-origin:center;stroke:#E7A141;animation:nd1 11s ease-out infinite}@keyframes ring1{0%,31.52%{transform:scale(.8);opacity:0}32.42%{opacity:.7}43.33%,100%{transform:scale(2.2);opacity:0}}.rg1{transform-box:fill-box;transform-origin:center;animation:ring1 11s ease-out infinite}.col1{animation:rise .8s 0.3s both}@keyframes nd2{0%,55.76%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}58.03%{fill:#E7A141;stroke:#E7A141;transform:scale(1.22)}61.21%,94.55%{fill:#1c1c1f;stroke:#E7A141;transform:scale(1)}98.18%,100%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}}.nd2{transform-box:fill-box;transform-origin:center;stroke:#E7A141;animation:nd2 11s ease-out infinite}@keyframes ring2{0%,55.76%{transform:scale(.8);opacity:0}56.67%{opacity:.7}67.58%,100%{transform:scale(2.2);opacity:0}}.rg2{transform-box:fill-box;transform-origin:center;animation:ring2 11s ease-out infinite}.col2{animation:rise .8s 0.44999999999999996s both}@keyframes nd3{0%,80%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}82.27%{fill:#6fbf73;stroke:#6fbf73;transform:scale(1.22)}85.45%,94.55%{fill:#1c1c1f;stroke:#6fbf73;transform:scale(1)}98.18%,100%{fill:#1c1c1f;stroke:#2a2a2e;transform:scale(1)}}.nd3{transform-box:fill-box;transform-origin:center;stroke:#6fbf73;animation:nd3 11s ease-out infinite}@keyframes ring3{0%,80%{transform:scale(.8);opacity:0}80.91%{opacity:.7}91.82%,100%{transform:scale(2.2);opacity:0}}.rg3{transform-box:fill-box;transform-origin:center;animation:ring3 11s ease-out infinite}.col3{animation:rise .8s 0.6s both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+<defs></defs>
+<rect width="1000" height="290" rx="22" fill="#0e0e10"/><rect x="0.5" y="0.5" width="999" height="289" rx="22" fill="none" stroke="#2a2a2e"/>
+<line x1="125" y1="84" x2="875" y2="84" stroke="#2a2a2e" stroke-width="4" stroke-linecap="round"/>
+<line class="prog" pathLength="1" x1="125" y1="84" x2="875" y2="84" stroke="#E7A141" stroke-width="4" stroke-linecap="round"/><circle class="rg0" cx="125" cy="84" r="26" fill="none" stroke="#E7A141" stroke-width="2"/>
+<circle class="nd0" cx="125" cy="84" r="26" stroke-width="3" fill="#1c1c1f"/>
+<text class="m" x="125" y="90" text-anchor="middle" font-size="16" font-weight="800" fill="#f2f2f2">01</text>
+<g class="col0">
+<text x="125" y="158" text-anchor="middle" font-size="27" font-weight="700" fill="#f2f2f2">Write</text>
+<text x="125" y="184" text-anchor="middle" font-size="14.5" fill="#a1a1aa">Yourself, or with an assistant</text>
+<rect x="58.35" y="204" width="133.3" height="34" rx="10" fill="#151517" stroke="#2a2a2e"/>
+<text class="m" x="125" y="226" text-anchor="middle" font-size="14" fill="#f6cf94">muraqib agent</text>
+</g><circle class="rg1" cx="375" cy="84" r="26" fill="none" stroke="#E7A141" stroke-width="2"/>
+<circle class="nd1" cx="375" cy="84" r="26" stroke-width="3" fill="#1c1c1f"/>
+<text class="m" x="375" y="90" text-anchor="middle" font-size="16" font-weight="800" fill="#f2f2f2">02</text>
+<g class="col1">
+<text x="375" y="158" text-anchor="middle" font-size="27" font-weight="700" fill="#f2f2f2">Commit</text>
+<text x="375" y="184" text-anchor="middle" font-size="14.5" fill="#a1a1aa">Secret scan on pre-commit</text>
+<rect x="280" y="204" width="190" height="34" rx="10" fill="#151517" stroke="#2a2a2e"/>
+<text class="m" x="375" y="226" text-anchor="middle" font-size="14" fill="#f6cf94">muraqib hook install</text>
+</g><circle class="rg2" cx="625" cy="84" r="26" fill="none" stroke="#E7A141" stroke-width="2"/>
+<circle class="nd2" cx="625" cy="84" r="26" stroke-width="3" fill="#1c1c1f"/>
+<text class="m" x="625" y="90" text-anchor="middle" font-size="16" font-weight="800" fill="#f2f2f2">03</text>
+<g class="col2">
+<text x="625" y="158" text-anchor="middle" font-size="27" font-weight="700" fill="#f2f2f2">Review</text>
+<text x="625" y="184" text-anchor="middle" font-size="14.5" fill="#a1a1aa">Audit in CI</text>
+<rect x="521.9" y="204" width="206.2" height="34" rx="10" fill="#151517" stroke="#2a2a2e"/>
+<text class="m" x="625" y="226" text-anchor="middle" font-size="14" fill="#f6cf94">muraqib audit --report</text>
+</g><circle class="rg3" cx="875" cy="84" r="26" fill="none" stroke="#6fbf73" stroke-width="2"/>
+<circle class="nd3" cx="875" cy="84" r="26" stroke-width="3" fill="#1c1c1f"/>
+<text class="m" x="875" y="90" text-anchor="middle" font-size="16" font-weight="800" fill="#f2f2f2">04</text>
+<g class="col3">
+<text x="875" y="158" text-anchor="middle" font-size="27" font-weight="700" fill="#6fbf73">Ship</text>
+<text x="875" y="184" text-anchor="middle" font-size="14.5" fill="#a1a1aa">Knowing what's in it</text>
+<rect x="816.45" y="204" width="117.1" height="34" rx="10" fill="#151517" stroke="#2a2a2e"/>
+<text class="m" x="875" y="226" text-anchor="middle" font-size="14" fill="#6fbf73">exit code 0</text>
+</g><g class="dot"><circle cx="125" cy="84" r="16" fill="#E7A141" fill-opacity=".22"/><circle cx="125" cy="84" r="6.5" fill="#f6cf94"/></g>
+</svg>
