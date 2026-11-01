@@ -1,10 +1,13 @@
 <div align="center">
 
-#  @muraqib/core
+<img src="docs/assets/hero.svg" alt="Muraqib (مراقب): the guardian for your dev environment" width="100%">
 
-**Unified Developer Environment Guardian & Performance Auditor**
+<br>
 
-Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
+**Unified Developer Environment Guardian &amp; Performance Auditor**
+
+Comprehensive audit framework for Node.js/TypeScript projects. It finds security vulnerabilities,
+performance issues, architecture violations and configuration problems, and tells you how to fix them.
 
 <!-- AUTO:badges:start -->
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -14,19 +17,82 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 <!-- AUTO:badges:end -->
 
+<br>
+
+[🚀 Quick start](#-quick-start) &nbsp;·&nbsp; [🎬 Video](#-see-it-in-action) &nbsp;·&nbsp; [🔎 What it checks](#-what-it-checks) &nbsp;·&nbsp; [🔌 Workflow](#-fits-where-you-work) &nbsp;·&nbsp; [📟 CLI](#-cli-usage) &nbsp;·&nbsp; [📖 Docs](#-related-documentation) &nbsp;·&nbsp; [🌙 العربية](#arabic)
+
 </div>
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Features
+## 🎬 See it in action
 
-###  Security Auditing
+<p align="center">
+  <a href="docs/assets/muraqib-promo.mp4" title="Watch the full video">
+    <img src="docs/assets/promo-trailer.gif" width="860" alt="Muraqib promo, sped up: AI writes code fast, but who is watching? Muraqib audits the project, covers security, performance, architecture and agent-ready reports, and fits Write, Commit, Review, Ship.">
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/assets/muraqib-promo.mp4"><b>▶ Watch the full 65-second video</b></a> <sub>(1080p, no sound needed)</sub>
+</p>
+
+<!--
+  Want the video to play right here, inline, with controls? GitHub only does that for files
+  uploaded through its own editor. Edit this README on github.com, drag docs/assets/muraqib-promo.mp4
+  into the editor, and GitHub inserts a https://github.com/user-attachments/assets/... link on its own
+  line. Paste that line in place of the GIF block above.
+-->
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 🧭 Why Muraqib
+
+<p align="center">
+  <img src="docs/assets/problem.svg" width="100%" alt="AI writes code. Fast. But who is watching? A code editor shows a hard-coded secret, an SQL injection and a floating promise flagged in red.">
+</p>
+
+AI assistants write code in seconds. They also hard-code a key, concatenate a query, or forget an `await`, and the
+code still runs. **Muraqib** (Arabic *مراقب*, "the one who watches") is the second pair of eyes: it audits your project and
+reports what an assistant, or a tired human, missed, in a form both people and tools can act on.
+
+| Principle | In practice |
+|-----------|-------------|
+| 🤝 **Complementary** | Built to sit beside AI coding tools and check their output, not to replace them. |
+| 🎯 **Actionable** | Every finding carries a severity, a file and line, and a recommended fix. |
+| 🤖 **Machine-readable** | The agent report is versioned JSON with stable issue ids, so an agent can confirm a fix by re-running. |
+| 🛟 **Safe by design** | Git hooks fail open and never trap a commit; secrets are masked in output and redacted before any AI request. |
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 🚀 Quick start
+
+```bash
+npx @muraqib/core audit        # audit the current project
+npx @muraqib/core audit -i     # guided, interactive mode
+```
+
+<p align="center">
+  <img src="docs/assets/terminal.svg" width="100%" alt="Terminal running npx @muraqib/core audit: eight guards report one by one, ending with 0 critical, 5 warnings, 4 info and exit code 0.">
+</p>
+
+> Illustrative output (a real run of `muraqib audit` on this repository). Install, flags and CI setup are in [Usage from npm](#-usage-from-npm) and [CLI Usage](#-cli-usage).
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 🔎 What it checks
+
+<p align="center">
+  <img src="docs/assets/pillars.svg" width="100%" alt="Four pillars: Security, Performance, Architecture and Agent-ready.">
+</p>
+
+### 🔐 Security Auditing
 - **Injection Prevention**: SQL/XSS detection and prevention
 - **Secret Detection**: API keys, passwords, tokens, credentials
 - **Auth/Crypto Validation**: Security protocols and cryptographic best practices
 - **Security Headers Analysis**: HTTP security header validation
 
-###  Performance
+### ⚡ Performance
 - **Memory Management**: Heap leak detection and memory profile analysis
 - **Bundle Optimization**: Size monitoring and budget enforcement (14 KB default)
 - **Network Analysis**: Latency measurement and optimization recommendations
@@ -38,21 +104,89 @@ Comprehensive audit framework for Node.js/TypeScript projects. Detects security 
 - **Render Blocking**: Render-blocking resource detection
 - **HTTP/2 Support**: Protocol and compression optimization
 
-###  Architecture Validation
+### 🏗️ Architecture Validation
 - **Configuration Validation**: Environment variables and config file validation
 - **Docker Best Practices**: Containerization checks and recommendations
 - **Compatibility Checking**: Node.js version and peer dependency validation
 - **AI-Powered Recommendations**: Context-aware issue resolution suggestions
 
-###  AI Integration
+### 🤖 AI Integration
 - **AI-Complementary**: Works with AI-generated code to catch issues
 - **Secret Detection**: Advanced pattern matching for sensitive data
 - **Intelligent Recommendations**: AI-powered fix suggestions
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Usage from npm
+## 🔌 Fits where you work
 
+<p align="center">
+  <img src="docs/assets/pipeline.svg" width="100%" alt="Write, Commit, Review, Ship: muraqib agent, muraqib hook install, muraqib audit --report, exit code 0.">
+</p>
+
+| Stage | Command | What happens |
+|-------|---------|--------------|
+| **Write** | `muraqib agent -p . --osv` | Your assistant gets a deterministic JSON report: issues sorted by severity, stable ids, no timestamps. |
+| **Commit** | `muraqib hook install` | The pre-commit hook scans only the lines you stage and blocks credentials that are almost certainly real. |
+| **Review** | `muraqib audit --report -o "$GITHUB_STEP_SUMMARY"` | A Markdown scorecard lands in the CI job summary; add `--fail-on-warning` to gate on warnings. |
+| **Ship** | `muraqib audit --no-interactive` | Exit code `0` means nothing blocks the build; `1` means blocking findings; `3` means a scanner failed. |
+
+```yaml
+# .github/workflows/audit.yml (excerpt)
+- name: Muraqib audit
+  run: npx @muraqib/core audit --no-interactive --report -o "$GITHUB_STEP_SUMMARY"
+```
+
+Prefer the editor? The [VS Code extension](extension/README.md) runs the same engine, fills the **Problems** panel and
+shows a status-bar counter. It never edits your code.
+
+### 📊 Know where you stand
+
+<p align="center">
+  <img src="docs/assets/scorecard.svg" width="100%" alt="Security scorecard: 80 out of 100, grade B. Security 100, Dependencies 88, Code Quality 92.">
+</p>
+
+`muraqib audit --report` turns findings into a single **0–100 score** with a grade, broken down by severity and domain.
+The score is a pure function of the findings, so the same report always yields the same number. The full method is under
+[Security scorecard](#security-scorecard---report----format-md).
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+<a id="arabic"></a>
+
+<details>
+<summary><b>🌙 بالعربية: ما هو مراقب؟</b></summary>
+
+<br>
+
+<div dir="rtl" align="right">
+
+**مراقب** هو حارس بيئة التطوير. الذكاء الاصطناعي يكتب الشيفرة بسرعة، فمن يراجعها؟
+مراقب أداة تدقيق لمشاريع Node.js وTypeScript، تفحص مشروعك وتخبرك بما فاتك وكيف تصلحه:
+
+- 🔐 **الأمان:** الأسرار المكتوبة داخل الشيفرة، وحقن SQL وXSS، والمصادقة والتشفير، وترويسات HTTP الأمنية.
+- ⚡ **الأداء:** الذاكرة، وحجم الحزمة، والأنماط غير المتزامنة، والشيفرة الميتة، وزمن الاستجابة.
+- 🏗️ **البنية:** الإعدادات، وDocker، والتبعيات، والتوافق، والتحقق من متغيرات البيئة.
+- 🤖 **جاهز للوكلاء:** تقارير JSON ومخططات أدوات تستطيع أدوات الذكاء الاصطناعي قراءتها.
+
+يعمل في الطرفية، وفي خطافات Git قبل الإيداع، وفي أنظمة التكامل المستمر، وداخل VS Code.
+
+</div>
+
+```bash
+npx @muraqib/core audit
+```
+
+<div dir="rtl" align="right">
+
+**ثق بالشيفرة. وتحقّق منها على أي حال.**
+
+</div>
+
+</details>
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 📦 Usage from npm
 The npm package is `@muraqib/core`; the CLI command it installs is `muraqib`.
 The muraqib version will be available after publication:
 
@@ -90,10 +224,9 @@ Used for: `valibot` → `--engine valibot` / `ValibotEngine`; `arktype` → `--e
 
 `zod` is installed with `@muraqib/core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Local development
-
+## 🛠️ Local development
 ```bash
 # Clone the repository
 git clone https://github.com/Muraqib-Core/muraqib.git
@@ -109,10 +242,9 @@ npm run build
 npm test
 ```
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Quick Start
-
+## ⚙️ Repository scripts <sub>(from a clone)</sub>
 ```bash
 # Run full audit on current project
 npm run audit
@@ -136,10 +268,9 @@ npm run lint
 npm run type-check
 ```
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Documentation Web View
-
+## 🖥️ Documentation Web View
 `npm run build` also writes a self-contained documentation page (Details, Features, Installation, Configuration, Requirements, Changelog tabs) to `dist/webview/index.html`. It has no server and no network access: open the file directly in a browser.
 
 ```bash
@@ -158,10 +289,9 @@ A ready-made VS Code extension built on `runAuditForAgent` and `getWebviewHtml` 
 
 The page text lives in `src/webview/content/` as typed data, so adding a tab or translating it never touches the markup. The version and the dependency list are read from `package.json` at build time.
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  CLI Usage
-
+## 📟 CLI Usage
 After `npm run build`, the `muraqib` binary (`bin/muraqib.js`) exposes five commands.
 
 | Command | Purpose |
@@ -245,7 +375,7 @@ muraqib runtime --container my-app [--json]
 
 `image` requires the `trivy` binary and only scans images that already exist locally. `runtime` inspects the container read-only; it never starts, stops or modifies it.
 
-###  AI agents (Claude Code, Cursor, MCP clients)
+### 🤖 AI agents (Claude Code, Cursor, MCP clients)
 
 Muraqib is usable as a tool by LLM agents. The agent output is a versioned (`schemaVersion: "1.0"`), deterministic JSON report: no timestamps or durations, issues sorted by severity, and stable issue `id`s so an agent can confirm a fix by re-running.
 
@@ -290,10 +420,9 @@ The exit code is the same as in non-interactive runs (`1` on critical/error, `13
 | `3` | A scanner failed, so the result is not reliable |
 | `130` | Interactive prompt cancelled by the user |
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Architecture Overview
-
+## 🏛️ Architecture Overview
 ### Core Components
 
 #### BaseGuard (Abstract Base Class)
@@ -379,9 +508,14 @@ interface AuditIssue {
 }
 ```
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Testing
+## 🧰 Under the hood
+
+<sub>Tap a section to expand.</sub>
+
+<details>
+<summary><b>🧪 Testing</b></summary>
 
 ### Running Tests
 
@@ -420,9 +554,10 @@ tests/
 └── fixtures.ts              # Shared test data
 ```
 
----
+</details>
 
-##  CI/CD Pipeline
+<details>
+<summary><b>🔁 CI/CD Pipeline</b></summary>
 
 Workflows (generated from `.github/workflows/`):
 
@@ -462,9 +597,10 @@ npm test              # Run all tests
 npm run docs:check    # Generated docs are up to date
 ```
 
----
+</details>
 
-##  Project Structure
+<details>
+<summary><b>🗂️ Project Structure</b></summary>
 
 The project has two layers that share the unified `AuditIssue` model:
 the **guard layer** (`src/core`, `src/rules`, `src/orchestrator`, ...) runs the
@@ -525,9 +661,10 @@ docs/
 └── REFERENCE.md           # Generated reference (do not edit by hand)
 ```
 
----
+</details>
 
-##  API Reference
+<details>
+<summary><b>📚 API Reference</b></summary>
 
 ### BaseGuard Methods
 
@@ -575,9 +712,10 @@ interface AuditContext {
 }
 ```
 
----
+</details>
 
-##  Development
+<details>
+<summary><b>🧱 Development</b></summary>
 
 ### Build
 
@@ -601,10 +739,11 @@ npm run lint -- --fix      # Auto-fix issues
 - **Source Maps**: Generated for debugging
 - **Declaration Maps**: TypeScript definition mapping
 
----
+</details>
 
-##  Contributing
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
+## 🤝 Contributing
 ### Code Standards
 
 - **TypeScript**: Strict type safety required
@@ -632,10 +771,9 @@ Example: `fix(secret-guard): ignore placeholder tokens in .env.example`
 
 Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Performance Targets
-
+## 🎯 Performance Targets
 | Metric | Target |
 |--------|--------|
 | Test Coverage | ≥85% |
@@ -644,10 +782,9 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 | Full Audit Time | <5s |
 | Memory Usage | <100MB |
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Related Documentation
-
+## 📖 Related Documentation
 > Facts such as versions, guards, CLI flags, scripts and workflows are **generated** from the source (`npm run docs:generate`). Blocks marked `<!-- AUTO:... -->` and `docs/REFERENCE.md` must not be edited by hand.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture guide
@@ -656,16 +793,10 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 
----
-
-##  License
-
+## 📄 License
 ISC © [Aya Almadhon](https://github.com/Ayaalmadhon2004) & [Jenan](https://github.com/Jenan04)
 
----
-
-##  Acknowledgments
-
+## 💛 Acknowledgments
 Built as an **AI-complementary DevTool** to enhance AI-generated code quality, security, and performance.
 
 **Key Features:**
@@ -674,3 +805,7 @@ Built as an **AI-complementary DevTool** to enhance AI-generated code quality, s
 - ✅ Integrates with CI/CD pipelines
 - ✅ TypeScript-first for type safety
 - ✅ Extensible through custom guards
+
+<p align="center">
+  <a href="https://github.com/Muraqib-Core/muraqib"><img src="docs/assets/footer.svg" width="100%" alt="Trust the code. Check it anyway. npx @muraqib/core audit"></a>
+</p>
