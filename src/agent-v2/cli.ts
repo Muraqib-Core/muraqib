@@ -1,12 +1,14 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatPlanJson, formatPlanText } from "./format.js";
+import { runEvalCli } from "./eval-cli.js";
 import { runFixCli } from "./fix-cli.js";
+import { runPrDescriptionCli } from "./pr-description-cli.js";
 import { runAgent } from "./loop.js";
 import { DEFAULT_LANG, type ExplainLang } from "./explain/config.js";
 import { explainPlan } from "./explain/explainer.js";
 
-const USAGE = `Usage: muraqib-agent <plan|fix> [options]   (see: muraqib-agent fix --help)
+const USAGE = `Usage: muraqib-agent <plan|fix|pr-description|eval> [options]   (see: muraqib-agent fix --help)
 
   muraqib-agent plan [options]
 
@@ -76,6 +78,8 @@ export async function runAgentCli(args: readonly string[]): Promise<number> {
     return command === undefined ? 2 : 0;
   }
   if (command === "fix") return runFixCli(rest);
+  if (command === "pr-description") return runPrDescriptionCli(rest);
+  if (command === "eval") return runEvalCli(rest);
   if (command !== "plan") {
     process.stderr.write(`Unknown command: ${command}\n${USAGE}`);
     return 2;
