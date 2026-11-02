@@ -23,9 +23,15 @@ export function classifyIssue(issue: AgentIssue): FixClass {
   return "manual";
 }
 
+/** Paths in a plan always use `/`, so ranking and fixers behave the same on Windows and Linux. */
+function toPosix(file: string): string {
+  return file.split("\\").join("/");
+}
+
 /** 0 = production source, 1 = other, 2 = tests/examples/docs. Production code is fixed first. */
-function locationTier(file: string | undefined): number {
-  if (file === undefined) return 1;
+function locationTier(rawFile: string | undefined): number {
+  if (rawFile === undefined) return 1;
+  const file = toPosix(rawFile);
   if (/(^|\/)(tests?|__tests__|examples?|docs?|fixtures?)\//.test(file) || /\.(spec|test)\.[jt]sx?$/.test(file)) return 2;
   return file.startsWith("src/") ? 0 : 1;
 }
@@ -49,7 +55,7 @@ function toStep(issue: AgentIssue, fixClass: FixClass): PlanStep {
       tier === 0 ? "in src/" : tier === 2 ? "in tests/examples/docs" : "outside src/",
     ],
   };
-  if (issue.file !== undefined) step.file = issue.file;
+  if (issue.file !== undefined) step.file = toPosix(issue.file);
   if (issue.line !== undefined) step.line = issue.line;
   return step;
 }
@@ -69,7 +75,7 @@ export function rankIssues(issues: readonly AgentIssue[], maxSteps?: number): Pl
       SEVERITY_RANK[a.issue.severity] - SEVERITY_RANK[b.issue.severity] ||
       Number(b.step.autoFixable) - Number(a.step.autoFixable) ||
       locationTier(a.issue.file) - locationTier(b.issue.file) ||
-      (a.issue.file ?? "").localeCompare(b.issue.file ?? "") ||
+      toPosix(a.issue.file ?? "").localeCompare(toPosix(b.issue.file ?? "")) ||
       (a.issue.line ?? 0) - (b.issue.line ?? 0) ||
       a.issue.id.localeCompare(b.issue.id)
   );

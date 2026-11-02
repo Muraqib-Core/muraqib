@@ -13,7 +13,7 @@ import {
   MAX_EXPLANATION_LENGTH,
   RETRY_BASE_DELAY_MS,
 } from "./config.js";
-import { createGeminiTextGenerator, isRateLimitError, type TextGenerator } from "./gemini.js";
+import { createGeminiTextGenerator, describeGeminiError, isRateLimitError, type TextGenerator } from "./gemini.js";
 import { containsSecret, redactText } from "./redact.js";
 import { templateExplanation } from "./templates.js";
 
@@ -114,7 +114,7 @@ async function callWithRetry(
       const reply = await generator.generate({ system: SYSTEM_PROMPT, prompt });
       return { explanations: parseExplanations(reply, allowed), calls };
     } catch (error) {
-      if (!isRateLimitError(error)) return { explanations: new Map(), calls, notice: "Gemini request failed" };
+      if (!isRateLimitError(error)) return { explanations: new Map(), calls, notice: describeGeminiError(error) };
     }
   }
   return { explanations: new Map(), calls, notice: "Gemini rate limit (429) persisted after retries" };
