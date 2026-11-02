@@ -12,7 +12,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/agent-v2-windows.yml'
   push:
-    branches: [ci/agent-v2-windows]
+    branches: ['ci/**']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,8 +31,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 20.12.0 is the minimum supported version (package.json engines.node)
-        node-version: [20.12.0, 22.x]
+        # Node 22 only: on Node 20.12.0 npm does not install rolldown's Windows binding, so vitest cannot
+        # start (an npm optional-dependency bug, not a muraqib problem). The Linux jobs cover 20.12.0.
+        node-version: [22.x]
 
     steps:
       - name: Checkout code
@@ -54,14 +55,15 @@ jobs:
 
       - name: Show git line-ending settings
         run: git config --show-origin --get-all core.autocrlf
-
         continue-on-error: true
 
       - name: agent-v2 unit tests
         run: npx vitest run tests/unit/agent-v2
 
       - name: Smoke test - help
+        if: always()
         run: node bin/muraqib-agent.js --help
 
       - name: Smoke test - evaluation on the built-in projects
+        if: always()
         run: node bin/muraqib-agent.js eval

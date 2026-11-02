@@ -17,7 +17,8 @@ function mk(): { orig: string; mod: string } {
   return { orig, mod };
 }
 function git(cwd: string, args: string[]): string {
-  return execFileSync("git", args, { cwd, encoding: "utf-8" });
+  // core.autocrlf=false: Windows runners default to true, which would rewrite the applied file with CRLF.
+  return execFileSync("git", ["-c", "core.autocrlf=false", ...args], { cwd, encoding: "utf-8" });
 }
 
 describe("makePatch", () => {

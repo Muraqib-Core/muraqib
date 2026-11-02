@@ -8,6 +8,9 @@ import type { FixOutcome, FixSessionResult } from "../../../src/agent-v2/fix/ses
 import type { ProposedFix } from "../../../src/agent-v2/fix/types.js";
 import { AGENT_PLAN_SCHEMA_VERSION, type AgentPlan, type FixClass, type PlanStep } from "../../../src/agent-v2/types.js";
 
+// Real audits and git calls are slower on Windows than the 5 s default allows.
+vi.setConfig({ testTimeout: 120_000 });
+
 const SECRET = ["sk", "live", "A1b2C3d4E5f6G7h8I9j0K1l2"].join("_");
 
 function step(n: number, fixClass: FixClass, file = `src/f${n}.ts`): PlanStep {
