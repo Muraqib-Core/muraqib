@@ -12,6 +12,11 @@ export function formatFixReport(result: FixSessionResult, patchPath?: string): s
       for (const key of [...o.verification.stillPresent, ...o.verification.introduced]) lines.push(`   - ${key.split("|").slice(0, 3).join(" | ")}`);
     }
     for (const warning of o.fix.warnings) lines.push(`   WARNING: ${warning}`);
+    if (o.commandCheck !== undefined) {
+      if (o.commandCheck.passed.length > 0) lines.push(`   verify commands passed: ${o.commandCheck.passed.join("; ")}`);
+      for (const warning of o.commandCheck.warnings) lines.push(`   WARNING: ${warning}`);
+    }
+    if (o.commandOutput !== undefined && o.commandOutput !== "") for (const line of o.commandOutput.split("\n")) lines.push(`   | ${line}`);
   }
   for (const d of result.decisions) {
     lines.push("", `Decision needed for ${d.issueId}: ${d.question}`);

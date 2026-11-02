@@ -1,5 +1,6 @@
 import { createPlan } from "../planner.js";
 import type { FixClass, PlanStep } from "../types.js";
+import { CommandChecker, DEFAULT_VERIFY_TIMEOUT_MS, type CommandSummary } from "./command-check.js";
 import { makePatch } from "./patch.js";
 import { applyEdits, copyProject, removeCopy } from "./project-copy.js";
 import { verifyFix, type VerifyDeps, type VerifyOutcome } from "./verify.js";
@@ -20,6 +21,10 @@ export interface FixOutcome {
   /** Why it was rejected / declined, or a note such as "apply mode only". */
   note?: string;
   verification?: VerifyOutcome;
+  /** Only with `verifyCommands`: commands that passed on the fixed copy, and warnings (such as an unusable baseline). */
+  commandCheck?: CommandSummary;
+  /** Only when a verify command rejected the fix: last lines of its output, redacted. */
+  commandOutput?: string;
 }
 
 /** Inputs of {@link runFixSession}. */
@@ -32,6 +37,10 @@ export interface FixSessionOptions {
   approve?: ((fix: ProposedFix) => Promise<boolean>) | undefined;
   verifyDeps?: VerifyDeps | undefined;
   maxFixes?: number | undefined;
+  /** Shell commands (for example a type-check) that must still pass on the fixed copy; see `CommandChecker`. */
+  verifyCommands?: string[] | undefined;
+  /** Time limit per verify command in milliseconds (default 120000). */
+  verifyTimeoutMs?: number | undefined;
 }
 
 /** Everything a fix session produced: per-fix outcomes, open decisions, skipped issues and the patch. */
@@ -82,6 +91,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
   const skipped = new Map<string, string>();
   const tried = new Set<string>();
   const touched = new Set<string>();
+  const checker = options.verifyCommands !== undefined && options.verifyCommands.length > 0 ? new CommandChecker({ commands: options.verifyCommands, timeoutMs: options.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS, projectRoot: options.projectRoot }) : undefined;
   let error: string | undefined;
   let issuesBefore: number | undefined;
   let issuesAfter: number | undefined;
@@ -102,7 +112,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
       const next = results.find((r): r is Extract<FixerResult, { kind: "fix" }> => r.kind === "fix" && !tried.has(r.fix.id));
       if (next === undefined) break;
       tried.add(next.fix.id);
-      const outcome = await handleFix(next.fix, workRoot, options, touched);
+      const outcome = await handleFix(next.fix, workRoot, options, touched, checker);
       outcomes.push(outcome);
       if (changesWorkTree(outcome)) afterIsStale = true;
     }
@@ -135,9 +145,18 @@ function recordNotes(results: readonly FixerResult[], decisions: Map<string, Fix
   }
 }
 
-async function handleFix(fix: ProposedFix, workRoot: string, options: FixSessionOptions, touched: Set<string>): Promise<FixOutcome> {
+async function handleFix(fix: ProposedFix, workRoot: string, options: FixSessionOptions, touched: Set<string>, checker?: CommandChecker): Promise<FixOutcome> {
   const verification = await verifyFix(workRoot, fix, options.verifyDeps);
   if (!verification.accepted) return { fix, status: "rejected", note: verification.reason, verification };
+  const check = checker === undefined ? undefined : await checker.check(workRoot, fix);
+  if (check?.ok === false) {
+    return { fix, status: "rejected", note: check.reason, verification: { accepted: false, reason: check.reason, stillPresent: [], introduced: [] }, commandCheck: check.summary, commandOutput: check.output };
+  }
+  const outcome = await keepFix(fix, workRoot, options, touched, verification);
+  return check === undefined ? outcome : { ...outcome, commandCheck: check.summary };
+}
+
+async function keepFix(fix: ProposedFix, workRoot: string, options: FixSessionOptions, touched: Set<string>, verification: VerifyOutcome): Promise<FixOutcome> {
   if (options.mode === "propose") {
     if (fix.removesSecret) return { fix, status: "verified", note: "removes a secret: kept out of the patch file, use apply mode", verification };
     applyEdits(workRoot, fix.edits);
