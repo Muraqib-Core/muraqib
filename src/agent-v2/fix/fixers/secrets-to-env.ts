@@ -36,7 +36,7 @@ function literalsOf(line: string): Literal[] {
 /** The one literal on the line that is the secret, or undefined when none or several qualify. */
 function pickSecretLiteral(line: string): { literal: Literal; type: SecretType } | undefined {
   const matches = findSecrets(line, SCAN);
-  const qualifying = literalsOf(line).filter((l) => findSecrets(`${line.slice(0, l.start)}"x"${line.slice(l.end)}`, SCAN).length < matches.length);
+  const qualifying = literalsOf(line).filter((l) => findSecrets(`${line.slice(0, l.start)}"xxxx"${line.slice(l.end)}`, SCAN).length < matches.length);
   const only = qualifying.length === 1 ? qualifying[0] : undefined;
   const type = matches[0]?.type;
   return only === undefined || type === undefined ? undefined : { literal: only, type };
@@ -98,6 +98,13 @@ function warningsFor(history: HistoryState): string[] {
 export class SecretsToEnvFixer implements Fixer {
   readonly fixClass = "hardcoded-secret" as const;
 
+  /**
+   * Proposes replacing each hardcoded secret literal with a `process.env` lookup.
+   *
+   * @param steps - Auto-fixable `hardcoded-secret` plan steps
+   * @param context - Project root and git-history source
+   * @returns Fixes (flagged `removesSecret`), or skips with a reason
+   */
   propose(steps: readonly PlanStep[], context: FixContext): FixerResult[] {
     const taken = new Set<string>([...collectUsages(context.projectRoot).keys(), ...(readDocumentedKeys(context.projectRoot) ?? [])]);
     return steps.map((step): FixerResult => {
