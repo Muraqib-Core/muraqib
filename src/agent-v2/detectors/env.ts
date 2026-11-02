@@ -22,7 +22,7 @@ function makeId(code: string, file: string, key: string): string {
 }
 
 /** Variable names declared in `.env.example` (a `KEY=` or `# KEY=` line counts as documented). */
-function readDocumentedKeys(projectRoot: string): Set<string> | undefined {
+export function readDocumentedKeys(projectRoot: string): Set<string> | undefined {
   const path = join(projectRoot, ENV_EXAMPLE);
   if (!existsSync(path)) return undefined;
   const keys = new Set<string>();
@@ -34,7 +34,7 @@ function readDocumentedKeys(projectRoot: string): Set<string> | undefined {
 }
 
 /** First usage (file, line) of every environment variable read in source. */
-function collectUsages(projectRoot: string): Map<string, EnvUsage> {
+export function collectUsages(projectRoot: string): Map<string, EnvUsage> {
   const usages = new Map<string, EnvUsage>();
   const files = scanProjectFiles(projectRoot, ["ts", "js"], { includeTests: false });
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));

@@ -48,13 +48,13 @@ function groupByClass(steps: readonly PlanStep[]): Map<FixClass, PlanStep[]> {
   return groups;
 }
 
-function collectResults(fixers: readonly Fixer[], steps: readonly PlanStep[], root: string, choices: ReadonlyMap<string, string>): FixerResult[] {
+function collectResults(fixers: readonly Fixer[], steps: readonly PlanStep[], root: string, originalRoot: string, choices: ReadonlyMap<string, string>): FixerResult[] {
   const groups = groupByClass(steps);
   const results: FixerResult[] = [];
   for (const fixClass of FIX_ORDER) {
     const group = groups.get(fixClass);
     const fixer = fixers.find((f) => f.fixClass === fixClass);
-    if (group !== undefined && fixer !== undefined) results.push(...fixer.propose(group, { projectRoot: root, choices }));
+    if (group !== undefined && fixer !== undefined) results.push(...fixer.propose(group, { projectRoot: root, originalRoot, choices }));
   }
   return results;
 }
@@ -84,7 +84,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
         break;
       }
       decisions.clear();
-      const results = collectResults(options.fixers, plan.steps, workRoot, choices);
+      const results = collectResults(options.fixers, plan.steps, workRoot, options.projectRoot, choices);
       for (const r of results) {
         if (r.kind === "decision") decisions.set(r.decision.issueId, r.decision);
         else if (r.kind === "skip") skipped.set(r.issueId, r.reason);
