@@ -101,13 +101,13 @@ export class SecretsToEnvFixer implements Fixer {
   propose(steps: readonly PlanStep[], context: FixContext): FixerResult[] {
     const taken = new Set<string>([...collectUsages(context.projectRoot).keys(), ...(readDocumentedKeys(context.projectRoot) ?? [])]);
     return steps.map((step): FixerResult => {
-      const fix = this.fixFor(step, context.projectRoot, taken);
+      const fix = this.fixFor(step, context.projectRoot, taken, context.originalRoot ?? context.projectRoot);
       return typeof fix === "string" ? { kind: "skip", issueId: step.issueId, reason: fix } : { kind: "fix", fix };
     });
   }
 
   /** The fix for one step, or the reason it is skipped. */
-  private fixFor(step: PlanStep, projectRoot: string, taken: Set<string>): ProposedFix | string {
+  private fixFor(step: PlanStep, projectRoot: string, taken: Set<string>, historyRoot: string): ProposedFix | string {
     if (step.file === undefined || step.line === undefined) return "the issue has no file/line";
     const source = this.read(projectRoot, step.file);
     if (source === undefined) return `cannot read ${step.file}`;
@@ -129,7 +129,7 @@ export class SecretsToEnvFixer implements Fixer {
         { file: step.file, content: lines.join("\n") },
         { file: ".env.example", content: buildEnvExample(projectRoot, [name]) },
       ],
-      warnings: warningsFor(checkHistory(projectRoot, step.file, literal.inner)),
+      warnings: warningsFor(checkHistory(historyRoot, step.file, literal.inner)),
       removesSecret: true,
     };
   }

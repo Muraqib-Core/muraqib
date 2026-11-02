@@ -43,6 +43,8 @@ export type FixerResult =
 
 export interface FixContext {
   projectRoot: string;
+  /** The real project when `projectRoot` is a temp copy (the copy has no `.git`); used for git-history checks. */
+  originalRoot?: string;
   /** User choices for decisions, keyed by issue id. */
   choices: ReadonlyMap<string, string>;
 }
