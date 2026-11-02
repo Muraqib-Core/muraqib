@@ -85,6 +85,15 @@ function summarize(steps: readonly PlanStep[]): AgentPlan["summary"] {
   return { total: steps.length, autoFixable, manual: steps.length - autoFixable, byFixClass };
 }
 
+export type CollectedIssues = { ok: true; issues: AgentIssue[] } | { ok: false; error: string };
+
+/** v1 audit plus the agent-v2 secret and env detectors, unranked. Never throws. */
+export async function collectIssues(projectRoot: string, modules?: string[]): Promise<CollectedIssues> {
+  const report = await runAuditForAgent({ projectRoot, modules });
+  if (!report.ok) return { ok: false, error: report.error ?? "audit failed" };
+  return { ok: true, issues: [...report.issues, ...detectHardcodedSecrets(projectRoot), ...detectUndocumentedEnv(projectRoot)] };
+}
+
 /**
  * Builds the plan for a project: runs the v1 audit (`runAuditForAgent`), adds the agent-v2
  * secret and env detectors, then ranks everything with fixed rules. No network, no LLM.
@@ -92,19 +101,19 @@ function summarize(steps: readonly PlanStep[]): AgentPlan["summary"] {
  */
 export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> {
   const projectRoot = options.projectRoot ?? process.cwd();
-  const report = await runAuditForAgent({ projectRoot, modules: options.modules });
-  if (!report.ok) {
+  const collected = await collectIssues(projectRoot, options.modules);
+  if (!collected.ok) {
     return {
       schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
       projectRoot,
       verdict: "fail",
       ok: false,
-      error: report.error ?? "audit failed",
+      error: collected.error,
       summary: summarize([]),
       steps: [],
     };
   }
-  const issues = [...report.issues, ...detectHardcodedSecrets(projectRoot), ...detectUndocumentedEnv(projectRoot)];
+  const issues = collected.issues;
   const steps = rankIssues(issues, options.maxSteps);
   const failing = issues.some((i) => i.severity === "critical" || i.severity === "error");
   return {

@@ -1,11 +1,14 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatPlanJson, formatPlanText } from "./format.js";
+import { runFixCli } from "./fix-cli.js";
 import { runAgent } from "./loop.js";
 import { DEFAULT_LANG, type ExplainLang } from "./explain/config.js";
 import { explainPlan } from "./explain/explainer.js";
 
-const USAGE = `Usage: muraqib-agent plan [options]
+const USAGE = `Usage: muraqib-agent <plan|fix> [options]   (see: muraqib-agent fix --help)
+
+  muraqib-agent plan [options]
 
 Options:
   --project <path>   Project root (default: current directory)
@@ -72,6 +75,7 @@ export async function runAgentCli(args: readonly string[]): Promise<number> {
     process.stdout.write(USAGE);
     return command === undefined ? 2 : 0;
   }
+  if (command === "fix") return runFixCli(rest);
   if (command !== "plan") {
     process.stderr.write(`Unknown command: ${command}\n${USAGE}`);
     return 2;

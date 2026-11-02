@@ -23,7 +23,7 @@ afterEach(() => {
 describe("muraqib-agent argument handling", () => {
   test("--help prints usage and exits 0", async () => {
     expect(await runAgentCli(["--help"])).toBe(0);
-    expect(out.join("")).toContain("Usage: muraqib-agent plan");
+    expect(out.join("")).toContain("Usage: muraqib-agent <plan|fix>");
   });
 
   test("no command prints usage and exits 2", async () => {
@@ -32,8 +32,8 @@ describe("muraqib-agent argument handling", () => {
   });
 
   test("unknown command exits 2", async () => {
-    expect(await runAgentCli(["fix"])).toBe(2);
-    expect(err.join("")).toContain("Unknown command: fix");
+    expect(await runAgentCli(["bogus"])).toBe(2);
+    expect(err.join("")).toContain("Unknown command: bogus");
   });
 
   test.each([
