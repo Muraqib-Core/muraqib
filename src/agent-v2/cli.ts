@@ -2,6 +2,8 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatPlanJson, formatPlanText } from "./format.js";
 import { runAgent } from "./loop.js";
+import { DEFAULT_LANG, type ExplainLang } from "./explain/config.js";
+import { explainPlan } from "./explain/explainer.js";
 
 const USAGE = `Usage: muraqib-agent plan [options]
 
@@ -10,6 +12,9 @@ Options:
   --json             Print the plan as JSON instead of text
   --max-steps <n>    Keep only the first n steps
   --module <name>    Limit the v1 audit to a module (repeatable)
+  --explain          Add explanations (uses Gemini if GEMINI_API_KEY is set, built-in text otherwise)
+  --lang <ar|en>     Language of the explanations (default: en)
+  --explain-top <n>  Explain only the top n steps (default: 10)
   -h, --help         Show this help
 
 Exit codes: 0 plan produced, 2 usage error, 3 audit could not run.
@@ -19,11 +24,14 @@ interface ParsedArgs {
   project: string;
   json: boolean;
   maxSteps?: number;
+  explain: boolean;
+  lang: ExplainLang;
+  explainTop?: number;
   modules: string[];
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs | string {
-  const parsed: ParsedArgs = { project: process.cwd(), json: false, modules: [] };
+  const parsed: ParsedArgs = { project: process.cwd(), json: false, modules: [], explain: false, lang: DEFAULT_LANG };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     const value = (): string | undefined => {
@@ -31,7 +39,16 @@ function parseArgs(args: readonly string[]): ParsedArgs | string {
       return args[i];
     };
     if (arg === "--json") parsed.json = true;
-    else if (arg === "--project") {
+    else if (arg === "--explain") parsed.explain = true;
+    else if (arg === "--lang") {
+      const v = value();
+      if (v !== "ar" && v !== "en") return "--lang must be ar or en";
+      parsed.lang = v;
+    } else if (arg === "--explain-top") {
+      const n = Number(value());
+      if (!Number.isInteger(n) || n < 0) return "--explain-top needs a non-negative integer";
+      parsed.explainTop = n;
+    } else if (arg === "--project") {
       const v = value();
       if (v === undefined) return "--project needs a path";
       parsed.project = resolve(v);
@@ -73,6 +90,7 @@ export async function runAgentCli(args: readonly string[]): Promise<number> {
     modules: parsed.modules.length > 0 ? parsed.modules : undefined,
     maxSteps: parsed.maxSteps,
   });
-  process.stdout.write(parsed.json ? formatPlanJson(plan) : formatPlanText(plan));
+  const finalPlan = parsed.explain && plan.ok ? await explainPlan(plan, { lang: parsed.lang, top: parsed.explainTop }) : plan;
+  process.stdout.write(parsed.json ? formatPlanJson(finalPlan) : formatPlanText(finalPlan));
   return plan.ok ? 0 : 3;
 }
