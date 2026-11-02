@@ -99,6 +99,20 @@ What the detectors see was measured on small test files (2 November 2026), not g
 
 These limits come from v1's line-based heuristics and pattern lists. v1 is not changed by agent-v2, so they stay until v1 improves.
 
+- Line endings: files with `CRLF`, mixed endings, a BOM or no final newline are edited without changing any other line ending (covered by `tests/unit/agent-v2/fix/crlf.spec.ts`). A **new** `.env.example` is always created with `LF`; an existing one keeps its own endings.
+
+### Speed
+
+`plan` is fast; `fix` is slow on big projects because every accepted fix is verified by auditing a temporary copy. Measured on a Linux sandbox with synthetic TypeScript projects of about 60 lines per file (wall time, one run each, so treat it as an order of magnitude):
+
+| Files | `plan` | `fix --dry-run`, 5 fixes | `fix --dry-run`, 30 fixes | Peak memory |
+|---|---|---|---|---|
+| 100 | 0.3 s | 2.3 s | 5.8 s (only 13 fixes existed) | 183 MB |
+| 400 | 0.6 s | 11 s | 62 s | 227 MB |
+| 1500 | 3.4 s | 73 s | 413 s | 267 MB |
+
+Almost all of the time is audits: each accepted fix runs about 3 audits and one copy of the project (`node_modules`, `.git`, `dist` and `coverage` are not copied). Use `--max-fixes` to bound a run on a large project. Reusing the audit results between rounds would cut this by a third or more; that is not done yet.
+
 - The fixers are conservative: when a line is ambiguous (two literals, a template with `${}`, a multi-line key) they skip it.
 - Fixes are checked by the Muraqib audit, not by your tests or a type-check. Run your own checks before merging.
 - agent-v2 reads v1 code (the audit, the secret detector, the file scanner, the Gemini helpers) but never changes it. `tests/unit/agent-v2/v1-contract.spec.ts` fails with a clear message if v1 changes one of those surfaces.
