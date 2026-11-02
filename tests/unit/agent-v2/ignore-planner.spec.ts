@@ -8,6 +8,9 @@ import { collectIssues, createPlan } from "../../../src/agent-v2/planner.js";
 import { BAD_SRC, fixContent, fixOf, hashTree } from "./fix/helpers.js";
 import { fakeSecret, makeTmpProject, removeProject, writeProjectFile } from "./support.js";
 
+/** v1 reports issue files with the operating system's separator (`src\\b.ts` on Windows). */
+const posix = (file: string | undefined): string | undefined => file?.split("\\").join("/");
+
 /** A floating promise the real floating-promise fixer repairs. */
 const FIXABLE = 'export async function run(): Promise<void> {\n  fetch("/x");\n}\n';
 const roots: string[] = [];
@@ -112,8 +115,8 @@ describe("verifyFix consistency", () => {
     const root = project({ "src/ignored.ts": BAD_SRC, "src/b.ts": BAD_SRC, ".muraqibignore": "src/ignored.ts\n" });
     const collected = await collectIssues(root);
     if (!collected.ok) throw new Error(collected.error);
-    expect(collected.issues.every((i) => i.file !== "src/ignored.ts")).toBe(true);
-    const target = collected.issues.find((i) => i.file === "src/b.ts");
+    expect(collected.issues.every((i) => posix(i.file) !== "src/ignored.ts")).toBe(true);
+    const target = collected.issues.find((i) => posix(i.file) === "src/b.ts");
     expect(target).toBeDefined();
     const fix = fixOf({
       resolves: [target?.id ?? ""],
@@ -130,7 +133,7 @@ describe("verifyFix consistency", () => {
     const root = project({ "src/ignored.ts": BAD_SRC, "src/b.ts": BAD_SRC, ".muraqibignore": "src/ignored.ts\n" });
     const collected = await collectIssues(root);
     if (!collected.ok) throw new Error(collected.error);
-    const target = collected.issues.find((i) => i.file === "src/b.ts");
+    const target = collected.issues.find((i) => posix(i.file) === "src/b.ts");
     const fix = fixOf({ resolves: [target?.id ?? ""], edits: [{ file: "src/ignored.ts", content: fixContent(BAD_SRC) }] });
     const outcome = await verifyFix(root, fix);
     expect(outcome.accepted).toBe(false);
