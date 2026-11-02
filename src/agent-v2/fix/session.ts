@@ -1,6 +1,6 @@
 import type { AgentIssue } from "../../agent/types.js";
-import { createPlanWithIssues, planFromIssues } from "../planner.js";
-import type { FixClass, PlanStep } from "../types.js";
+import { createPlan, planFromIssues } from "../planner.js";
+import type { AgentPlan, FixClass, PlanStep } from "../types.js";
 import { makePatch } from "./patch.js";
 import { applyEdits, copyProject, removeCopy } from "./project-copy.js";
 import { verifyFixDetailed, type VerifyDeps, type VerifyOutcome } from "./verify.js";
@@ -98,7 +98,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
   let known: AgentIssue[] | undefined;
   try {
     for (let round = 0; round < MAX_ROUNDS && acceptedCount(outcomes) < (options.maxFixes ?? Infinity); round += 1) {
-      const { plan, issues } = known !== undefined ? { plan: planFromIssues(workRoot, known), issues: known } : await createPlanWithIssues({ projectRoot: workRoot });
+      const { plan, issues } = await planRound(workRoot, known);
       known = undefined;
       if (!plan.ok) {
         error = plan.error;
@@ -120,7 +120,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
       if (reuse) known = changesWorkTree(outcome) ? handled.after : issues;
     }
     if (afterIsStale && error === undefined) {
-      issuesAfter = known !== undefined ? planFromIssues(workRoot, known).summary.total : (await createPlanWithIssues({ projectRoot: workRoot })).plan.summary.total;
+      issuesAfter = (await planRound(workRoot, known)).plan.summary.total;
     }
     const patch = options.mode === "propose" ? makePatch(options.projectRoot, workRoot, [...touched]) : "";
     const result: FixSessionResult = { ok: error === undefined, mode: options.mode, outcomes, decisions: [...decisions.values()], skipped: [...skipped].map(([issueId, reason]) => ({ issueId, reason })), patch };
@@ -148,6 +148,22 @@ function recordNotes(results: readonly FixerResult[], decisions: Map<string, Fix
     if (r.kind === "decision") decisions.set(r.decision.issueId, r.decision);
     else if (r.kind === "skip") skipped.set(r.issueId, r.reason);
   }
+}
+
+/** A plan plus the raw issues behind it (`undefined` when the planner did not hand them over). */
+interface RoundPlan {
+  plan: AgentPlan;
+  issues: AgentIssue[] | undefined;
+}
+
+/** The plan of the working tree: ranked from `known` issues when the caller can vouch for them, otherwise from a fresh audit. */
+async function planRound(workRoot: string, known: AgentIssue[] | undefined): Promise<RoundPlan> {
+  if (known !== undefined) return { plan: planFromIssues(workRoot, known), issues: known };
+  let captured: AgentIssue[] | undefined;
+  const plan = await createPlan({ projectRoot: workRoot }, (issues) => {
+    captured = issues;
+  });
+  return { plan, issues: captured };
 }
 
 /**
