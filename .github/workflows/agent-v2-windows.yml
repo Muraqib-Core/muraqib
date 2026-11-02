@@ -57,8 +57,9 @@ jobs:
         run: git config --show-origin --get-all core.autocrlf
         continue-on-error: true
 
+      # Real audits and git calls are several times slower on Windows runners than vitest's 5 s default.
       - name: agent-v2 unit tests
-        run: npx vitest run tests/unit/agent-v2
+        run: npx vitest run tests/unit/agent-v2 --testTimeout=60000
 
       - name: Smoke test - help
         if: always()
