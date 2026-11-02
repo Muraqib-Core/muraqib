@@ -13,7 +13,7 @@
 | Node.js | `>=20.12.0` |
 | TypeScript (dev) | `^6.0.3` |
 | Test runner | Vitest `^5.0.3` |
-| CLI binary | `muraqib` |
+| CLI binary | `muraqib`, `muraqib-agent` |
 
 ## Optional and peer dependencies
 
