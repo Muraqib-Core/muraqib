@@ -77,10 +77,31 @@ A model can be listed and still answer 404, so try one with a tiny request befor
 
 ## Known limits
 
-- The floating-promise detection comes from v1's line-based heuristics, so it finds simple cases (`fetch(...)`, a call to a same-file `async` function) and misses others.
-- Environment-variable and secret detection are pattern based (`process.env.X`, known token formats); destructured `process.env` and unknown token formats are not seen.
+What the detectors see was measured on small test files (2 November 2026), not guessed. `muraqib-agent` only fixes what the audit reports, so a miss here means no fix is proposed.
+
+| Case | Seen? |
+|---|---|
+| `fetch("/x");`, `axios.get("/x");` or `request(...)` as a statement in a `.ts` file | yes |
+| the same call split over several lines | yes (reported on the first line) |
+| a call to an `async` function declared in the same file, with no arguments (`save();`) | yes |
+| the same call **with** arguments (`save(1);`) | **no** |
+| a call to an `async` function imported from another file | **no** |
+| `const p = fetch(...)` that is never awaited | **no** |
+| `db.query(...);` or any call on an object | **no** |
+| `Promise.all([...]);` as a statement | **no** |
+| the same code in a `.js` file | **no** (v1 scans `.ts` for this check) |
+| `process.env.NAME`, `process.env["NAME"]`, `import.meta.env.NAME` missing from `.env.example` | yes |
+| `const { NAME } = process.env` | **no** |
+| `process.env[someVariable]` | **no** |
+| a secret in a known format (Stripe, GitHub, AWS, Slack, `sk-`, JWT, PEM) or `password = "..."` | yes |
+| a long random token with no known prefix | **no** |
+| a secret built from two strings (`"sk_live" + "..."`) | **no** |
+
+These limits come from v1's line-based heuristics and pattern lists. v1 is not changed by agent-v2, so they stay until v1 improves.
+
 - The fixers are conservative: when a line is ambiguous (two literals, a template with `${}`, a multi-line key) they skip it.
-- Fixes are checked by the Muraqib audit, not by your tests. Run your own checks before merging.
+- Fixes are checked by the Muraqib audit, not by your tests or a type-check. Run your own checks before merging.
+- agent-v2 reads v1 code (the audit, the secret detector, the file scanner, the Gemini helpers) but never changes it. `tests/unit/agent-v2/v1-contract.spec.ts` fails with a clear message if v1 changes one of those surfaces.
 
 ## Layout
 
