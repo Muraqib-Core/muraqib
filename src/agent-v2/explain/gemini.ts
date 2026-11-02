@@ -3,6 +3,12 @@ import { GEMINI_MODEL } from "./config.js";
 
 /** The one capability the explainer needs from an LLM; tests replace it with a mock. */
 export interface TextGenerator {
+  /**
+   * Sends one prompt to the model.
+   *
+   * @param request - System instruction and user prompt
+   * @returns The raw model text (empty string when the model returned none)
+   */
   generate(request: { system: string; prompt: string }): Promise<string>;
 }
 

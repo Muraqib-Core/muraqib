@@ -417,6 +417,13 @@ function isResult(value: StepContext | FixerResult): value is FixerResult {
 export class FloatingPromiseFixer implements Fixer {
   readonly fixClass: FixClass = "floating-promise";
 
+  /**
+   * Proposes an `await` (or a `.catch()` when the user chose it) for each floating promise.
+   *
+   * @param steps - Auto-fixable `floating-promise` plan steps
+   * @param context - Project root and user choices for decisions
+   * @returns Fixes, decisions to ask the user, or skips with a reason
+   */
   propose(steps: readonly PlanStep[], context: FixContext): FixerResult[] {
     return steps.map((step) => {
       const sc = buildContext(step, context.projectRoot);

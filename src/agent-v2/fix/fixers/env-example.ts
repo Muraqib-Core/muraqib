@@ -58,6 +58,13 @@ export function buildEnvExample(projectRoot: string, extraNames: readonly string
 export class EnvExampleFixer implements Fixer {
   readonly fixClass = "env-documentation" as const;
 
+  /**
+   * Proposes one edit to `.env.example` documenting the environment variables found in the plan.
+   *
+   * @param steps - Auto-fixable `env-documentation` plan steps
+   * @param context - Project root and user choices
+   * @returns One fix, or skip results when nothing can be documented
+   */
   propose(steps: readonly PlanStep[], context: FixContext): FixerResult[] {
     if (steps.length === 0) return [];
     const plan = planEnvExample(context.projectRoot);

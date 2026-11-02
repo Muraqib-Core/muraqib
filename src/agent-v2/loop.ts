@@ -4,6 +4,7 @@ import type { AgentPlan, PlanOptions } from "./types.js";
 /** Phases of the agent loop. Day 1 ships `plan` only; later phases extend this union. */
 export type AgentPhase = "plan";
 
+/** Result of one agent run. */
 export interface AgentRunResult {
   phase: AgentPhase;
   plan: AgentPlan;

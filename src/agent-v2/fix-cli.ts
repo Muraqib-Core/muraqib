@@ -7,6 +7,7 @@ import { formatFixReport } from "./fix/report.js";
 import { runFixSession } from "./fix/session.js";
 import type { FixMode, ProposedFix } from "./fix/types.js";
 
+/** Help text printed for `muraqib-agent fix --help` and after a usage error. */
 export const FIX_USAGE = `Usage: muraqib-agent fix [options]
 
 Options:

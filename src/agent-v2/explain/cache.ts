@@ -34,6 +34,11 @@ export class ExplainCache {
   private readonly file: string;
   private data: CacheFile;
 
+  /**
+   * Opens the cache stored in `dir`, loading existing entries; never throws.
+   *
+   * @param dir - Folder holding `explanations.json` (defaults to {@link defaultCacheDir})
+   */
   constructor(private readonly dir: string = defaultCacheDir()) {
     this.file = join(dir, "explanations.json");
     this.data = this.load();
@@ -52,11 +57,23 @@ export class ExplainCache {
     return { version: 1, entries: {} };
   }
 
+  /**
+   * Looks up a cached explanation.
+   *
+   * @param key - Key built with {@link cacheKey}
+   * @returns The cached text, or `undefined` when absent or malformed
+   */
   get(key: string): string | undefined {
     const entry = this.data.entries[key];
     return typeof entry?.text === "string" ? entry.text : undefined;
   }
 
+  /**
+   * Stores an explanation in memory (call {@link ExplainCache.save} to persist it).
+   *
+   * @param key - Key built with {@link cacheKey}
+   * @param text - Explanation text to remember
+   */
   set(key: string, text: string): void {
     this.data.entries[key] = { text, at: Date.now() };
   }

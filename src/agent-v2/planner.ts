@@ -85,6 +85,7 @@ function summarize(steps: readonly PlanStep[]): AgentPlan["summary"] {
   return { total: steps.length, autoFixable, manual: steps.length - autoFixable, byFixClass };
 }
 
+/** Outcome of running the audit: the issues, or the error that stopped it. */
 export type CollectedIssues = { ok: true; issues: AgentIssue[] } | { ok: false; error: string };
 
 /** v1 audit plus the agent-v2 secret and env detectors, unranked. Never throws. */

@@ -17,6 +17,7 @@ import { createGeminiTextGenerator, isRateLimitError, type TextGenerator } from 
 import { containsSecret, redactText } from "./redact.js";
 import { templateExplanation } from "./templates.js";
 
+/** Options controlling one explanation run (language, step count, call budget, injected dependencies). */
 export interface ExplainOptions {
   lang?: ExplainLang | undefined;
   /** How many top-ranked steps to explain. */

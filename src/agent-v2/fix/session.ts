@@ -10,8 +10,10 @@ const FIX_ORDER: readonly FixClass[] = ["floating-promise", "hardcoded-secret", 
 /** Safety net against a loop that never converges. */
 const MAX_ROUNDS = 100;
 
+/** Fate of one proposed fix: `applied` to disk, `verified` only, `rejected` by verification, or `declined` by the user. */
 export type FixStatus = "applied" | "verified" | "rejected" | "declined";
 
+/** Result for a single proposed fix, including why it was rejected or declined. */
 export interface FixOutcome {
   fix: ProposedFix;
   status: FixStatus;
@@ -20,6 +22,7 @@ export interface FixOutcome {
   verification?: VerifyOutcome;
 }
 
+/** Inputs of {@link runFixSession}. */
 export interface FixSessionOptions {
   projectRoot: string;
   mode: FixMode;
@@ -31,6 +34,7 @@ export interface FixSessionOptions {
   maxFixes?: number | undefined;
 }
 
+/** Everything a fix session produced: per-fix outcomes, open decisions, skipped issues and the patch. */
 export interface FixSessionResult {
   ok: boolean;
   error?: string;
@@ -40,6 +44,9 @@ export interface FixSessionResult {
   skipped: { issueId: string; reason: string }[];
   /** Unified diff of every accepted, secret-free fix (propose mode). Empty when there is nothing to patch. */
   patch: string;
+  /** Issues in the plan before any fix, and still left after the last accepted fix. `undefined` when the audit failed. */
+  issuesBefore?: number;
+  issuesAfter?: number;
 }
 
 function groupByClass(steps: readonly PlanStep[]): Map<FixClass, PlanStep[]> {
@@ -76,31 +83,55 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
   const tried = new Set<string>();
   const touched = new Set<string>();
   let error: string | undefined;
+  let issuesBefore: number | undefined;
+  let issuesAfter: number | undefined;
+  let afterIsStale = false;
   try {
-    for (let round = 0; round < MAX_ROUNDS && outcomes.filter((o) => o.status === "applied" || o.status === "verified").length < (options.maxFixes ?? Infinity); round += 1) {
+    for (let round = 0; round < MAX_ROUNDS && acceptedCount(outcomes) < (options.maxFixes ?? Infinity); round += 1) {
       const plan = await createPlan({ projectRoot: workRoot });
       if (!plan.ok) {
         error = plan.error;
         break;
       }
+      issuesBefore ??= plan.summary.total;
+      issuesAfter = plan.summary.total;
+      afterIsStale = false;
       decisions.clear();
       const results = collectResults(options.fixers, plan.steps, workRoot, options.projectRoot, choices);
-      for (const r of results) {
-        if (r.kind === "decision") decisions.set(r.decision.issueId, r.decision);
-        else if (r.kind === "skip") skipped.set(r.issueId, r.reason);
-      }
+      recordNotes(results, decisions, skipped);
       const next = results.find((r): r is Extract<FixerResult, { kind: "fix" }> => r.kind === "fix" && !tried.has(r.fix.id));
       if (next === undefined) break;
       tried.add(next.fix.id);
       const outcome = await handleFix(next.fix, workRoot, options, touched);
       outcomes.push(outcome);
+      if (changesWorkTree(outcome)) afterIsStale = true;
     }
+    if (afterIsStale && error === undefined) issuesAfter = (await createPlan({ projectRoot: workRoot })).summary.total;
     const patch = options.mode === "propose" ? makePatch(options.projectRoot, workRoot, [...touched]) : "";
     const result: FixSessionResult = { ok: error === undefined, mode: options.mode, outcomes, decisions: [...decisions.values()], skipped: [...skipped].map(([issueId, reason]) => ({ issueId, reason })), patch };
     if (error !== undefined) result.error = error;
+    if (issuesBefore !== undefined) result.issuesBefore = issuesBefore;
+    if (issuesAfter !== undefined) result.issuesAfter = issuesAfter;
     return result;
   } finally {
     if (options.mode === "propose") removeCopy(workRoot);
+  }
+}
+
+/** Fixes that were accepted by the verification (applied, or verified in propose mode). */
+function acceptedCount(outcomes: readonly FixOutcome[]): number {
+  return outcomes.filter((o) => o.status === "applied" || o.status === "verified").length;
+}
+
+/** True when the fix actually changed the working tree (secret fixes are not applied in propose mode). */
+function changesWorkTree(outcome: FixOutcome): boolean {
+  return outcome.status === "applied" || (outcome.status === "verified" && !outcome.fix.removesSecret);
+}
+
+function recordNotes(results: readonly FixerResult[], decisions: Map<string, FixDecision>, skipped: Map<string, string>): void {
+  for (const r of results) {
+    if (r.kind === "decision") decisions.set(r.decision.issueId, r.decision);
+    else if (r.kind === "skip") skipped.set(r.issueId, r.reason);
   }
 }
 

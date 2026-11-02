@@ -5,6 +5,7 @@ import type { AgentSeverity } from "../agent/types.js";
  * reported by the v1 audit (`runAuditForAgent`).
  */
 
+/** Schema version stamped on every {@link AgentPlan}. */
 export const AGENT_PLAN_SCHEMA_VERSION = "1.0" as const;
 
 /**
@@ -49,6 +50,7 @@ export interface ExplainerInfo {
   notice?: string;
 }
 
+/** The deterministic, ordered repair plan produced by the planner. */
 export interface AgentPlan {
   schemaVersion: typeof AGENT_PLAN_SCHEMA_VERSION;
   projectRoot: string;
@@ -63,6 +65,7 @@ export interface AgentPlan {
   explainer?: ExplainerInfo;
 }
 
+/** Options accepted by the planner. */
 export interface PlanOptions {
   projectRoot?: string | undefined;
   /** Module filters passed through to the v1 audit. */

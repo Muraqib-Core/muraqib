@@ -24,6 +24,7 @@ export interface ProposedFix {
   removesSecret: boolean;
 }
 
+/** One answer the user can give to a {@link FixDecision}. */
 export interface FixOption {
   key: string;
   label: string;
@@ -36,11 +37,13 @@ export interface FixDecision {
   options: FixOption[];
 }
 
+/** What a fixer returns per plan step: a fix, a question for the user, or a skip with a reason. */
 export type FixerResult =
   | { kind: "fix"; fix: ProposedFix }
   | { kind: "decision"; decision: FixDecision }
   | { kind: "skip"; issueId: string; reason: string };
 
+/** Read-only information a fixer receives alongside the plan steps. */
 export interface FixContext {
   projectRoot: string;
   /** The real project when `projectRoot` is a temp copy (the copy has no `.git`); used for git-history checks. */
@@ -52,7 +55,15 @@ export interface FixContext {
 /** A repair strategy for one fix class. Pure: it reads the project and returns proposals, it never writes. */
 export interface Fixer {
   readonly fixClass: FixClass;
+  /**
+   * Reads the project and proposes repairs; never writes.
+   *
+   * @param steps - Plan steps of this fixer's class
+   * @param context - Project root and user choices
+   * @returns One result per step
+   */
   propose(steps: readonly PlanStep[], context: FixContext): FixerResult[];
 }
 
+/** `propose` writes a patch only; `apply` edits files on a new git branch after approval. */
 export type FixMode = "propose" | "apply";
