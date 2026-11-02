@@ -103,15 +103,15 @@ These limits come from v1's line-based heuristics and pattern lists. v1 is not c
 
 ### Speed
 
-`plan` is fast; `fix` is slow on big projects because every accepted fix is verified by auditing a temporary copy. Measured on a Linux sandbox with synthetic TypeScript projects of about 60 lines per file (wall time, one run each, so treat it as an order of magnitude):
+`plan` is fast; `fix` is slow on big projects because every accepted fix is verified by auditing a temporary copy. Measured on a Linux sandbox with synthetic TypeScript projects of about 60 lines per file (wall time, 2 or 3 runs each, noise about 5-10%, so treat it as an order of magnitude):
 
 | Files | `plan` | `fix --dry-run`, 5 fixes | `fix --dry-run`, 30 fixes | Peak memory |
 |---|---|---|---|---|
-| 100 | 0.3 s | 2.3 s | 5.8 s (only 13 fixes existed) | 183 MB |
-| 400 | 0.6 s | 11 s | 62 s | 227 MB |
-| 1500 | 3.4 s | 73 s | 413 s | 267 MB |
+| 100 | 0.3 s | 1.4 s | 2.8 s (only 13 fixes existed) | 183 MB |
+| 400 | 0.6 s | 5.6 s | 32 s | 227 MB |
+| 1500 | 3.4 s | 44 s | 240 s | 267 MB |
 
-Almost all of the time is audits: each accepted fix runs about 3 audits and one copy of the project (`node_modules`, `.git`, `dist` and `coverage` are not copied). Use `--max-fixes` to bound a run on a large project. Reusing the audit results between rounds would cut this by a third or more; that is not done yet.
+Before the audit results were reused, the same runs took 2.2 s, 10 s and 70-80 s for 5 fixes, and 5.8 s, 58 s and 420 s for 30 fixes: about 1.7x to 2.1x faster. The saving is only in propose mode (`fix` and `fix --dry-run`): the plan of each round and the verification baseline reuse the audit that was just done. `fix --apply` still audits everything, because it plans on the real project (with `.git` and `node_modules`), which a verification copy does not contain, and it was not proven that the two audits are equivalent. Each accepted fix now costs about 1 audit and one copy of the project (`node_modules`, `.git`, `dist` and `coverage` are not copied). Use `--max-fixes` to bound a run on a large project.
 
 - The fixers are conservative: when a line is ambiguous (two literals, a template with `${}`, a multi-line key) they skip it.
 - Fixes are checked by the Muraqib audit, not by your tests or a type-check. Run your own checks before merging.
