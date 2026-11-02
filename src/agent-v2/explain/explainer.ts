@@ -8,12 +8,12 @@ import {
   DEFAULT_MAX_CALLS,
   DEFAULT_MAX_RETRIES,
   type ExplainLang,
-  GEMINI_MODEL,
+  resolveModel,
   MAX_EXPLAIN_TOP,
   MAX_EXPLANATION_LENGTH,
   RETRY_BASE_DELAY_MS,
 } from "./config.js";
-import { createGeminiTextGenerator, describeGeminiError, isRateLimitError, type TextGenerator } from "./gemini.js";
+import { createGeminiTextGenerator, describeGeminiError, isTransientError, transientLabel, type TextGenerator } from "./gemini.js";
 import { containsSecret, redactText } from "./redact.js";
 import { templateExplanation } from "./templates.js";
 
@@ -107,6 +107,7 @@ async function callWithRetry(
   sleep: (ms: number) => Promise<void>
 ): Promise<CallOutcome> {
   let calls = 0;
+  let lastTransient: unknown;
   for (let attempt = 0; attempt <= limits.maxRetries && calls < limits.maxCalls; attempt += 1) {
     if (attempt > 0) await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
     calls += 1;
@@ -114,14 +115,15 @@ async function callWithRetry(
       const reply = await generator.generate({ system: SYSTEM_PROMPT, prompt });
       return { explanations: parseExplanations(reply, allowed), calls };
     } catch (error) {
-      if (!isRateLimitError(error)) return { explanations: new Map(), calls, notice: describeGeminiError(error) };
+      if (!isTransientError(error)) return { explanations: new Map(), calls, notice: describeGeminiError(error) };
+      lastTransient = error;
     }
   }
-  return { explanations: new Map(), calls, notice: "Gemini rate limit (429) persisted after retries" };
+  return { explanations: new Map(), calls, notice: `Gemini ${transientLabel(lastTransient)} persisted after retries` };
 }
 
 function fallbackInfo(notice: string, calls = 0): ExplainerInfo {
-  return { mode: "fallback", model: GEMINI_MODEL, calls, cached: 0, notice };
+  return { mode: "fallback", model: resolveModel(), calls, cached: 0, notice };
 }
 
 async function resolveGenerator(
@@ -143,7 +145,7 @@ function applyCache(steps: PlanStep[], cache: ExplainCache, lang: ExplainLang): 
   const pending: PlanStep[] = [];
   let cached = 0;
   for (const step of steps) {
-    const hit = cache.get(cacheKey(GEMINI_MODEL, lang, step.issueId));
+    const hit = cache.get(cacheKey(resolveModel(), lang, step.issueId));
     if (hit === undefined) pending.push(step);
     else {
       step.explanation = hit;
@@ -155,7 +157,7 @@ function applyCache(steps: PlanStep[], cache: ExplainCache, lang: ExplainLang): 
 
 function summarizeOutcome(outcome: CallOutcome, cached: number): ExplainerInfo {
   const got = outcome.explanations.size > 0;
-  const info: ExplainerInfo = { mode: got ? "llm" : "fallback", model: GEMINI_MODEL, calls: outcome.calls, cached };
+  const info: ExplainerInfo = { mode: got ? "llm" : "fallback", model: resolveModel(), calls: outcome.calls, cached };
   const notice = outcome.notice ?? (got ? undefined : "Gemini returned no usable explanations");
   if (notice !== undefined) info.notice = `${notice} - built-in explanations used for the rest`;
   return info;
@@ -181,11 +183,11 @@ export async function explainPlan(plan: AgentPlan, options: ExplainOptions = {},
     applyTemplates(steps, lang);
     return { ...plan, steps: [...steps, ...rest], explainer };
   };
-  if (steps.length === 0) return finish({ mode: "fallback", model: GEMINI_MODEL, calls: 0, cached: 0, notice: "Nothing to explain" });
+  if (steps.length === 0) return finish({ mode: "fallback", model: resolveModel(), calls: 0, cached: 0, notice: "Nothing to explain" });
 
   const cache = deps.cache ?? new ExplainCache();
   const { pending, cached } = applyCache(steps, cache, lang);
-  if (pending.length === 0) return finish({ mode: "cached", model: GEMINI_MODEL, calls: 0, cached });
+  if (pending.length === 0) return finish({ mode: "cached", model: resolveModel(), calls: 0, cached });
 
   const resolved = await resolveGenerator(deps);
   if ("notice" in resolved) return finish({ ...fallbackInfo(resolved.notice), cached });
@@ -204,7 +206,7 @@ export async function explainPlan(plan: AgentPlan, options: ExplainOptions = {},
     const text = outcome.explanations.get(step.issueId);
     if (text === undefined) continue;
     step.explanation = text;
-    cache.set(cacheKey(GEMINI_MODEL, lang, step.issueId), text);
+    cache.set(cacheKey(resolveModel(), lang, step.issueId), text);
   }
   if (outcome.explanations.size > 0) cache.save();
 

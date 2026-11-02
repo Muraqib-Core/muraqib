@@ -433,9 +433,9 @@ Gemini is optional and only used by `plan --explain`; without a key you get the 
    $env:GEMINI_API_KEY = "<your key>"
    ```
    `GOOGLE_API_KEY` also works. Muraqib reads only the process environment, not `.env` files. To keep the key across sessions, set it in your OS or shell profile, not in the repository.
-4. **Run and check:** `muraqib-agent plan --explain --lang ar`. The last lines should read `Explanations: llm (gemini-2.5-flash, 1 request(s), ...)`. A second run reads `cached` and makes 0 requests. If it says `fallback`, the note below it tells you why (no key, package missing, rate limit reached, or a request error).
+4. **Run and check:** `muraqib-agent plan --explain --lang ar`. The last lines should read `Explanations: llm (gemini-flash-lite-latest, 1 request(s), ...)`. A second run reads `cached` and makes 0 requests. If it says `fallback`, the note below it tells you why (no key, package missing, rate limit reached, or a request error).
 
-Limits: one batched request for the top 10 steps (`--explain-top`), at most 3 requests per run, up to 2 retries after HTTP 429, results cached in `~/.cache/muraqib-agent`. Never commit your key or paste it into issues or chats.
+Limits: one batched request for the top 10 steps (`--explain-top`), at most 3 requests per run, up to 2 retries after HTTP 429 or 503 (temporary overload), results cached in `~/.cache/muraqib-agent`. The default model is the alias `gemini-flash-lite-latest`, because Google retires named models (a retired model answers HTTP 404 even while it is still listed). To try another one without editing code: `$env:MURAQIB_AGENT_MODEL = "gemini-3.5-flash"` (PowerShell) or `export MURAQIB_AGENT_MODEL=gemini-3.5-flash`. Never commit your key or paste it into issues or chats.
 
 ### Interactive mode
 

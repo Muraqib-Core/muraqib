@@ -3,8 +3,22 @@
  * Everything that costs quota or controls what is sent lives here.
  */
 
-/** The only model agent-v2 talks to (free tier). Change it here and nowhere else. */
-export const GEMINI_MODEL = "gemini-2.5-flash" as const;
+/**
+ * Default model. It is an alias that Google keeps pointing at a current model, because named models
+ * get retired (a retired model answers HTTP 404 even while it is still listed). Change the default here;
+ * to try another model without editing code, set the environment variable named by {@link MODEL_ENV}.
+ */
+export const GEMINI_MODEL = "gemini-flash-lite-latest" as const;
+/** Optional override of the model, for example `gemini-3.5-flash`. */
+export const MODEL_ENV = "MURAQIB_AGENT_MODEL" as const;
+
+const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/** The model to use: the {@link MODEL_ENV} override when it looks like a model name, else {@link GEMINI_MODEL}. */
+export function resolveModel(env: NodeJS.ProcessEnv = process.env): string {
+  const value = env[MODEL_ENV]?.trim();
+  return value !== undefined && MODEL_NAME.test(value) ? value : GEMINI_MODEL;
+}
 
 /** How many of the top-ranked plan steps are explained per run (one batched call). */
 export const DEFAULT_EXPLAIN_TOP = 10;
