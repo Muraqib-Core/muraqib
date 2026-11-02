@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { MissingOptionalDependencyError } from "../../../../src/utils/optional-dependency.js";
 import { ExplainCache } from "../../../../src/agent-v2/explain/cache.js";
-import { MAX_EXPLANATION_LENGTH } from "../../../../src/agent-v2/explain/config.js";
+import { MAX_EXPLANATION_LENGTH, GEMINI_MODEL } from "../../../../src/agent-v2/explain/config.js";
 import { buildPrompt, explainPlan } from "../../../../src/agent-v2/explain/explainer.js";
 import type { TextGenerator } from "../../../../src/agent-v2/explain/gemini.js";
 import { templateExplanation } from "../../../../src/agent-v2/explain/templates.js";
@@ -134,7 +134,7 @@ describe("explainPlan with a key and a mock generator", () => {
     expect(generate).toHaveBeenCalledTimes(1);
     expect(out.explainer).toMatchObject({ mode: "llm", calls: 1, cached: 0 });
     expect(out.steps.map((s) => s.explanation)).toEqual(ids(5).map((id) => `Explained. ${id}`));
-    expect(new ExplainCache(cacheDir).get(`gemini-2.5-flash:en:id-1`)).toBeDefined();
+    expect(new ExplainCache(cacheDir).get(`${GEMINI_MODEL}:en:id-1`)).toBeDefined();
   });
 
   test("second run is served from cache with zero calls", async () => {
@@ -158,7 +158,7 @@ describe("explainPlan with a key and a mock generator", () => {
   });
 
   test("partial cache hit only sends the missing steps", async () => {
-    cache.set("gemini-2.5-flash:en:id-1", "cached one");
+    cache.set(`${GEMINI_MODEL}:en:id-1`, "cached one");
     const { generate, generator } = mockGen(async () => reply(["id-2"]));
     const out = await explainPlan(makePlan(2), {}, { generator, apiKey: FAKE_KEY, cache, sleep });
     const prompt = generate.mock.calls[0]?.[0].prompt ?? "";
@@ -305,7 +305,7 @@ describe("rate limits and errors", () => {
       throw new Error("boom");
     });
     await explainPlan(makePlan(1), {}, { generator, apiKey: FAKE_KEY, cache, sleep });
-    expect(new ExplainCache(cacheDir).get("gemini-2.5-flash:en:id-1")).toBeUndefined();
+    expect(new ExplainCache(cacheDir).get(`${GEMINI_MODEL}:en:id-1`)).toBeUndefined();
   });
 });
 

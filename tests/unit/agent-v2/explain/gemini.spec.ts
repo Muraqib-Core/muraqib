@@ -28,6 +28,20 @@ describe("createGeminiTextGenerator", () => {
     expect(arg.contents).toBe("PROMPT");
     expect(arg.config["systemInstruction"]).toBe("SYS");
     expect(arg.config["responseMimeType"]).toBe("application/json");
+    expect(arg.config["thinkingConfig"]).toBeUndefined();
+    expect(arg.config["maxOutputTokens"]).toBe(4096);
+  });
+
+  test("uses the MURAQIB_AGENT_MODEL override", async () => {
+    generateContent.mockResolvedValue({ text: "{}" });
+    process.env["MURAQIB_AGENT_MODEL"] = "gemini-3.5-flash";
+    try {
+      const gen = await createGeminiTextGenerator("k");
+      await gen.generate({ system: "s", prompt: "p" });
+      expect((generateContent.mock.calls[0]?.[0] as { model: string }).model).toBe("gemini-3.5-flash");
+    } finally {
+      delete process.env["MURAQIB_AGENT_MODEL"];
+    }
   });
 
   test("undefined text becomes an empty string", async () => {
