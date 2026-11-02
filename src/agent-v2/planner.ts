@@ -1,5 +1,6 @@
 import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import type { AgentIssue, AgentSeverity } from "../agent/types.js";
+import { redactText } from "./explain/redact.js";
 import { detectUndocumentedEnv, ENV_MODULE } from "./detectors/env.js";
 import { detectHardcodedSecrets, SECRETS_MODULE } from "./detectors/secrets.js";
 import {
@@ -39,6 +40,7 @@ function toStep(issue: AgentIssue, fixClass: FixClass): PlanStep {
     code: issue.code,
     severity: issue.severity,
     title: issue.title,
+    detail: redactText(issue.message),
     fixClass,
     autoFixable,
     reasons: [
