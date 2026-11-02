@@ -31,7 +31,7 @@ export function makePatch(originalRoot: string, modifiedRoot: string, files: rea
 
 function runDiff(cwd: string): string {
   try {
-    return execFileSync("git", ["diff", "--no-index", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "a", "b"], {
+    return execFileSync("git", ["diff", "--no-index", "--no-color", "--no-prefix", "a", "b"], {
       cwd,
       encoding: "utf-8",
       maxBuffer: 32 * 1024 * 1024,
