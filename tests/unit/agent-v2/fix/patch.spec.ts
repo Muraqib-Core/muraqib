@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { makePatch } from "../../../../src/agent-v2/fix/patch.js";
@@ -72,5 +72,44 @@ describe("makePatch", () => {
     const patch = makePatch(orig, mod, ["src/a.ts"]);
     expect(patch).toContain("src/a.ts");
     expect(patch).not.toContain("src/b.ts");
+  });
+});
+
+describe("makePatch when git is configured like Git for Windows (core.autocrlf=true)", () => {
+  const ENV = ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"] as const;
+
+  test("keeps the CR of CRLF lines, so the patch applies to the real CRLF file", () => {
+    const orig = tmp("agent-v2-crlf-orig-");
+    const mod = tmp("agent-v2-crlf-mod-");
+    roots.push(orig, mod);
+    for (const root of [orig, mod]) mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(join(orig, "src/f.ts"), "line1\r\nline2\r\nline3\r\n");
+    writeFileSync(join(mod, "src/f.ts"), "line1\r\nXline2\r\nline3\r\n");
+
+    const saved = ENV.map((name) => process.env[name]);
+    process.env["GIT_CONFIG_COUNT"] = "1";
+    process.env["GIT_CONFIG_KEY_0"] = "core.autocrlf";
+    process.env["GIT_CONFIG_VALUE_0"] = "true";
+    let patch: string;
+    try {
+      patch = makePatch(orig, mod, ["src/f.ts"]);
+    } finally {
+      ENV.forEach((name, i) => {
+        const value = saved[i];
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      });
+    }
+
+    expect(patch).toContain("-line2\r\n");
+    expect(patch).toContain("+Xline2\r\n");
+    const target = copyProject(orig);
+    roots.push(target);
+    const patchFile = join(tmp("agent-v2-crlf-patch-"), "x.patch");
+    roots.push(join(patchFile, ".."));
+    writeFileSync(patchFile, patch);
+    git(target, ["apply", "--check", patchFile]);
+    git(target, ["apply", patchFile]);
+    expect(readFileSync(join(target, "src/f.ts"), "utf-8")).toBe("line1\r\nXline2\r\nline3\r\n");
   });
 });
