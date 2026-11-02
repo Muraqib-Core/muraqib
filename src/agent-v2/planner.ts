@@ -2,6 +2,7 @@ import { runAuditForAgent } from "../agent/run-audit-for-agent.js";
 import type { AgentIssue, AgentSeverity } from "../agent/types.js";
 import { redactText } from "./explain/redact.js";
 import { detectUndocumentedEnv, ENV_MODULE } from "./detectors/env.js";
+import { filterIgnoredIssues } from "./ignore.js";
 import { detectHardcodedSecrets, SECRETS_MODULE } from "./detectors/secrets.js";
 import {
   AGENT_PLAN_SCHEMA_VERSION,
@@ -94,11 +95,15 @@ function summarize(steps: readonly PlanStep[]): AgentPlan["summary"] {
 /** Outcome of running the audit: the issues, or the error that stopped it. */
 export type CollectedIssues = { ok: true; issues: AgentIssue[] } | { ok: false; error: string };
 
-/** v1 audit plus the agent-v2 secret and env detectors, unranked. Never throws. */
+/**
+ * v1 audit plus the agent-v2 secret and env detectors, unranked, minus the issues whose file is
+ * listed in `.muraqibignore`. Every consumer (plan, fix, verify, pr-description, eval) goes through here.
+ */
 export async function collectIssues(projectRoot: string, modules?: string[]): Promise<CollectedIssues> {
   const report = await runAuditForAgent({ projectRoot, modules });
   if (!report.ok) return { ok: false, error: report.error ?? "audit failed" };
-  return { ok: true, issues: [...report.issues, ...detectHardcodedSecrets(projectRoot), ...detectUndocumentedEnv(projectRoot)] };
+  const all = [...report.issues, ...detectHardcodedSecrets(projectRoot), ...detectUndocumentedEnv(projectRoot)];
+  return { ok: true, issues: filterIgnoredIssues(projectRoot, all) };
 }
 
 /**

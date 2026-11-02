@@ -129,3 +129,24 @@ src/agent-v2/
   pr-description.ts     PR text from the verification result
   cli.ts, fix-cli.ts, pr-description-cli.ts
 ```
+
+## Ignoring things
+
+`plan`, `fix`, `pr-description` and `eval` can be told to leave code alone.
+
+**Inline markers** (same convention as the v1 commit hook):
+
+- A line containing `muraqib-ignore-secret` is skipped by the secrets detector.
+- A line containing `muraqib-ignore-env` is skipped by the env-usage detector. A variable whose every usage is on such lines is not reported; if it is also used on other lines it is still reported, at its first unmarked usage.
+
+**`.muraqibignore`** at the project root uses gitignore syntax (`#` comments, blank lines, `dir/`, `**` globs, `!negation`; CRLF line endings and a UTF-8 BOM are accepted). Paths are matched relative to the project root with `/` separators, so it behaves the same on Windows. Example for this repository:
+
+```
+# detector patterns and examples, not real secrets
+src/core/secret-detector.ts
+src/core/secret-guard.ts
+# env reads inside evaluation fixtures
+src/agent-v2/eval/projects.ts
+```
+
+Every plan issue whose file matches is dropped, so no fixer ever receives a step for it and verification (which re-audits temp copies) sees the same list. v1 audit modules such as `async-guard` still run on those files; their issues are filtered by file after they run. As in gitignore, a file inside an ignored directory cannot be re-included with `!`; ignore the files (`dir/*`) instead. A missing or unreadable `.muraqibignore` is treated as empty. The v1 `muraqib` command does not read `.muraqibignore`.
