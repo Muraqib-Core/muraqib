@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { createFixBranch } from "./fix/apply.js";
 import { DEFAULT_FIXERS } from "./fix/registry.js";
+import { formatFixPreview } from "./fix/preview.js";
 import { formatFixReport } from "./fix/report.js";
 import { runFixSession } from "./fix/session.js";
 import type { FixMode, ProposedFix } from "./fix/types.js";
@@ -61,10 +62,11 @@ function parseFixArgs(args: readonly string[]): FixArgs | string {
   return parsed;
 }
 
-async function askApproval(fix: ProposedFix): Promise<boolean> {
+async function askApproval(fix: ProposedFix, projectRoot: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   try {
     const files = fix.edits.map((e) => e.file).join(", ");
+    process.stderr.write(`\n${formatFixPreview(fix, projectRoot)}\n`);
     for (const warning of fix.warnings) process.stderr.write(`WARNING: ${warning}\n`);
     return /^y(es)?$/i.test((await rl.question(`Apply "${fix.title}" (${files})? [y/N] `)).trim());
   } finally {
@@ -99,7 +101,7 @@ export async function runFixCli(args: readonly string[]): Promise<number> {
     }
     process.stderr.write(`Working on new branch ${branch.branch} (changes are not committed)\n`);
   }
-  const result = await runFixSession({ projectRoot: parsed.project, mode: parsed.mode, choices: parsed.choices, fixers: DEFAULT_FIXERS, approve: askApproval, maxFixes: parsed.maxFixes });
+  const result = await runFixSession({ projectRoot: parsed.project, mode: parsed.mode, choices: parsed.choices, fixers: DEFAULT_FIXERS, approve: (fix) => askApproval(fix, parsed.project), maxFixes: parsed.maxFixes });
   let patchPath: string | undefined;
   if (parsed.mode === "propose" && result.patch !== "") {
     patchPath = resolve(parsed.out);

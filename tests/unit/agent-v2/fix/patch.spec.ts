@@ -73,6 +73,17 @@ describe("makePatch", () => {
     expect(patch).toContain("src/a.ts");
     expect(patch).not.toContain("src/b.ts");
   });
+
+  test("contextLines limits the context around a change; the default stays git's", () => {
+    const { orig, mod } = mk();
+    const lines = Array.from({ length: 11 }, (_, i) => `l${i}`);
+    put(orig, "src/c.ts", `${lines.join("\n")}\n`);
+    put(mod, "src/c.ts", `${lines.map((l, i) => (i === 5 ? "changed" : l)).join("\n")}\n`);
+    const narrow = makePatch(orig, mod, ["src/c.ts"], 1);
+    expect(narrow).toContain(" l4");
+    expect(narrow).not.toContain("\n l3\n");
+    expect(makePatch(orig, mod, ["src/c.ts"])).toContain("\n l3\n");
+  });
 });
 
 describe("makePatch when git is configured like Git for Windows (core.autocrlf=true)", () => {
