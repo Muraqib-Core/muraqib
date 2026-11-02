@@ -27,7 +27,7 @@ Each fix is applied to a temporary copy of the project and the audit is run agai
 
 - `plan`: read-only.
 - `fix` / `--dry-run` (default): works on a temp copy and writes `muraqib-agent.patch` (`--out` to change). Check it with `git apply --check`, apply it with `git apply`.
-- `fix --apply`: needs a git repository, a clean working tree and an interactive terminal. It creates a new branch and asks `[y/N]` for every fix.
+- `fix --apply`: needs a git repository, a clean working tree and an interactive terminal. It creates a new branch and asks `[y/N]` for every fix. Before each question it prints a diff preview of the change on stderr (one line of context, at most 40 lines per file, new files marked). The preview never shows a secret: for fixes that remove one the removed lines are hidden, and any other line that looks like a secret is redacted or hidden.
 - **Secrets are never written anywhere.** Fixes that remove a secret are verified but left out of the patch file, because a diff would contain the removed value; they are applied only with `--apply`. Reports, warnings and descriptions mention the location and type only.
 - The `process.env.NAME` replacement is typed `string | undefined`; adjust types if your code expects `string`.
 
