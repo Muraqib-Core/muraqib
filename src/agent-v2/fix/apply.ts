@@ -4,6 +4,7 @@ function git(cwd: string, args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
+/** Outcome of {@link createFixBranch}: the new branch and the one left behind, or why apply mode cannot start. */
 export type BranchResult = { ok: true; branch: string; previous: string } | { ok: false; reason: string };
 
 /**

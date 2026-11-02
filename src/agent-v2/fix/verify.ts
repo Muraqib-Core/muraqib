@@ -3,11 +3,13 @@ import { collectIssues } from "../planner.js";
 import { applyEdits, copyProject, removeCopy } from "./project-copy.js";
 import type { ProposedFix } from "./types.js";
 
+/** Injectable dependencies of {@link verifyFix}. */
 export interface VerifyDeps {
   /** Produces the issue list of a project folder. Defaults to the real audit; tests inject a fake. */
   collect?: ((projectRoot: string) => Promise<AgentIssue[]>) | undefined;
 }
 
+/** Verdict of re-auditing a fixed copy: accepted (with the count resolved) or rejected with the offending issue keys. */
 export type VerifyOutcome =
   | { accepted: true; resolved: number }
   | { accepted: false; reason: string; stillPresent: string[]; introduced: string[] };

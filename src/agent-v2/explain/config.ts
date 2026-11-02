@@ -8,6 +8,7 @@ export const GEMINI_MODEL = "gemini-2.5-flash" as const;
 
 /** How many of the top-ranked plan steps are explained per run (one batched call). */
 export const DEFAULT_EXPLAIN_TOP = 10;
+/** Largest value accepted for the number of steps explained per run. */
 export const MAX_EXPLAIN_TOP = 25;
 
 /** Hard ceiling on API requests per run, retries included. */
@@ -24,5 +25,7 @@ export const MAX_CACHE_ENTRIES = 500;
 /** Override of the cache folder (tests, CI). */
 export const CACHE_DIR_ENV = "MURAQIB_AGENT_CACHE_DIR" as const;
 
+/** Languages the explainer can answer in: English or Arabic. */
 export type ExplainLang = "en" | "ar";
+/** Language used when none is requested. */
 export const DEFAULT_LANG: ExplainLang = "en";

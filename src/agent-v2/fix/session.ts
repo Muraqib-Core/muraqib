@@ -10,8 +10,10 @@ const FIX_ORDER: readonly FixClass[] = ["floating-promise", "hardcoded-secret", 
 /** Safety net against a loop that never converges. */
 const MAX_ROUNDS = 100;
 
+/** Fate of one proposed fix: `applied` to disk, `verified` only, `rejected` by verification, or `declined` by the user. */
 export type FixStatus = "applied" | "verified" | "rejected" | "declined";
 
+/** Result for a single proposed fix, including why it was rejected or declined. */
 export interface FixOutcome {
   fix: ProposedFix;
   status: FixStatus;
@@ -20,6 +22,7 @@ export interface FixOutcome {
   verification?: VerifyOutcome;
 }
 
+/** Inputs of {@link runFixSession}. */
 export interface FixSessionOptions {
   projectRoot: string;
   mode: FixMode;
@@ -31,6 +34,7 @@ export interface FixSessionOptions {
   maxFixes?: number | undefined;
 }
 
+/** Everything a fix session produced: per-fix outcomes, open decisions, skipped issues and the patch. */
 export interface FixSessionResult {
   ok: boolean;
   error?: string;

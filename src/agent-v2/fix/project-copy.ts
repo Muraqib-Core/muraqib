@@ -16,6 +16,7 @@ export function copyProject(projectRoot: string): string {
   return root;
 }
 
+/** Deletes a temporary project copy made by {@link copyProject}; missing folders are ignored. */
 export function removeCopy(root: string): void {
   rmSync(root, { recursive: true, force: true });
 }
