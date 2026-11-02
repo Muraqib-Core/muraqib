@@ -20,6 +20,12 @@ export function formatPlanText(plan: AgentPlan): string {
     lines.push(`${step.rank}. [${step.severity}] ${step.code} - ${step.title}`);
     lines.push(`   ${location(step)} | ${step.fixClass}${step.autoFixable ? "" : " (manual)"}`);
     lines.push(`   why: ${step.reasons.join("; ")}`);
+    if (step.explanation !== undefined) lines.push(`   explain: ${step.explanation}`);
+  }
+  if (plan.explainer !== undefined) {
+    const { mode, model, calls, cached, notice } = plan.explainer;
+    lines.push("", `Explanations: ${mode} (${model}, ${calls} request(s), ${cached} from cache)`);
+    if (notice !== undefined) lines.push(`Note: ${notice}`);
   }
   return `${lines.join("\n")}\n`;
 }

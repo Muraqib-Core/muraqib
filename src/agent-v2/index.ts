@@ -7,3 +7,4 @@ export { runFixSession, type FixSessionOptions, type FixSessionResult, type FixO
 export { verifyFix, stableKey } from "./fix/verify.js";
 export type { Fixer, ProposedFix, FixerResult, FixDecision, FileEdit, FixContext } from "./fix/types.js";
 export { runFixCli } from "./fix-cli.js";
+export { explainPlan, type ExplainOptions, type ExplainDeps } from "./explain/explainer.js";
