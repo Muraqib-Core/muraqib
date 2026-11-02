@@ -32,6 +32,21 @@ export interface PlanStep {
   line?: number;
   /** Human-readable reasons behind the rank, in the order the rules were applied. */
   reasons: string[];
+  /** Redacted, secret-free description of the issue; this is the only issue text ever sent to an LLM. */
+  detail?: string;
+  /** Set only by `--explain`: LLM or built-in explanation of the step. */
+  explanation?: string;
+}
+
+/** How the explanations were produced. `fallback` = built-in templates, no LLM output used. */
+export interface ExplainerInfo {
+  mode: "llm" | "cached" | "fallback";
+  model: string;
+  /** API requests made this run, retries included. */
+  calls: number;
+  /** Explanations served from the disk cache. */
+  cached: number;
+  notice?: string;
 }
 
 export interface AgentPlan {
@@ -44,6 +59,8 @@ export interface AgentPlan {
   error?: string;
   summary: { total: number; autoFixable: number; manual: number; byFixClass: Record<FixClass, number> };
   steps: PlanStep[];
+  /** Present only when explanations were requested. */
+  explainer?: ExplainerInfo;
 }
 
 export interface PlanOptions {
