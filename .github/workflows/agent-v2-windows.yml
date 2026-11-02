@@ -1,0 +1,68 @@
+name: agent-v2 on Windows
+
+# muraqib-agent writes patches, copies projects and shells out to git, so it is checked on
+# Windows (backslash paths, CRLF checkouts) as well as on Linux. v1 is not tested here.
+on:
+  pull_request:
+    paths:
+      - 'src/agent-v2/**'
+      - 'tests/unit/agent-v2/**'
+      - 'bin/muraqib-agent.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/agent-v2-windows.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: agent-v2 tests (Windows, Node ${{ matrix.node-version }})
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Node 22 only: on Node 20.12.0 npm does not install rolldown's Windows binding, so vitest cannot
+        # start (an npm optional-dependency bug, not a muraqib problem). The Linux jobs cover 20.12.0.
+        node-version: [22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          CI: true
+
+      - name: Build project
+        run: npm run build
+
+      - name: Show git line-ending settings
+        run: git config --show-origin --get-all core.autocrlf
+        continue-on-error: true
+
+      # Real audits and git calls are several times slower on Windows runners than vitest's 5 s default.
+      - name: agent-v2 unit tests
+        run: npx vitest run tests/unit/agent-v2 --testTimeout=60000
+
+      - name: Smoke test - help
+        if: always()
+        run: node bin/muraqib-agent.js --help
+
+      - name: Smoke test - evaluation on the built-in projects
+        if: always()
+        run: node bin/muraqib-agent.js eval

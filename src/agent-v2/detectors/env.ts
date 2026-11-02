@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentIssue } from "../../agent/types.js";
 import { scanProjectFiles } from "../../utils/file-scanner.js";
+import { ENV_MARKER, loadIgnoreMatcher } from "../ignore.js";
 
 /** Module name under which agent-v2 reports environment-variable documentation gaps. */
 export const ENV_MODULE = "agent-v2-env" as const;
@@ -33,14 +34,20 @@ export function readDocumentedKeys(projectRoot: string): Set<string> | undefined
   return keys;
 }
 
-/** First usage (file, line) of every environment variable read in source. */
+/**
+ * First usage (file, line) of every environment variable read in source. Lines containing
+ * `muraqib-ignore-env` and files listed in `.muraqibignore` do not count as usages.
+ */
 export function collectUsages(projectRoot: string): Map<string, EnvUsage> {
   const usages = new Map<string, EnvUsage>();
   const files = scanProjectFiles(projectRoot, ["ts", "js"], { includeTests: false });
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  const isIgnored = loadIgnoreMatcher(projectRoot);
   for (const file of files) {
     const relative = file.relativePath.split("\\").join("/");
+    if (isIgnored?.(relative) === true) continue;
     file.content.split(/\r?\n/).forEach((text, index) => {
+      if (text.includes(ENV_MARKER)) return;
       for (const match of text.matchAll(ENV_USAGE)) {
         const key = match[1] ?? match[2];
         if (key === undefined || BUILTIN_VARS.has(key) || usages.has(key)) continue;

@@ -34,10 +34,15 @@ export function makePatch(originalRoot: string, modifiedRoot: string, files: rea
   }
 }
 
+/**
+ * Runs `git diff --no-index` on the staged folders. `core.autocrlf=false` is forced: with the Git for
+ * Windows default (`true`) git would drop the CR of CRLF lines from the diff, and the patch would then
+ * not apply to the real CRLF files.
+ */
 function runDiff(cwd: string, contextLines?: number): string {
   const context = contextLines === undefined ? [] : [`-U${Math.max(0, Math.floor(contextLines))}`];
   try {
-    return execFileSync("git", ["diff", "--no-index", "--no-color", "--no-prefix", ...context, "a", "b"], {
+    return execFileSync("git", ["-c", "core.autocrlf=false", "diff", "--no-index", "--no-color", "--no-prefix", ...context, "a", "b"], {
       cwd,
       encoding: "utf-8",
       maxBuffer: 32 * 1024 * 1024,

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { runEvalCli } from "../../../src/agent-v2/eval-cli.js";
 
+// Real audits and git calls are slower on Windows than the 5 s default allows.
+vi.setConfig({ testTimeout: 120_000 });
+
 let out: string[];
 let err: string[];
 

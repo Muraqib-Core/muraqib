@@ -8,16 +8,21 @@ import type { AgentIssue } from "../../../../src/agent/types.js";
 import { BAD_SRC, GOOD_SRC, badProject, fixContent, fixOf, hashTree, issue, tmp } from "./helpers.js";
 import { rmSync } from "node:fs";
 
-const savedTmp = process.env["TMPDIR"];
+// os.tmpdir() reads TMPDIR on Linux/macOS but TEMP or TMP on Windows, so all three are isolated.
+const TMP_VARS = ["TMPDIR", "TMP", "TEMP"] as const;
+const savedTmp = TMP_VARS.map((name) => process.env[name]);
 let privateTmp = "";
 const roots: string[] = [];
 beforeAll(() => {
   privateTmp = tmp("agent-v2-verify-tmp-");
-  process.env["TMPDIR"] = privateTmp;
+  for (const name of TMP_VARS) process.env[name] = privateTmp;
 });
 afterAll(() => {
-  if (savedTmp === undefined) delete process.env["TMPDIR"];
-  else process.env["TMPDIR"] = savedTmp;
+  TMP_VARS.forEach((name, i) => {
+    const saved = savedTmp[i];
+    if (saved === undefined) delete process.env[name];
+    else process.env[name] = saved;
+  });
   rmSync(privateTmp, { recursive: true, force: true });
 });
 afterEach(() => {

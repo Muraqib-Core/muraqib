@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `muraqib-agent`, a separate command (v1 and `src/index.ts` are unchanged; code in `src/agent-v2/`, see its README and `EVALUATION.md`):
+  - `plan`: a deterministic, offline ranking of what to fix first (severity, then auto-fixable, then location), as text or `--json`. Adds detectors for hardcoded secrets in source and for environment variables missing from `.env.example`.
+  - `fix` / `fix --dry-run`: proposes fixes and writes one patch file; `fix --apply` applies them on a new `agent/fix-<time>` branch after asking about each one, without committing. Fixers: add a missing `await` (asks before making a function `async` or adding `.catch`), move a hardcoded secret to `process.env.NAME` and document it in `.env.example` (warns to rotate it), and create or complete `.env.example`. Every fix is applied to a temporary copy and re-audited, and is kept only if its issue disappears and no new one appears. Fixes that remove a secret are never written to the patch file.
+  - `plan --explain [--lang ar|en]`: optional explanations from Gemini with a free key (`GEMINI_API_KEY`, optional `@google/genai`), one batched request for the top steps, secrets redacted before sending, a disk cache, at most 3 requests per run with retries after 429 and 503, and an automatic fallback to built-in explanations. The model defaults to the alias `gemini-flash-lite-latest` and can be changed with `MURAQIB_AGENT_MODEL`.
+  - `pr-description`: writes a PR description from the real verification result. `eval`: runs the fixers on three built-in projects with known problems and reports correct, asked and wrong fixes.
+
 ### Removed
 
 - The shield-and-eye logo: it is gone from the documentation web view and from the VS Code extension (`images/icon.png` and `icon.svg` were deleted and the manifest `icon` field was removed), and the README no longer uses it.
