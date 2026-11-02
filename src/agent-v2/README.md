@@ -55,6 +55,25 @@ On the free tier Google may use submitted content to improve its products (check
 - Limits: at most 3 requests per run; up to 2 retries after HTTP 429 or 503 (waits 1 s then 2 s); then it falls back to the built-in text. Results are cached on disk in `~/.cache/muraqib-agent` (override with `MURAQIB_AGENT_CACHE_DIR`), keyed by model, language and issue id, so the same issue is not sent twice.
 - Gemini only writes explanations. It never edits code and never decides whether a fix is accepted: fixes are identical with or without a key.
 - Free-tier quotas belong to Google and change; check them in Google AI Studio.
+- Status: checked once by hand with a real free key (Windows, `llm` mode, 1 request for 3 steps). Not measured: explanation quality over many issues, and the retry after a 503 against the real service. See `EVALUATION.md`.
+
+### If it says `fallback`
+
+The line starting with `Note:` gives the reason. It never contains your key.
+
+| Note | Meaning | What to do |
+|---|---|---|
+| `No GEMINI_API_KEY set` | no key in the environment | set it in this terminal (see Setup) |
+| `@google/genai is not installed` | optional package missing | `npm i @google/genai` |
+| `HTTP 404: model not found or no longer available` | the model was retired (it can still appear in Google's model list) | set `MURAQIB_AGENT_MODEL` to a model that works for your key |
+| `HTTP 400/401/403` | key rejected, restricted, or the API is not enabled for its project | create a new key in Google AI Studio |
+| `unavailable (503)` or `rate limit (429) persisted after retries` | Google is busy or the quota is used up | wait and run again |
+| `network error ...` | no connection, or a proxy is in the way | check your connection or proxy |
+| `A possible secret was found in the prompt` | the safety check blocked the request | nothing was sent; look at the issue text |
+
+To see which models your key can use without printing the key (PowerShell):
+`(Invoke-RestMethod -Uri "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100" -Headers @{ "x-goog-api-key" = $env:GEMINI_API_KEY }).models | ForEach-Object { $_.name }`.
+A model can be listed and still answer 404, so try one with a tiny request before relying on it.
 
 ## Known limits
 

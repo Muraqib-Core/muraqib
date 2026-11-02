@@ -437,6 +437,8 @@ Gemini is optional and only used by `plan --explain`; without a key you get the 
 
 Limits: one batched request for the top 10 steps (`--explain-top`), at most 3 requests per run, up to 2 retries after HTTP 429 or 503 (temporary overload), results cached in `~/.cache/muraqib-agent`. The default model is the alias `gemini-flash-lite-latest`, because Google retires named models (a retired model answers HTTP 404 even while it is still listed). To try another one without editing code: `$env:MURAQIB_AGENT_MODEL = "gemini-3.5-flash"` (PowerShell) or `export MURAQIB_AGENT_MODEL=gemini-3.5-flash`. Never commit your key or paste it into issues or chats.
 
+If it prints `fallback`, the `Note:` line under it gives the reason (no key, package missing, retired model, key rejected, temporary overload, network). The full table and the commands to check which models your key can use are in [`src/agent-v2/README.md`](src/agent-v2/README.md#if-it-says-fallback). A real-key run has been checked once by hand; see [`EVALUATION.md`](src/agent-v2/EVALUATION.md) for what is and is not measured.
+
 ### Interactive mode
 
 In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Add `-i` for the guided flow:
