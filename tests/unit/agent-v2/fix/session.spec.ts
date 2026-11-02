@@ -6,16 +6,21 @@ import { GOOD_SRC, BAD_SRC, badProject, fakeFixer, hashTree, tmp } from "./helpe
 import { readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 
-const savedTmp = process.env["TMPDIR"];
+// os.tmpdir() reads TMPDIR on Linux/macOS but TEMP or TMP on Windows, so all three are isolated.
+const TMP_VARS = ["TMPDIR", "TMP", "TEMP"] as const;
+const savedTmp = TMP_VARS.map((name) => process.env[name]);
 let privateTmp = "";
 const roots: string[] = [];
 beforeAll(() => {
   privateTmp = tmp("agent-v2-session-tmp-");
-  process.env["TMPDIR"] = privateTmp;
+  for (const name of TMP_VARS) process.env[name] = privateTmp;
 });
 afterAll(() => {
-  if (savedTmp === undefined) delete process.env["TMPDIR"];
-  else process.env["TMPDIR"] = savedTmp;
+  TMP_VARS.forEach((name, i) => {
+    const saved = savedTmp[i];
+    if (saved === undefined) delete process.env[name];
+    else process.env[name] = saved;
+  });
   rmSync(privateTmp, { recursive: true, force: true });
 });
 afterEach(() => {
