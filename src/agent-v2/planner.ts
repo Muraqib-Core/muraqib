@@ -106,27 +106,18 @@ export async function collectIssues(projectRoot: string, modules?: string[]): Pr
   return { ok: true, issues: filterIgnoredIssues(projectRoot, all) };
 }
 
+/** A plan together with the unranked issues it was built from (empty when the audit failed). */
+export interface PlanWithIssues {
+  plan: AgentPlan;
+  issues: AgentIssue[];
+}
+
 /**
- * Builds the plan for a project: runs the v1 audit (`runAuditForAgent`), adds the agent-v2
- * secret and env detectors, then ranks everything with fixed rules. No network, no LLM.
- * Never throws: an audit failure comes back as `{ ok: false, error }`.
+ * Ranks an already collected issue list into a plan, exactly as {@link createPlan} does after its audit.
+ * Lets callers that hold a fresh, trustworthy issue list skip the audit. Pure and deterministic.
  */
-export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> {
-  const projectRoot = options.projectRoot ?? process.cwd();
-  const collected = await collectIssues(projectRoot, options.modules);
-  if (!collected.ok) {
-    return {
-      schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
-      projectRoot,
-      verdict: "fail",
-      ok: false,
-      error: collected.error,
-      summary: summarize([]),
-      steps: [],
-    };
-  }
-  const issues = collected.issues;
-  const steps = rankIssues(issues, options.maxSteps);
+export function planFromIssues(projectRoot: string, issues: readonly AgentIssue[], maxSteps?: number): AgentPlan {
+  const steps = rankIssues(issues, maxSteps);
   const failing = issues.some((i) => i.severity === "critical" || i.severity === "error");
   return {
     schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
@@ -136,4 +127,32 @@ export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> 
     summary: summarize(steps),
     steps,
   };
+}
+
+/** Like {@link createPlan}, but also returns the raw issue list the plan was ranked from. */
+export async function createPlanWithIssues(options: PlanOptions = {}): Promise<PlanWithIssues> {
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const collected = await collectIssues(projectRoot, options.modules);
+  if (!collected.ok) {
+    const plan: AgentPlan = {
+      schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
+      projectRoot,
+      verdict: "fail",
+      ok: false,
+      error: collected.error,
+      summary: summarize([]),
+      steps: [],
+    };
+    return { plan, issues: [] };
+  }
+  return { plan: planFromIssues(projectRoot, collected.issues, options.maxSteps), issues: collected.issues };
+}
+
+/**
+ * Builds the plan for a project: runs the v1 audit (`runAuditForAgent`), adds the agent-v2
+ * secret and env detectors, then ranks everything with fixed rules. No network, no LLM.
+ * Never throws: an audit failure comes back as `{ ok: false, error }`.
+ */
+export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> {
+  return (await createPlanWithIssues(options)).plan;
 }

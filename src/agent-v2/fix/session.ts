@@ -1,8 +1,9 @@
-import { createPlan } from "../planner.js";
+import type { AgentIssue } from "../../agent/types.js";
+import { createPlanWithIssues, planFromIssues } from "../planner.js";
 import type { FixClass, PlanStep } from "../types.js";
 import { makePatch } from "./patch.js";
 import { applyEdits, copyProject, removeCopy } from "./project-copy.js";
-import { verifyFix, type VerifyDeps, type VerifyOutcome } from "./verify.js";
+import { verifyFixDetailed, type VerifyDeps, type VerifyOutcome } from "./verify.js";
 import type { FixDecision, FixMode, Fixer, FixerResult, ProposedFix } from "./types.js";
 
 /** Fix classes in the order they are repaired: secrets before the env file so the file can list the new variable. */
@@ -32,6 +33,12 @@ export interface FixSessionOptions {
   approve?: ((fix: ProposedFix) => Promise<boolean>) | undefined;
   verifyDeps?: VerifyDeps | undefined;
   maxFixes?: number | undefined;
+  /**
+   * Propose mode with the real audit only: reuse audit results that are provably about the current
+   * tree (the round's plan as verification baseline, the after-fix audit as the next round's plan)
+   * instead of auditing again. `false` forces the original audit-everything behavior. Default `true`.
+   */
+  reuseAudits?: boolean | undefined;
 }
 
 /** Everything a fix session produced: per-fix outcomes, open decisions, skipped issues and the patch. */
@@ -86,9 +93,13 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
   let issuesBefore: number | undefined;
   let issuesAfter: number | undefined;
   let afterIsStale = false;
+  const reuse = canReuseAudits(options);
+  /** Issues of the current working tree when they are known without auditing (reuse only). */
+  let known: AgentIssue[] | undefined;
   try {
     for (let round = 0; round < MAX_ROUNDS && acceptedCount(outcomes) < (options.maxFixes ?? Infinity); round += 1) {
-      const plan = await createPlan({ projectRoot: workRoot });
+      const { plan, issues } = known !== undefined ? { plan: planFromIssues(workRoot, known), issues: known } : await createPlanWithIssues({ projectRoot: workRoot });
+      known = undefined;
       if (!plan.ok) {
         error = plan.error;
         break;
@@ -102,11 +113,15 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
       const next = results.find((r): r is Extract<FixerResult, { kind: "fix" }> => r.kind === "fix" && !tried.has(r.fix.id));
       if (next === undefined) break;
       tried.add(next.fix.id);
-      const outcome = await handleFix(next.fix, workRoot, options, touched);
+      const handled = await handleFix(next.fix, workRoot, options, touched, reuse ? issues : undefined);
+      const outcome = handled.outcome;
       outcomes.push(outcome);
       if (changesWorkTree(outcome)) afterIsStale = true;
+      if (reuse) known = changesWorkTree(outcome) ? handled.after : issues;
     }
-    if (afterIsStale && error === undefined) issuesAfter = (await createPlan({ projectRoot: workRoot })).summary.total;
+    if (afterIsStale && error === undefined) {
+      issuesAfter = known !== undefined ? planFromIssues(workRoot, known).summary.total : (await createPlanWithIssues({ projectRoot: workRoot })).plan.summary.total;
+    }
     const patch = options.mode === "propose" ? makePatch(options.projectRoot, workRoot, [...touched]) : "";
     const result: FixSessionResult = { ok: error === undefined, mode: options.mode, outcomes, decisions: [...decisions.values()], skipped: [...skipped].map(([issueId, reason]) => ({ issueId, reason })), patch };
     if (error !== undefined) result.error = error;
@@ -135,17 +150,32 @@ function recordNotes(results: readonly FixerResult[], decisions: Map<string, Fix
   }
 }
 
-async function handleFix(fix: ProposedFix, workRoot: string, options: FixSessionOptions, touched: Set<string>): Promise<FixOutcome> {
-  const verification = await verifyFix(workRoot, fix, options.verifyDeps);
-  if (!verification.accepted) return { fix, status: "rejected", note: verification.reason, verification };
+/**
+ * Audit reuse is only sound in propose mode (the working tree is a temp copy, so it is audited under
+ * the same conditions as verification's copy and nobody else edits it) and with the real audit.
+ * Apply mode audits the real project, which has `.git` that a copy lacks, so it always re-audits.
+ */
+function canReuseAudits(options: FixSessionOptions): boolean {
+  return options.reuseAudits !== false && options.mode === "propose" && options.verifyDeps?.collect === undefined;
+}
+
+/** A fix outcome plus, when the fix was applied to the working tree, the issues verification found on the fixed copy. */
+interface Handled {
+  outcome: FixOutcome;
+  after?: AgentIssue[] | undefined;
+}
+
+async function handleFix(fix: ProposedFix, workRoot: string, options: FixSessionOptions, touched: Set<string>, baseline: readonly AgentIssue[] | undefined): Promise<Handled> {
+  const { outcome: verification, after } = await verifyFixDetailed(workRoot, fix, { ...options.verifyDeps, baseline });
+  if (!verification.accepted) return { outcome: { fix, status: "rejected", note: verification.reason, verification } };
   if (options.mode === "propose") {
-    if (fix.removesSecret) return { fix, status: "verified", note: "removes a secret: kept out of the patch file, use apply mode", verification };
+    if (fix.removesSecret) return { outcome: { fix, status: "verified", note: "removes a secret: kept out of the patch file, use apply mode", verification } };
     applyEdits(workRoot, fix.edits);
     for (const edit of fix.edits) touched.add(edit.file);
-    return { fix, status: "verified", verification };
+    return { outcome: { fix, status: "verified", verification }, after };
   }
   const approved = options.approve === undefined ? false : await options.approve(fix);
-  if (!approved) return { fix, status: "declined", note: "not approved", verification };
+  if (!approved) return { outcome: { fix, status: "declined", note: "not approved", verification } };
   applyEdits(workRoot, fix.edits);
-  return { fix, status: "applied", verification };
+  return { outcome: { fix, status: "applied", verification } };
 }
