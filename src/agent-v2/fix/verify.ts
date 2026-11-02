@@ -21,10 +21,16 @@ export type VerifyOutcome =
 
 /**
  * Identity of an issue that survives unrelated edits: line numbers move when code is inserted,
- * so they are stripped from the message and ignored.
+ * so they are stripped from the message and ignored. Percentages are replaced too: some v1 messages
+ * carry a live measurement (the memory guard reports "Heap fragmentation risk: 87.2% used" from the
+ * running process), which differs between two audits of the same tree and would make a correct fix
+ * look like it introduced a new issue.
  */
 export function stableKey(issue: AgentIssue): string {
-  const message = issue.message.replace(/:\d+(?::\d+)?\b/g, "").replace(/\bline \d+\b/gi, "line");
+  const message = issue.message
+    .replace(/:\d+(?::\d+)?\b/g, "")
+    .replace(/\bline \d+\b/gi, "line")
+    .replace(/\d+(?:\.\d+)?\s*%/g, "N%");
   return [issue.module, issue.code, issue.file ?? "", message].join("|");
 }
 
