@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { describeGeminiError } from "../../../../src/agent-v2/explain/gemini.js";
 
-const KEY = ["AQ", "Ab8RN6IzBS", "FAKEKEYFORTESTS"].join(".");
+const KEY = ["AQ", "NotARealKey", "OnlyForTests"].join(".");
 
 describe("describeGeminiError", () => {
   test.each([
