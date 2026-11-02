@@ -16,6 +16,8 @@ import { scanProjectFiles } from "../../../src/utils/file-scanner.js";
  */
 const SECRET = ["sk", "live", "A1b2C3d4E5f6G7h8I9j0K1l2"].join("_");
 let root: string;
+/** v1 reports issue files relative to the root with the operating system's separator (`src\\a.ts` on Windows). */
+const posix = (file: string | undefined): string | undefined => file?.split("\\").join("/");
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "agent-v2-contract-"));
@@ -34,7 +36,8 @@ describe("v1 contract: audit report (runAuditForAgent)", () => {
     expect(report.ok).toBe(true);
     const issue = report.issues.find((i) => i.code === "ASYNC_FLOATING_PROMISE");
     expect(issue).toBeDefined();
-    expect(issue).toMatchObject({ module: "async-guard", severity: "error", file: "src/a.ts", line: 3 });
+    expect(issue).toMatchObject({ module: "async-guard", severity: "error", line: 3 });
+    expect(posix(issue?.file)).toBe("src/a.ts");
     expect(typeof issue?.id).toBe("string");
     expect(typeof issue?.message).toBe("string");
     expect(Array.isArray(issue?.tags)).toBe(true);
@@ -42,7 +45,7 @@ describe("v1 contract: audit report (runAuditForAgent)", () => {
 
   test("a same-file async call without arguments is ASYNC_MISSING_AWAIT", async () => {
     const report = await runAuditForAgent({ projectRoot: root });
-    expect(report.issues.some((i) => i.code === "ASYNC_MISSING_AWAIT" && i.file === "src/a.ts" && i.line === 4)).toBe(true);
+    expect(report.issues.some((i) => i.code === "ASYNC_MISSING_AWAIT" && posix(i.file) === "src/a.ts" && i.line === 4)).toBe(true);
   });
 
   test("issue ids are stable across runs", async () => {
