@@ -13,7 +13,7 @@
 | Node.js | `>=20.12.0` |
 | TypeScript (dev) | `^6.0.3` |
 | Test runner | Vitest `^5.0.3` |
-| CLI binary | `muraqib` |
+| CLI binary | `muraqib`, `muraqib-agent` |
 
 ## Optional and peer dependencies
 
@@ -81,6 +81,7 @@ Run `muraqib --help` for the description of each flag.
 
 | Workflow | File | Triggers | Jobs |
 |----------|------|----------|------|
+| agent-v2 on Windows | `.github/workflows/agent-v2-windows.yml` | pull_request | `windows` |
 | Audit | `.github/workflows/audit.yml` | push, pull_request, workflow_dispatch | `audit` |
 | CI/CD Pipeline | `.github/workflows/ci.yml` | push, pull_request | `lint-and-build`, `test-and-coverage`, `self-audit`, `extension`, `quality-gate`, `package-contents`, `docs-check`, `security-scan` |
 | Docs | `.github/workflows/docs.yml` | push, schedule, workflow_dispatch | `refresh` |
