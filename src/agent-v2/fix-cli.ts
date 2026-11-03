@@ -18,10 +18,15 @@ Options:
   --out <file>             Patch file for propose mode (default: muraqib-agent.patch)
   --choose <id>=<option>   Answer a decision (repeatable)
   --max-fixes <n>          Stop after n accepted fixes
+  --verify-cmd <command>   Also run this shell command on the fixed copy (repeatable, in order);
+                           a fix is rejected if it passes before the fix and fails after it
+  --verify-timeout <s>     Time limit per verify command in seconds (default 120)
 
 Every fix is verified by re-running the audit on a copy: it is kept only if the issue
 disappears and no new issue appears. Exit codes: 0 done, 2 usage error, 3 audit failed.
 `;
+
+const MAX_TIMEOUT_SECONDS = 86_400;
 
 interface FixArgs {
   project: string;
@@ -29,10 +34,25 @@ interface FixArgs {
   out: string;
   choices: Map<string, string>;
   maxFixes?: number;
+  verifyCommands: string[];
+  verifyTimeoutMs?: number;
+}
+
+/** Handles `--verify-cmd` / `--verify-timeout`; returns a usage error message or undefined when the value is fine. */
+function applyVerifyFlag(parsed: FixArgs, flag: "--verify-cmd" | "--verify-timeout", value: string | undefined): string | undefined {
+  if (flag === "--verify-cmd") {
+    if (value === undefined || value.trim() === "") return "--verify-cmd needs a non-empty command";
+    parsed.verifyCommands.push(value);
+    return undefined;
+  }
+  const seconds = value === undefined || value.trim() === "" ? Number.NaN : Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > MAX_TIMEOUT_SECONDS) return `--verify-timeout needs a number of seconds between 0 and ${MAX_TIMEOUT_SECONDS}`;
+  parsed.verifyTimeoutMs = Math.round(seconds * 1000);
+  return undefined;
 }
 
 function parseFixArgs(args: readonly string[]): FixArgs | string {
-  const parsed: FixArgs = { project: process.cwd(), mode: "propose", out: "muraqib-agent.patch", choices: new Map() };
+  const parsed: FixArgs = { project: process.cwd(), mode: "propose", out: "muraqib-agent.patch", choices: new Map(), verifyCommands: [] };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     const next = (): string | undefined => {
@@ -57,6 +77,9 @@ function parseFixArgs(args: readonly string[]): FixArgs | string {
       const n = Number(next());
       if (!Number.isInteger(n) || n < 0) return "--max-fixes needs a non-negative integer";
       parsed.maxFixes = n;
+    } else if (arg === "--verify-cmd" || arg === "--verify-timeout") {
+      const problem = applyVerifyFlag(parsed, arg, next());
+      if (problem !== undefined) return problem;
     } else return `Unknown argument: ${arg ?? ""}`;
   }
   return parsed;
@@ -101,7 +124,7 @@ export async function runFixCli(args: readonly string[]): Promise<number> {
     }
     process.stderr.write(`Working on new branch ${branch.branch} (changes are not committed)\n`);
   }
-  const result = await runFixSession({ projectRoot: parsed.project, mode: parsed.mode, choices: parsed.choices, fixers: DEFAULT_FIXERS, approve: (fix) => askApproval(fix, parsed.project), maxFixes: parsed.maxFixes });
+  const result = await runFixSession({ projectRoot: parsed.project, mode: parsed.mode, choices: parsed.choices, fixers: DEFAULT_FIXERS, approve: (fix) => askApproval(fix, parsed.project), maxFixes: parsed.maxFixes, verifyCommands: parsed.verifyCommands, verifyTimeoutMs: parsed.verifyTimeoutMs });
   let patchPath: string | undefined;
   if (parsed.mode === "propose" && result.patch !== "") {
     patchPath = resolve(parsed.out);

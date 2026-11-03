@@ -31,6 +31,22 @@ Each fix is applied to a temporary copy of the project and the audit is run agai
 - **Secrets are never written anywhere.** Fixes that remove a secret are verified but left out of the patch file, because a diff would contain the removed value; they are applied only with `--apply`. Reports, warnings and descriptions mention the location and type only.
 - The `process.env.NAME` replacement is typed `string | undefined`; adjust types if your code expects `string`.
 
+## Stronger check: `--verify-cmd`
+
+The audit alone does not prove the project still builds or that its tests pass (for example `process.env.NAME` is `string | undefined`). Optionally add your own commands:
+
+```
+muraqib-agent fix --verify-cmd "npm run type-check" --verify-cmd "npm test" --verify-timeout 300
+```
+
+- Commands run in order, in a temp copy of the project with the fix applied, never in the real project. The copy has no `node_modules`, so the real project's `node_modules` is linked into it (a junction on Windows); if linking fails the outcome says so.
+- Each command first runs once on the unmodified copy (cached for the whole session). If it already fails there, the fix outcome shows `verify-cmd baseline already failing - not used` and the command is ignored. If it passes before and fails after the fix, the fix is rejected with `verify command failed: <command> (exit N)` plus the last ~20 lines of output, redacted (a line that still looks like a secret is shown as `(line hidden)`).
+- `--verify-timeout <seconds>` (default 120) applies per run; on timeout the whole process tree is killed and the run counts as a failure.
+- **Security:** the commands are written by you and run through the platform shell (`shell: true`). They inherit your environment except `GEMINI_API_KEY` and `GOOGLE_API_KEY`, which are removed. The environment is never logged.
+- The report and `pr-description` list the commands that passed. Without `--verify-cmd` nothing changes.
+
+Limits: a command judges the project as a whole, not the single fix; a baseline that already fails cannot be used; every command runs once per proposed fix, so slow commands multiply by the number of fixes. Commands that modify files only change the copy (but writes into the linked `node_modules`, such as caches, reach the real one), and interactive or watch-mode commands never finish and end in the timeout.
+
 ## Gemini (optional)
 
 ### Setup (step by step)
