@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `fix` / `fix --dry-run`: proposes fixes and writes one patch file; `fix --apply` applies them on a new `agent/fix-<time>` branch after asking about each one, without committing. Fixers: add a missing `await` (asks before making a function `async` or adding `.catch`), move a hardcoded secret to `process.env.NAME` and document it in `.env.example` (warns to rotate it), and create or complete `.env.example`. Every fix is applied to a temporary copy and re-audited, and is kept only if its issue disappears and no new one appears. Fixes that remove a secret are never written to the patch file.
   - `plan --explain [--lang ar|en]`: optional explanations from Gemini with a free key (`GEMINI_API_KEY`, optional `@google/genai`), one batched request for the top steps, secrets redacted before sending, a disk cache, at most 3 requests per run with retries after 429 and 503, and an automatic fallback to built-in explanations. The model defaults to the alias `gemini-flash-lite-latest` and can be changed with `MURAQIB_AGENT_MODEL`.
   - `pr-description`: writes a PR description from the real verification result. `eval`: runs the fixers on three built-in projects with known problems and reports correct, asked and wrong fixes.
+  - `fix --verify-cmd <command>` (repeatable) and `--verify-timeout <s>`: also run your own commands (for example `npm run type-check`) on the fixed copy; a fix that makes a passing command fail is rejected. Commands that already fail before the fix are ignored.
+  - The `.env.example` detector also reads one-line destructuring (`const { PORT, DB_URL: url } = process.env`).
+  - Fix sessions reuse the audit already done for the round and for verification in propose mode (about 1.7x to 2.1x faster).
 
 ### Removed
 
