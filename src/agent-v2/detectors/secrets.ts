@@ -3,6 +3,7 @@ import type { AgentIssue } from "../../agent/types.js";
 import { findSecrets } from "../../core/secret-detector.js";
 import { scanProjectFiles } from "../../utils/file-scanner.js";
 import { blankMarkedLines, loadIgnoreMatcher, SECRET_MARKER } from "../ignore.js";
+import { commentOnlyLines } from "./code-mask.js";
 
 /** Module name under which agent-v2 reports hardcoded secrets found in source files. */
 export const SECRETS_MODULE = "agent-v2-secrets" as const;
@@ -11,7 +12,9 @@ export const SECRETS_MODULE = "agent-v2-secrets" as const;
  * Finds secret literals hardcoded in `.ts` / `.js` source. Read-only: it reuses the v1
  * `findSecrets` matcher but never modifies v1. The issue records the secret's type and
  * location only - the secret value (even masked) is never copied into the issue.
- * Lines containing `muraqib-ignore-secret` and files listed in `.muraqibignore` are skipped.
+ * Lines containing `muraqib-ignore-secret` and files listed in `.muraqibignore` are skipped. Public
+ * certificates are not secrets and are not reported. On a comment-only line only strong,
+ * known-format credentials are reported; weak hits such as `password = "..."` in a doc comment are not.
  *
  * @param projectRoot - Project root to scan
  * @returns Issues sorted by file then line
@@ -22,9 +25,12 @@ export function detectHardcodedSecrets(projectRoot: string): AgentIssue[] {
   for (const file of scanProjectFiles(projectRoot, ["ts", "js"], { includeTests: false })) {
     const relative = file.relativePath.split("\\").join("/");
     if (isIgnored?.(relative) === true) continue;
-    const matches = findSecrets(blankMarkedLines(file.content, SECRET_MARKER), { file: relative, includeHeuristics: false, ignorePlaceholders: true });
+    const content = blankMarkedLines(file.content, SECRET_MARKER);
+    const comments = commentOnlyLines(content);
+    const matches = findSecrets(content, { file: relative, includeHeuristics: false, ignorePlaceholders: true });
     for (const match of matches) {
-      if (match.type === "pii") continue;
+      if (match.type === "pii" || match.type === "certificate") continue;
+      if (!match.blocking && match.line !== undefined && comments.has(match.line)) continue;
       const code = `SECRET_${match.type.toUpperCase()}`;
       const line = match.line;
       const id = createHash("sha1")

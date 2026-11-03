@@ -31,6 +31,19 @@ describe("detectHardcodedSecrets", () => {
     writeProjectFile(root, "src/a.ts", "export const a = 1;\n");
     expect(detectHardcodedSecrets(root)).toEqual([]);
   });
+
+  test("a weak password example in a doc comment is not reported, a real key in a comment still is", () => {
+    const root = project();
+    writeProjectFile(root, "src/a.ts", `/**\n * Example: password = "hunter2hunter2"\n */\nexport const a = 1;\n// old key: ${fakeSecret()}\n`);
+    const lines = detectHardcodedSecrets(root).map((issue) => issue.line);
+    expect(lines).toEqual([5]);
+  });
+
+  test("a certificate header in a pattern table is not a secret", () => {
+    const root = project();
+    writeProjectFile(root, "src/a.ts", 'export const rule = { source: "-----BEGIN CERTIFICATE-----", type: "certificate" };\n');
+    expect(detectHardcodedSecrets(root)).toEqual([]);
+  });
 });
 
 describe("detectUndocumentedEnv", () => {
@@ -80,5 +93,23 @@ describe("detectUndocumentedEnv", () => {
     writeProjectFile(root, ".env.example", "# nothing\n");
     writeProjectFile(root, "src/a.ts", "const { A, B } = config;\nexport { A, B };\n");
     expect(detectUndocumentedEnv(root)).toEqual([]);
+  });
+
+  test("process.env.X inside comments and string literals is not a usage, inside ${} it is", () => {
+    const root = project();
+    writeProjectFile(root, ".env.example", "# nothing\n");
+    writeProjectFile(
+      root,
+      "src/a.ts",
+      [
+        "// reads process.env.IN_COMMENT",
+        'export const sample = "process.env.IN_STRING";',
+        "export const url = `http://${process.env.IN_TEMPLATE_EXPRESSION}/x process.env.IN_TEMPLATE_TEXT`;",
+        "export const real = process.env.REAL_ONE;",
+        "",
+      ].join("\n"),
+    );
+    const names = detectUndocumentedEnv(root).map((issue) => issue.message.split(" ")[0]);
+    expect(names).toEqual(["IN_TEMPLATE_EXPRESSION", "REAL_ONE"]);
   });
 });
