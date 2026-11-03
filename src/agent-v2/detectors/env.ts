@@ -13,6 +13,10 @@ const ENV_EXAMPLE = ".env.example";
 const BUILTIN_VARS: ReadonlySet<string> = new Set(["NODE_ENV", "CI"]);
 const ENV_USAGE = /(?:process\.env|import\.meta\.env)(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*["']([A-Za-z_][A-Za-z0-9_]*)["']\s*\])/g;
 
+/** `const { A, B: renamed, C = "x", ...rest } = process.env` on one line; group 1 is the text between the braces. */
+const ENV_DESTRUCTURE = /\b(?:const|let|var)\s*\{([^{}]*)\}\s*=\s*(?:process\.env|import\.meta\.env)\b/g;
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 interface EnvUsage {
   file: string;
   line: number;
@@ -34,6 +38,27 @@ export function readDocumentedKeys(projectRoot: string): Set<string> | undefined
   return keys;
 }
 
+/** Variable names read by one destructuring pattern. Renames and defaults keep the env name; `...rest` is skipped. */
+function destructuredNames(pattern: string): string[] {
+  const names: string[] = [];
+  for (const part of pattern.split(",")) {
+    const name = part.split(/[:=]/)[0]?.trim() ?? "";
+    if (IDENTIFIER.test(name)) names.push(name);
+  }
+  return names;
+}
+
+/** Every environment variable named on one source line, by `process.env.X`, `process.env["X"]` or destructuring. */
+function namesOnLine(text: string): string[] {
+  const names: string[] = [];
+  for (const match of text.matchAll(ENV_USAGE)) {
+    const key = match[1] ?? match[2];
+    if (key !== undefined) names.push(key);
+  }
+  for (const match of text.matchAll(ENV_DESTRUCTURE)) names.push(...destructuredNames(match[1] ?? ""));
+  return names;
+}
+
 /**
  * First usage (file, line) of every environment variable read in source. Lines containing
  * `muraqib-ignore-env` and files listed in `.muraqibignore` do not count as usages.
@@ -48,9 +73,8 @@ export function collectUsages(projectRoot: string): Map<string, EnvUsage> {
     if (isIgnored?.(relative) === true) continue;
     file.content.split(/\r?\n/).forEach((text, index) => {
       if (text.includes(ENV_MARKER)) return;
-      for (const match of text.matchAll(ENV_USAGE)) {
-        const key = match[1] ?? match[2];
-        if (key === undefined || BUILTIN_VARS.has(key) || usages.has(key)) continue;
+      for (const key of namesOnLine(text)) {
+        if (BUILTIN_VARS.has(key) || usages.has(key)) continue;
         usages.set(key, { file: relative, line: index + 1 });
       }
     });

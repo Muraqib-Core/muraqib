@@ -31,6 +31,22 @@ Each fix is applied to a temporary copy of the project and the audit is run agai
 - **Secrets are never written anywhere.** Fixes that remove a secret are verified but left out of the patch file, because a diff would contain the removed value; they are applied only with `--apply`. Reports, warnings and descriptions mention the location and type only.
 - The `process.env.NAME` replacement is typed `string | undefined`; adjust types if your code expects `string`.
 
+## Stronger check: `--verify-cmd`
+
+The audit alone does not prove the project still builds or that its tests pass (for example `process.env.NAME` is `string | undefined`). Optionally add your own commands:
+
+```
+muraqib-agent fix --verify-cmd "npm run type-check" --verify-cmd "npm test" --verify-timeout 300
+```
+
+- Commands run in order, in a temp copy of the project with the fix applied, never in the real project. The copy has no `node_modules`, so the real project's `node_modules` is linked into it (a junction on Windows); if linking fails the outcome says so.
+- Each command first runs once on the unmodified copy (cached for the whole session). If it already fails there, the fix outcome shows `verify-cmd baseline already failing - not used` and the command is ignored. If it passes before and fails after the fix, the fix is rejected with `verify command failed: <command> (exit N)` plus the last ~20 lines of output, redacted (a line that still looks like a secret is shown as `(line hidden)`).
+- `--verify-timeout <seconds>` (default 120) applies per run; on timeout the whole process tree is killed and the run counts as a failure.
+- **Security:** the commands are written by you and run through the platform shell (`shell: true`). They inherit your environment except `GEMINI_API_KEY` and `GOOGLE_API_KEY`, which are removed. The environment is never logged.
+- The report and `pr-description` list the commands that passed. Without `--verify-cmd` nothing changes.
+
+Limits: a command judges the project as a whole, not the single fix; a baseline that already fails cannot be used; every command runs once per proposed fix, so slow commands multiply by the number of fixes. Commands that modify files only change the copy (but writes into the linked `node_modules`, such as caches, reach the real one), and interactive or watch-mode commands never finish and end in the timeout.
+
 ## Gemini (optional)
 
 ### Setup (step by step)
@@ -42,7 +58,7 @@ Each fix is applied to a temporary copy of the project and the audit is run agai
    - Windows PowerShell: `$env:GEMINI_API_KEY = "<your key>"`
    - To keep it across sessions, set it in your OS or shell profile. `GOOGLE_API_KEY` also works. `.env` files are not read.
 4. **Run:** `muraqib-agent plan --explain --lang ar` (from a clone: `node bin/muraqib-agent.js plan --explain` after `npm run build`).
-5. **Check the result:** the last lines should say `Explanations: llm (gemini-flash-lite-latest, 1 request(s), ...)`. Run it again and it says `cached` with 0 requests. `fallback` means the built-in text was used, and the `Note:` line says why (no key, package missing, rate limit, request error, or a possible secret found in the prompt).
+5. **Check the result:** the last lines should say `Explanations: llm (gemini-flash-lite-latest, 1 request(s), ...)`. Run it again with the same issues and it should say `cached` with 0 requests (covered by tests; not recorded against the real service). `fallback` means the built-in text was used, and the `Note:` line says why (no key, package missing, rate limit, request error, or a possible secret found in the prompt).
 
 On the free tier Google may use submitted content to improve its products (check its current terms). Muraqib sends only redacted issue metadata, never file contents.
 
@@ -91,7 +107,8 @@ What the detectors see was measured on small test files (2 November 2026), not g
 | `Promise.all([...]);` as a statement | **no** |
 | the same code in a `.js` file | **no** (v1 scans `.ts` for this check) |
 | `process.env.NAME`, `process.env["NAME"]`, `import.meta.env.NAME` missing from `.env.example` | yes |
-| `const { NAME } = process.env` | **no** |
+| `const { NAME } = process.env` on one line (renames and defaults included) | yes |
+| the same destructuring split over several lines | **no** |
 | `process.env[someVariable]` | **no** |
 | a secret in a known format (Stripe, GitHub, AWS, Slack, `sk-`, JWT, PEM) or `password = "..."` | yes |
 | a long random token with no known prefix | **no** |
@@ -103,18 +120,18 @@ These limits come from v1's line-based heuristics and pattern lists. v1 is not c
 
 ### Speed
 
-`plan` is fast; `fix` is slow on big projects because every accepted fix is verified by auditing a temporary copy. Measured on a Linux sandbox with synthetic TypeScript projects of about 60 lines per file (wall time, one run each, so treat it as an order of magnitude):
+`plan` is fast; `fix` is slow on big projects because every accepted fix is verified by auditing a temporary copy. Measured on a Linux sandbox with synthetic TypeScript projects of about 60 lines per file (wall time, 2 or 3 runs each, noise about 5-10%, so treat it as an order of magnitude):
 
 | Files | `plan` | `fix --dry-run`, 5 fixes | `fix --dry-run`, 30 fixes | Peak memory |
 |---|---|---|---|---|
-| 100 | 0.3 s | 2.3 s | 5.8 s (only 13 fixes existed) | 183 MB |
-| 400 | 0.6 s | 11 s | 62 s | 227 MB |
-| 1500 | 3.4 s | 73 s | 413 s | 267 MB |
+| 100 | 0.3 s | 1.4 s | 2.8 s (only 13 fixes existed) | 183 MB |
+| 400 | 0.6 s | 5.6 s | 32 s | 227 MB |
+| 1500 | 3.4 s | 44 s | 240 s | 267 MB |
 
-Almost all of the time is audits: each accepted fix runs about 3 audits and one copy of the project (`node_modules`, `.git`, `dist` and `coverage` are not copied). Use `--max-fixes` to bound a run on a large project. Reusing the audit results between rounds would cut this by a third or more; that is not done yet.
+Before the audit results were reused, the same runs took 2.2 s, 10 s and 70-80 s for 5 fixes, and 5.8 s, 58 s and 420 s for 30 fixes: about 1.7x to 2.1x faster. The saving is only in propose mode (`fix` and `fix --dry-run`): the plan of each round and the verification baseline reuse the audit that was just done. `fix --apply` still audits everything, because it plans on the real project (with `.git` and `node_modules`), which a verification copy does not contain, and it was not proven that the two audits are equivalent. Each accepted fix now costs about 1 audit and one copy of the project (`node_modules`, `.git`, `dist` and `coverage` are not copied). Use `--max-fixes` to bound a run on a large project.
 
 - The fixers are conservative: when a line is ambiguous (two literals, a template with `${}`, a multi-line key) they skip it.
-- Fixes are checked by the Muraqib audit, not by your tests or a type-check. Run your own checks before merging.
+- By default fixes are checked by the Muraqib audit only, not by your tests or a type-check (a moved secret is typed `string | undefined` and can break a strict build). Add `--verify-cmd "npm run type-check"` (see above) to reject such fixes, and run your own checks before merging.
 - agent-v2 reads v1 code (the audit, the secret detector, the file scanner, the Gemini helpers) but never changes it. `tests/unit/agent-v2/v1-contract.spec.ts` fails with a clear message if v1 changes one of those surfaces.
 
 ## Layout

@@ -21,10 +21,20 @@ Three synthetic projects are created in a temp folder, each with planted problem
 
 "Issues after" stays high because most of the remaining issues are ones agent-v2 does not fix (for example missing `package.json` fields, config files) or the cases in `tricky` that are deliberately left for a human.
 
+## On code the fixers were not written for
+
+One run of `muraqib-agent fix --verify-cmd "npx tsc --noEmit" --max-fixes 10` (propose mode, nothing written to the project) on this repository itself, 3 November 2026, Linux, about 53 s. It is one run on one codebase, not a rate.
+
+- **`--verify-cmd` worked as intended.** Two "move secret to `process.env.NAME`" fixes passed the audit but broke the strict type-check (`string | undefined` is not assignable to `string`); both were rejected with the compiler output. With the audit alone they would have been accepted.
+- **False positives remain.** The secret detector (v1's patterns) matched documentation comments (`password = "..."` in a JSDoc line) and a table of detector patterns (`-----BEGIN CERTIFICATE-----`). Three such fixes were `verified` (they compile) but are not real secrets. Fixes that remove a secret are never written to the patch file and are applied only with `--apply` after a `[y/N]` question, so nothing was changed, but a person has to say no.
+- **`.env.example` noise.** The proposed file listed 19 variables, including `A`, `B`, `X` and `NAME`, which come from `process.env.X` text inside source strings and examples, not from real reads.
+
+These are open improvements, not fixed in this change: skip comment lines and detector tables in the secret detector, and ignore `process.env.X` inside string literals.
+
 ## With and without a Gemini key
 
 - **Without a key:** measured, as above. Explanations are the built-in templates (53 of 53 steps explained).
-- **With a key:** **checked once by hand, not measured.** The built-in evaluation harness never uses the network and had no key, so the table above says nothing about Gemini. Separately, one manual run with a real free key (2 November 2026, Windows, `muraqib-agent plan --explain --lang ar --max-steps 3`) ended in `llm` mode with 1 request for 3 steps, and each step got its own explanation instead of the generic template. That is one run on three steps: the quality and accuracy of Gemini explanations over many issues has not been evaluated, a second run served from the cache has not been confirmed, and the retry after a 503 has only been tested with mocks. Gemini only writes explanations and never edits code or decides whether a fix is accepted, so the fix numbers are the same with or without a key by design.
+- **With a key:** **checked once by hand, not measured.** The built-in evaluation harness never uses the network and had no key, so the table above says nothing about Gemini. Separately, one manual run with a real free key (2 November 2026, Windows, `muraqib-agent plan --explain --lang ar --max-steps 3`) ended in `llm` mode with 1 request for 3 steps, and each step got its own explanation instead of the generic template. That is one run on three steps: the quality and accuracy of Gemini explanations over many issues has not been evaluated, a second run served from the cache is covered by automated tests (mocked) but was not recorded against the real service, and the retry after a 503 has only been tested with mocks. Gemini only writes explanations and never edits code or decides whether a fix is accepted, so the fix numbers are the same with or without a key by design.
 - **What the first real run found:** the original default model `gemini-2.5-flash` answered HTTP 404 (as did `gemini-2.5-flash-lite`) even though both were still listed for the key, and two other models answered a temporary 503. The default is now the alias `gemini-flash-lite-latest`, 503 is retried, and `MURAQIB_AGENT_MODEL` overrides the model. Mocked tests could not have found this.
 
 ## How much to trust these numbers

@@ -16,6 +16,10 @@ export interface PrDescriptionOptions {
   choices?: ReadonlyMap<string, string> | undefined;
   /** Fixers to use; defaults to the registered ones. */
   fixers?: readonly Fixer[] | undefined;
+  /** Shell commands that each fix must also pass (same as `fix --verify-cmd`). */
+  verifyCommands?: string[] | undefined;
+  /** Time limit per verify command in milliseconds. */
+  verifyTimeoutMs?: number | undefined;
 }
 
 const MAX_LISTED = 10;
@@ -90,6 +94,10 @@ function testingSection(result: FixSessionResult): string[] {
   if (result.issuesBefore !== undefined && result.issuesAfter !== undefined) {
     lines.push(`- Issues reported: ${result.issuesBefore} before, ${result.issuesAfter} after the accepted fixes${result.outcomes.some((o) => o.fix.removesSecret && o.status === "verified") ? " (secret fixes are not applied in propose mode, so they still count)" : ""}.`);
   }
+  const passed = [...new Set(result.outcomes.flatMap((o) => o.commandCheck?.passed ?? []))];
+  const unusable = [...new Set(result.outcomes.flatMap((o) => o.commandCheck?.warnings ?? []))];
+  if (passed.length > 0) lines.push(`- Verify commands run on the fixed copy and passed: ${passed.map((c) => `\`${c}\``).join(", ")}.`);
+  for (const w of unusable) lines.push(`- ${w}`);
   lines.push("- Not covered by this tool: the project's own tests. Run `npm run type-check && npm run build && npm run lint && npm test` before pushing.");
   return [...lines, ""];
 }
@@ -113,6 +121,6 @@ export function formatPrDescription(plan: AgentPlan, result: FixSessionResult): 
  */
 export async function buildPrDescription(options: PrDescriptionOptions): Promise<PrDescription> {
   const plan = await createPlan({ projectRoot: options.projectRoot });
-  const result = await runFixSession({ projectRoot: options.projectRoot, mode: "propose", choices: options.choices, fixers: options.fixers ?? DEFAULT_FIXERS });
+  const result = await runFixSession({ projectRoot: options.projectRoot, mode: "propose", choices: options.choices, fixers: options.fixers ?? DEFAULT_FIXERS, verifyCommands: options.verifyCommands, verifyTimeoutMs: options.verifyTimeoutMs });
   return formatPrDescription(plan, result);
 }

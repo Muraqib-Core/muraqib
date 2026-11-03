@@ -107,11 +107,32 @@ export async function collectIssues(projectRoot: string, modules?: string[]): Pr
 }
 
 /**
+ * Ranks an already collected issue list into a plan, exactly as {@link createPlan} does after its audit.
+ * Lets callers that hold a fresh, trustworthy issue list skip the audit. Pure and deterministic.
+ */
+export function planFromIssues(projectRoot: string, issues: readonly AgentIssue[], maxSteps?: number): AgentPlan {
+  const steps = rankIssues(issues, maxSteps);
+  const failing = issues.some((i) => i.severity === "critical" || i.severity === "error");
+  return {
+    schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
+    projectRoot,
+    verdict: failing ? "fail" : "pass",
+    ok: true,
+    summary: summarize(steps),
+    steps,
+  };
+}
+
+/**
  * Builds the plan for a project: runs the v1 audit (`runAuditForAgent`), adds the agent-v2
  * secret and env detectors, then ranks everything with fixed rules. No network, no LLM.
  * Never throws: an audit failure comes back as `{ ok: false, error }`.
+ *
+ * @param options - Plan options
+ * @param onIssues - Optional sink that receives the raw, unranked issue list the plan was built from
+ *   (not called when the audit fails). Lets a caller reuse the audit without running it twice.
  */
-export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> {
+export async function createPlan(options: PlanOptions = {}, onIssues?: (issues: AgentIssue[]) => void): Promise<AgentPlan> {
   const projectRoot = options.projectRoot ?? process.cwd();
   const collected = await collectIssues(projectRoot, options.modules);
   if (!collected.ok) {
@@ -125,15 +146,6 @@ export async function createPlan(options: PlanOptions = {}): Promise<AgentPlan> 
       steps: [],
     };
   }
-  const issues = collected.issues;
-  const steps = rankIssues(issues, options.maxSteps);
-  const failing = issues.some((i) => i.severity === "critical" || i.severity === "error");
-  return {
-    schemaVersion: AGENT_PLAN_SCHEMA_VERSION,
-    projectRoot,
-    verdict: failing ? "fail" : "pass",
-    ok: true,
-    summary: summarize(steps),
-    steps,
-  };
+  onIssues?.(collected.issues);
+  return planFromIssues(projectRoot, collected.issues, options.maxSteps);
 }
