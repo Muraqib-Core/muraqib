@@ -160,7 +160,11 @@ export class CommandChecker {
       }
       return { ok: true, summary };
     } finally {
-      removeCopy(copy);
+      try {
+        removeCopy(copy);
+      } catch {
+        // The verdict is already decided; a copy a killed process still holds is left to the OS temp cleanup.
+      }
     }
   }
 

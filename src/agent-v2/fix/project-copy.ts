@@ -16,9 +16,13 @@ export function copyProject(projectRoot: string): string {
   return root;
 }
 
-/** Deletes a temporary project copy made by {@link copyProject}; missing folders are ignored. */
+/** Retries for a folder another process still holds (Windows answers `EBUSY` while a killed process exits). */
+const REMOVE_RETRIES = 10;
+const REMOVE_RETRY_DELAY_MS = 200;
+
+/** Deletes a temporary project copy made by {@link copyProject}; missing folders are ignored and busy ones are retried. */
 export function removeCopy(root: string): void {
-  rmSync(root, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true, maxRetries: REMOVE_RETRIES, retryDelay: REMOVE_RETRY_DELAY_MS });
 }
 
 /** Resolves a project-relative path and refuses anything that escapes the root. */
