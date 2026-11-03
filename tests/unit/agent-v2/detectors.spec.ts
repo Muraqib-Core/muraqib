@@ -66,4 +66,19 @@ describe("detectUndocumentedEnv", () => {
     writeProjectFile(root, "src/a.ts", 'export const a = process.env.OPTIONAL_ONE;\nexport const b = process.env["TWO"];\n');
     expect(detectUndocumentedEnv(root)).toEqual([]);
   });
+
+  test("reads names from a one-line destructuring of process.env", () => {
+    const root = project();
+    writeProjectFile(root, ".env.example", "# nothing\n");
+    writeProjectFile(root, "src/a.ts", 'const { PORT, DB_URL: dbUrl, MODE = "dev", NODE_ENV, ...rest } = process.env;\nexport { PORT, dbUrl, MODE, NODE_ENV, rest };\n');
+    const names = detectUndocumentedEnv(root).map((issue) => issue.message.split(" ")[0]);
+    expect(names).toEqual(["DB_URL", "MODE", "PORT"]);
+  });
+
+  test("destructuring of something other than process.env is not an env read", () => {
+    const root = project();
+    writeProjectFile(root, ".env.example", "# nothing\n");
+    writeProjectFile(root, "src/a.ts", "const { A, B } = config;\nexport { A, B };\n");
+    expect(detectUndocumentedEnv(root)).toEqual([]);
+  });
 });
