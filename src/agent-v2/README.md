@@ -106,7 +106,7 @@ What the detectors see was measured on small test files (2 November 2026), not g
 | `db.query(...);` or any call on an object | **no** |
 | `Promise.all([...]);` as a statement | **no** |
 | the same code in a `.js` file | **no** (v1 scans `.ts` for this check) |
-| `process.env.NAME`, `process.env["NAME"]`, `import.meta.env.NAME` missing from `.env.example` | yes |
+| `process.env.NAME`, `process.env["NAME"]`, `import.meta.env.NAME` missing from `.env.example` (not when written inside a comment or a string literal) | yes |
 | `const { NAME } = process.env` on one line (renames and defaults included) | yes |
 | the same destructuring split over several lines | **no** |
 | `process.env[someVariable]` | **no** |

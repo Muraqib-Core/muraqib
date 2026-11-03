@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { AgentIssue } from "../../agent/types.js";
 import { scanProjectFiles } from "../../utils/file-scanner.js";
 import { ENV_MARKER, loadIgnoreMatcher } from "../ignore.js";
+import { classifyCode, KIND_CODE } from "./code-mask.js";
 
 /** Module name under which agent-v2 reports environment-variable documentation gaps. */
 export const ENV_MODULE = "agent-v2-env" as const;
@@ -48,37 +49,50 @@ function destructuredNames(pattern: string): string[] {
   return names;
 }
 
+/** A variable name found on a source line, with the column where its expression starts. */
+interface NamedUsage {
+  name: string;
+  column: number;
+}
+
 /** Every environment variable named on one source line, by `process.env.X`, `process.env["X"]` or destructuring. */
-function namesOnLine(text: string): string[] {
-  const names: string[] = [];
-  for (const match of text.matchAll(ENV_USAGE)) {
-    const key = match[1] ?? match[2];
-    if (key !== undefined) names.push(key);
-  }
-  for (const match of text.matchAll(ENV_DESTRUCTURE)) names.push(...destructuredNames(match[1] ?? ""));
-  return names;
+function namesOnLine(text: string): NamedUsage[] {
+  const direct = [...text.matchAll(ENV_USAGE)].flatMap((match) => {
+    const name = match[1] ?? match[2];
+    return name === undefined ? [] : [{ name, column: match.index }];
+  });
+  const destructured = [...text.matchAll(ENV_DESTRUCTURE)].flatMap((match) =>
+    destructuredNames(match[1] ?? "").map((name) => ({ name, column: match.index })),
+  );
+  return [...direct, ...destructured];
 }
 
 /**
  * First usage (file, line) of every environment variable read in source. Lines containing
- * `muraqib-ignore-env` and files listed in `.muraqibignore` do not count as usages.
+ * `muraqib-ignore-env` and files listed in `.muraqibignore` do not count as usages, and neither
+ * does text inside a comment or a string literal (`process.env.X` in a doc comment or an example).
  */
 export function collectUsages(projectRoot: string): Map<string, EnvUsage> {
   const usages = new Map<string, EnvUsage>();
   const files = scanProjectFiles(projectRoot, ["ts", "js"], { includeTests: false });
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   const isIgnored = loadIgnoreMatcher(projectRoot);
-  for (const file of files) {
+  files.forEach((file) => {
     const relative = file.relativePath.split("\\").join("/");
-    if (isIgnored?.(relative) === true) continue;
-    file.content.split(/\r?\n/).forEach((text, index) => {
-      if (text.includes(ENV_MARKER)) return;
-      for (const key of namesOnLine(text)) {
-        if (BUILTIN_VARS.has(key) || usages.has(key)) continue;
-        usages.set(key, { file: relative, line: index + 1 });
+    if (isIgnored?.(relative) === true) return;
+    const kinds = classifyCode(file.content);
+    file.content.split("\n").reduce((offset, rawLine, index) => {
+      const text = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+      if (!text.includes(ENV_MARKER)) {
+        namesOnLine(text)
+          .filter((usage) => kinds[offset + usage.column] === KIND_CODE)
+          .forEach(({ name }) => {
+            if (!BUILTIN_VARS.has(name) && !usages.has(name)) usages.set(name, { file: relative, line: index + 1 });
+          });
       }
-    });
-  }
+      return offset + rawLine.length + 1;
+    }, 0);
+  });
   return usages;
 }
 

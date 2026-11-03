@@ -54,6 +54,13 @@ function filesContaining(root: string, value: string): string[] {
 const CONFIG = `export const stripeKey: string = "${SECRET}";\n`;
 
 describe("SecretsToEnvFixer", () => {
+  test("a key left in a comment is not rewritten: the fixer skips it and says to delete and rotate", async () => {
+    const root = project({ "src/config.ts": `export const a = 1;\n// old key: ${SECRET}\n` });
+    const results = await proposeFor(root);
+    expect(fixes(results)).toEqual([]);
+    expect(results).toContainEqual(expect.objectContaining({ kind: "skip", reason: expect.stringContaining("in a comment") }));
+  });
+
   test("replaces the literal with process.env.NAME, documents NAME= empty and passes verifyFix", async () => {
     const root = project({ "src/config.ts": `${CONFIG}export const port = process.env.PORT;\n` });
     const results = await proposeFor(root);

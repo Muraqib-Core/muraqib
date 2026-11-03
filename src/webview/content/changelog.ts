@@ -8,6 +8,24 @@ export interface ChangelogRelease {
 /** Newest first. Keep the top entry in sync with `package.json` (a unit test enforces it). */
 export const CHANGELOG: readonly ChangelogRelease[] = [
   {
+    version: "1.2.0",
+    date: "2026-11-03",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "`muraqib-agent`, a separate command: `plan` ranks what to fix first, `fix` proposes fixes proven by re-running the audit on a copy (a patch file, or `--apply` on a new branch after asking), `pr-description` and `eval`",
+          "`fix --verify-cmd` also runs your own commands (for example the type-check) on the fixed copy and rejects a fix that breaks them",
+          "Optional Gemini explanations with `plan --explain` (free key, secrets redacted, automatic fallback to built-in text)",
+        ],
+      },
+      {
+        title: "Removed",
+        items: ["The shield-and-eye logo from the documentation web view and the VS Code extension"],
+      },
+    ],
+  },
+  {
     version: "1.1.0",
     date: "2026-10-18",
     groups: [

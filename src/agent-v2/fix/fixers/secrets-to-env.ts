@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { findSecrets, type SecretType } from "../../../core/secret-detector.js";
+import { commentOnlyLines } from "../../detectors/code-mask.js";
 import { collectUsages, readDocumentedKeys } from "../../detectors/env.js";
 import type { PlanStep } from "../../types.js";
 import { resolveInside } from "../project-copy.js";
@@ -121,6 +122,7 @@ export class SecretsToEnvFixer implements Fixer {
     const lines = source.split("\n");
     const line = lines[step.line - 1];
     if (line === undefined) return `line ${step.line} not found in ${step.file}`;
+    if (commentOnlyLines(source).has(step.line)) return "the secret is in a comment: delete it by hand and rotate the credential";
     const picked = pickSecretLiteral(line);
     if (picked === undefined) return "no single quoted literal on the line is unambiguously the secret";
     const { literal, type } = picked;
