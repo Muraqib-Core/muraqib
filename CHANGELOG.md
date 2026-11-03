@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `pr-description`: writes a PR description from the real verification result. `eval`: runs the fixers on three built-in projects with known problems and reports correct, asked and wrong fixes.
   - `fix --verify-cmd <command>` (repeatable) and `--verify-timeout <s>`: also run your own commands (for example `npm run type-check`) on the fixed copy; a fix that makes a passing command fail is rejected. Commands that already fail before the fix are ignored.
   - The `.env.example` detector also reads one-line destructuring (`const { PORT, DB_URL: url } = process.env`).
+  - Fewer false positives: `process.env.X` inside comments and string literals is not an environment read, public certificates are not reported as secrets, weak secret hits on comment-only lines are dropped, and the secret fixer never rewrites a commented line.
   - Fix sessions reuse the audit already done for the round and for verification in propose mode (about 1.7x to 2.1x faster).
 
 ### Removed

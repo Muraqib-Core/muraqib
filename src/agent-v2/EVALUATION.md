@@ -23,13 +23,19 @@ Three synthetic projects are created in a temp folder, each with planted problem
 
 ## On code the fixers were not written for
 
-One run of `muraqib-agent fix --verify-cmd "npx tsc --noEmit" --max-fixes 10` (propose mode, nothing written to the project) on this repository itself, 3 November 2026, Linux, about 53 s. It is one run on one codebase, not a rate.
+Two runs of `muraqib-agent fix --verify-cmd "npx tsc --noEmit" --max-fixes 10` (propose mode, nothing written to the project) on this repository itself, 3 November 2026, Linux. It is one codebase, not a rate.
 
-- **`--verify-cmd` worked as intended.** Two "move secret to `process.env.NAME`" fixes passed the audit but broke the strict type-check (`string | undefined` is not assignable to `string`); both were rejected with the compiler output. With the audit alone they would have been accepted.
-- **False positives remain.** The secret detector (v1's patterns) matched documentation comments (`password = "..."` in a JSDoc line) and a table of detector patterns (`-----BEGIN CERTIFICATE-----`). Three such fixes were `verified` (they compile) but are not real secrets. Fixes that remove a secret are never written to the patch file and are applied only with `--apply` after a `[y/N]` question, so nothing was changed, but a person has to say no.
-- **`.env.example` noise.** The proposed file listed 19 variables, including `A`, `B`, `X` and `NAME`, which come from `process.env.X` text inside source strings and examples, not from real reads.
+| | before the comment/string filter | after |
+|---|---|---|
+| secret fixes proposed | 5 | 1 |
+| of those, rejected by `--verify-cmd` (broke the strict type-check) | 2 | 1 |
+| of those, `verified` but not a real secret | 3 | 0 |
+| variables proposed for `.env.example` | 19 (including `A`, `B`, `X`, `NAME`) | 6, all real reads (`PORT`, `NO_COLOR`, `XDG_CACHE_HOME`, ...) |
+| wall time | 53 s | 23 s |
 
-These are open improvements, not fixed in this change: skip comment lines and detector tables in the secret detector, and ignore `process.env.X` inside string literals.
+- **`--verify-cmd` worked as intended.** The secret fixes that passed the audit but broke the type-check (`string | undefined` is not assignable to `string`) were rejected with the compiler output. With the audit alone they would have been accepted.
+- **What the first run found, and what changed.** The secret detector matched documentation comments (`password = "..."` in a JSDoc line) and a table of detector patterns (`-----BEGIN CERTIFICATE-----`), and the env detector counted `process.env.X` written inside strings and comments. Now `process.env.X` inside a comment or a string literal is not a usage (inside `${}` it still is), public certificates are not reported, a weak hit on a comment-only line is dropped (a known-format key in a comment is still reported), and the fixer never rewrites a line that is a comment: it asks you to delete the key and rotate it. The scanner behind this (`detectors/code-mask.ts`) is a small tokenizer, not a parser; a wrong guess only affects the text around it.
+- **One false positive remains.** The English words "Bearer authentication token" in a description string match v1's bearer-token pattern. In this run `--verify-cmd` rejected that fix, but without it a person would have to say no at the `[y/N]` question. Fixes that remove a secret are never written to the patch file and are applied only with `--apply`.
 
 ## With and without a Gemini key
 
