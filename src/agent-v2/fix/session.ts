@@ -98,7 +98,7 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
   const skipped = new Map<string, string>();
   const tried = new Set<string>();
   const touched = new Set<string>();
-  const checker = options.verifyCommands !== undefined && options.verifyCommands.length > 0 ? new CommandChecker({ commands: options.verifyCommands, timeoutMs: options.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS, projectRoot: options.projectRoot }) : undefined;
+  const checker = makeChecker(options);
   let error: string | undefined;
   let issuesBefore: number | undefined;
   let issuesAfter: number | undefined;
@@ -133,14 +133,36 @@ export async function runFixSession(options: FixSessionOptions): Promise<FixSess
       issuesAfter = (await planRound(workRoot, known)).plan.summary.total;
     }
     const patch = options.mode === "propose" ? makePatch(options.projectRoot, workRoot, [...touched]) : "";
-    const result: FixSessionResult = { ok: error === undefined, mode: options.mode, outcomes, decisions: [...decisions.values()], skipped: [...skipped].map(([issueId, reason]) => ({ issueId, reason })), patch };
-    if (error !== undefined) result.error = error;
-    if (issuesBefore !== undefined) result.issuesBefore = issuesBefore;
-    if (issuesAfter !== undefined) result.issuesAfter = issuesAfter;
-    return result;
+    return buildResult(options.mode, { outcomes, decisions, skipped, patch, error, issuesBefore, issuesAfter });
   } finally {
     if (options.mode === "propose") removeCopy(workRoot);
   }
+}
+
+/** The optional extra check (user commands such as a type-check); `undefined` when none were given. */
+function makeChecker(options: FixSessionOptions): CommandChecker | undefined {
+  const commands = options.verifyCommands;
+  if (commands === undefined || commands.length === 0) return undefined;
+  return new CommandChecker({ commands, timeoutMs: options.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS, projectRoot: options.projectRoot });
+}
+
+/** Parts of a finished session, before they are shaped into a {@link FixSessionResult}. */
+interface SessionParts {
+  outcomes: FixOutcome[];
+  decisions: Map<string, FixDecision>;
+  skipped: Map<string, string>;
+  patch: string;
+  error: string | undefined;
+  issuesBefore: number | undefined;
+  issuesAfter: number | undefined;
+}
+
+function buildResult(mode: FixMode, parts: SessionParts): FixSessionResult {
+  const result: FixSessionResult = { ok: parts.error === undefined, mode, outcomes: parts.outcomes, decisions: [...parts.decisions.values()], skipped: [...parts.skipped].map(([issueId, reason]) => ({ issueId, reason })), patch: parts.patch };
+  if (parts.error !== undefined) result.error = parts.error;
+  if (parts.issuesBefore !== undefined) result.issuesBefore = parts.issuesBefore;
+  if (parts.issuesAfter !== undefined) result.issuesAfter = parts.issuesAfter;
+  return result;
 }
 
 /** Fixes that were accepted by the verification (applied, or verified in propose mode). */
