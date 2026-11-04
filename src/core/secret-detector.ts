@@ -11,128 +11,24 @@
  * file, in an `.env` value and in a staged diff. Everything here is pure: no I/O, no globals.
  */
 
-/** Kinds of secret that can be detected. */
-export type SecretType =
-  | "api_key"
-  | "bearer_token"
-  | "password"
-  | "private_key"
-  | "db_credential"
-  | "oauth_token"
-  | "pii"
-  | "certificate"
-  | "webhook_secret";
+import { TOKEN_FORMATS } from "./secret-formats.js";
+import type { DetectedSecret, FindSecretsOptions, SecretMatch, SecretType } from "./secret-formats.js";
+import { isExposedEnvValue, isPlaceholder, safeDecode, tryParseUrl } from "./secret-values.js";
 
-/** Detected secret with location and severity. */
-export interface DetectedSecret {
-  /** Type of secret (api_key, password, private_key, etc.) */
-  type: SecretType;
-  /** Matched text, masked so the secret itself is never exposed */
-  pattern: string;
-  /** File location if found */
-  file?: string | undefined;
-  /** Line number if found */
-  line?: number | undefined;
-  /** Confidence level (0-1) */
-  confidence: number;
-  /** Description of the secret */
-  description: string;
-}
-
-/** A {@link DetectedSecret} that also says whether it is strong enough to block a commit. */
-export interface SecretMatch extends DetectedSecret {
-  /** True for credentials that are almost certainly real; false for advisory or heuristic hits. */
-  blocking: boolean;
-}
-
-/** Options for {@link findSecrets}. */
-export interface FindSecretsOptions {
-  file?: string | undefined;
-  /** Reported for every match; computed from the match position when omitted. */
-  line?: number | undefined;
-  /** Include weak heuristics such as the numeric "PII" pattern (default true). */
-  includeHeuristics?: boolean | undefined;
-  /** Drop credential assignments whose value is an obvious placeholder (default false). */
-  ignorePlaceholders?: boolean | undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Key and value heuristics (whole-value classification)
-// ---------------------------------------------------------------------------
-
-const SENSITIVE_KEY_WORDS = new Set([
-  "PASSWORD", "PASSWD", "SECRET", "SECRETS", "TOKEN", "TOKENS",
-  "CREDENTIAL", "CREDENTIALS", "AUTH", "JWT", "APIKEY",
-]);
-
-const SENSITIVE_KEY_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ["API", "KEY"], ["PRIVATE", "KEY"], ["ACCESS", "KEY"],
-  ["ENCRYPTION", "KEY"], ["SIGNING", "KEY"],
-];
-
-const NON_SECRET_KEY_SUFFIXES = new Set([
-  "URL", "URI", "HOST", "HOSTNAME", "PORT", "PATH", "FILE", "DIR",
-  "LENGTH", "MIN", "MAX", "TTL", "TIMEOUT", "EXPIRES", "EXPIRY",
-  "IN", "SECONDS", "MINUTES", "HOURS", "DAYS", "MS", "ENABLED",
-  "DISABLED", "REQUIRED", "HEADER", "NAME", "FIELD", "ENDPOINT",
-  "ROUTE", "TYPE", "ALGORITHM", "ISSUER", "AUDIENCE",
-]);
-
-const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
-  /^<.*>$/, /^\$\{.*\}$/, /^\{\{.*\}\}$/,
-  /^(?:your|my)[-_ ].+/i, /^(?:change|replace)[-_ ]?me$/i,
-  /^x{3,}$/i, /^\*{3,}$/, /^(?:example|placeholder|todo|tbd|null|undefined|none|redacted)$/i,
-];
-
-/** Passwords that appear in documentation and local setups rather than in production. */
-const SAMPLE_CREDENTIALS = new Set([
-  "password", "pass", "passwd", "secret", "changeme", "change-me", "123456", "12345678",
-  "postgres", "root", "admin", "test", "example", "user", "username", "mysecret", "hunter2",
-]);
-
-// ---------------------------------------------------------------------------
-// Token formats: one table feeds both free-text scanning and whole-value checks
-// ---------------------------------------------------------------------------
-
-/** How a token format is recognised when it is the entire value of an env/package entry. */
-type ValueForm = "anchored" | "contains" | "none";
-
-interface TokenFormat {
-  /** Regex source for the token as it appears in text (no anchors, no flags). */
-  source: string;
-  type: SecretType;
-  confidence: number;
-  /** Blocking formats are credentials; non-blocking ones are public by design or ambiguous. */
-  blocking: boolean;
-  description: string;
-  /** Whole-value form for env/package checks; `none` for formats that are not secrets there. */
-  valueForm: ValueForm;
-  /** Extra check applied to text matches only. */
-  verify?: (match: string) => boolean;
-}
-
-/** Real keys mix letters and digits; this rejects kebab-case identifiers that merely start with `sk-`. */
-const hasLetterAndDigit = (match: string): boolean => /[A-Za-z]/.test(match) && /\d/.test(match);
-
-const TOKEN_FORMATS: readonly TokenFormat[] = [
-  { source: "\\bsk_live_[A-Za-z0-9]{20,40}\\b", type: "api_key", confidence: 0.95, blocking: true, valueForm: "anchored", description: "Stripe secret key" },
-  { source: "\\bpk_live_[A-Za-z0-9]{20,40}\\b", type: "api_key", confidence: 0.9, blocking: false, valueForm: "none", description: "Stripe public key" },
-  { source: "\\bgh[pousr]_[A-Za-z0-9]{30,}\\b", type: "api_key", confidence: 0.98, blocking: true, valueForm: "anchored", description: "GitHub personal access token" },
-  { source: "\\bgithub_pat_[A-Za-z0-9_]{22,}\\b", type: "api_key", confidence: 0.98, blocking: true, valueForm: "anchored", description: "GitHub fine-grained token" },
-  { source: "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b", type: "api_key", confidence: 0.95, blocking: true, valueForm: "anchored", description: "AWS access key ID" },
-  { source: "-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----", type: "private_key", confidence: 0.99, blocking: true, valueForm: "contains", description: "Private key PEM block" },
-  { source: "-----BEGIN CERTIFICATE-----", type: "certificate", confidence: 0.98, blocking: false, valueForm: "none", description: "SSL/TLS certificate" },
-  { source: "\\bxox[baprs]-[A-Za-z0-9-]{10,}", type: "oauth_token", confidence: 0.95, blocking: true, valueForm: "anchored", description: "Slack token" },
-  { source: "\\bsk-[A-Za-z0-9_-]{20,}", type: "api_key", confidence: 0.9, blocking: true, valueForm: "anchored", description: "API secret key (sk- prefix)", verify: hasLetterAndDigit },
-  { source: "\\bAIza[0-9A-Za-z_-]{35}", type: "api_key", confidence: 0.85, blocking: false, valueForm: "anchored", description: "Google API key" },
-  { source: "\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+", type: "oauth_token", confidence: 0.8, blocking: false, valueForm: "anchored", description: "JSON Web Token" },
-];
-
-/** Whole-value matchers for env/package entries, derived from {@link TOKEN_FORMATS}. */
-const SECRET_VALUE_PATTERNS: readonly RegExp[] = TOKEN_FORMATS.flatMap((format) => {
-  if (format.valueForm === "none") return [];
-  return [new RegExp(format.valueForm === "anchored" ? `^(?:${format.source})$` : format.source)];
-});
+export type { DetectedSecret, FindSecretsOptions, SecretMatch, SecretType } from "./secret-formats.js";
+export {
+  isExposedEnvValue,
+  isExposedPackageValue,
+  isNonSecretLiteral,
+  isPlaceholder,
+  isSensitiveKey,
+  looksLikeHighEntropySecret,
+  matchesSecretPattern,
+  shannonEntropy,
+  tokenizeKey,
+  tryParseUrl,
+  urlCarriesSecret,
+} from "./secret-values.js";
 
 // ---------------------------------------------------------------------------
 // Credential assignments and heuristics (text only)
@@ -151,14 +47,12 @@ interface AssignmentRule {
   blocking?: (value: string, match: RegExpMatchArray) => boolean;
 }
 
-/** Percent-decodes a URL component; malformed escapes (`%ZZ`) leave the text as written instead of throwing. */
-function safeDecode(text: string): string {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    return text;
-  }
-}
+
+/** Passwords that appear in documentation and local setups rather than in production. */
+const SAMPLE_CREDENTIALS = new Set([
+  "password", "pass", "passwd", "secret", "changeme", "change-me", "123456", "12345678",
+  "postgres", "root", "admin", "test", "example", "user", "username", "mysecret", "hunter2",
+]);
 
 /** The credential part of a value: the password of a URL, otherwise the value itself. */
 function credentialOf(value: string): string {
@@ -362,166 +256,3 @@ export function assessSecretRisk(secrets: DetectedSecret[]): SecretRisk {
   return { totalFound: secrets.length, criticalCount, highConfidence, risk };
 }
 
-// ---------------------------------------------------------------------------
-// Whole-value classification for env and package entries
-// ---------------------------------------------------------------------------
-
-/**
- * Tokenize key.
- *
- * @param key - Key
- * @returns Tokenize key result
- */
-export function tokenizeKey(key: string): string[] {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .split(/[^A-Za-z0-9]+/)
-    .filter(Boolean)
-    .map((word) => word.toUpperCase());
-}
-
-/**
- * Is sensitive key.
- *
- * @param key - Key
- * @param muraqibKeys - Muraqib keys
- * @returns Is sensitive key result
- */
-export function isSensitiveKey(key: string, muraqibKeys: ReadonlySet<string>): boolean {
-  if (muraqibKeys.has(key.toUpperCase())) return true;
-
-  const words = tokenizeKey(key);
-  const last = words[words.length - 1];
-  if (last !== undefined && NON_SECRET_KEY_SUFFIXES.has(last)) return false;
-
-  if (words.some((word) => SENSITIVE_KEY_WORDS.has(word))) return true;
-  for (let i = 0; i < words.length - 1; i++) {
-    if (SENSITIVE_KEY_PAIRS.some(([a, b]) => words[i] === a && words[i + 1] === b)) return true;
-  }
-  return false;
-}
-
-/**
- * Is placeholder.
- *
- * @param value - Value
- * @returns Is placeholder result
- */
-export function isPlaceholder(value: string): boolean {
-  return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(value));
-}
-
-/**
- * Is non secret literal.
- *
- * @param value - Value
- * @returns Is non secret literal result
- */
-export function isNonSecretLiteral(value: string): boolean {
-  return /^(?:true|false|yes|no|on|off)$/i.test(value) || /^\d+(?:\.\d+)?$/.test(value);
-}
-
-/**
- * Try parse url.
- *
- * @param value - Value
- * @returns Try parse url result
- */
-export function tryParseUrl(value: string): URL | undefined {
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return undefined;
-  try {
-    return new URL(value);
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Url carries secret.
- *
- * @param url - Url
- * @returns Url carries secret result
- */
-export function urlCarriesSecret(url: URL): boolean {
-  if (url.password !== "" && !isPlaceholder(safeDecode(url.password))) return true;
-  for (const [name, value] of url.searchParams) {
-    if (value !== "" && !isPlaceholder(value) && isSensitiveKey(name, new Set())) return true;
-  }
-  return false;
-}
-
-/**
- * Shannon entropy.
- *
- * @param value - Value
- * @returns Shannon entropy result
- */
-export function shannonEntropy(value: string): number {
-  const counts = new Map<string, number>();
-  for (const ch of value) counts.set(ch, (counts.get(ch) ?? 0) + 1);
-  let entropy = 0;
-  for (const count of counts.values()) {
-    const p = count / value.length;
-    entropy -= p * Math.log2(p);
-  }
-  return entropy;
-}
-
-/**
- * Looks like high entropy secret.
- *
- * @param value - Value
- * @returns Looks like high entropy secret result
- */
-export function looksLikeHighEntropySecret(value: string): boolean {
-  if (value.length < 20 || /\s/.test(value)) return false;
-  if (value.includes("://") || /^(?:[A-Za-z]:)?[\\/~.]/.test(value)) return false;
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((re) => re.test(value)).length;
-  return classes >= 3 && shannonEntropy(value) >= 3.5;
-}
-
-/**
- * Matches secret pattern.
- *
- * @param value - Value
- * @returns Matches secret pattern result
- */
-export function matchesSecretPattern(value: string): boolean {
-  if (SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value))) return true;
-  const url = tryParseUrl(value);
-  return url !== undefined && urlCarriesSecret(url);
-}
-
-/**
- * Is exposed env value.
- *
- * @param key - Key
- * @param rawValue - Raw value
- * @param muraqibKeys - Muraqib keys
- * @returns Is exposed env value result
- */
-export function isExposedEnvValue(key: string, rawValue: string, muraqibKeys: ReadonlySet<string>): boolean {
-  const value = rawValue.trim();
-  if (value === "" || isPlaceholder(value)) return false;
-  if (muraqibKeys.has(key.toUpperCase())) return true;
-  if (matchesSecretPattern(value)) return true;
-  if (tryParseUrl(value) !== undefined) return false;
-  if (isNonSecretLiteral(value)) return false;
-  if (isSensitiveKey(key, muraqibKeys)) return true;
-  return looksLikeHighEntropySecret(value);
-}
-
-/**
- * Is exposed package value.
- *
- * @param key - Key
- * @param rawValue - Raw value
- * @returns Is exposed package value result
- */
-export function isExposedPackageValue(key: string, rawValue: string): boolean {
-  const value = rawValue.trim();
-  if (value === "" || isPlaceholder(value)) return false;
-  if (matchesSecretPattern(value)) return true;
-  if (tryParseUrl(value) !== undefined || isNonSecretLiteral(value)) return false;
-  return isSensitiveKey(key, new Set());
-}
