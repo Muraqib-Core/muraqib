@@ -17,4 +17,4 @@ Append-only. Newest entries at the bottom.
 
 ## [2026-11-04] lint | wiki cleanup
 
-- Gave the hand-written docs pages wiki frontmatter and linked them from [[index]]; renamed the CLI wiki page to [[cli-routing]] to avoid clashing with the `cli` user doc.
+- Gave the hand-written docs pages wiki frontmatter and linked them from the index; renamed the CLI wiki page to [[cli-routing]] to avoid clashing with the `cli` user doc.

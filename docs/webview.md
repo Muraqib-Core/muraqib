@@ -5,7 +5,7 @@ created: 2026-11-04
 updated: 2026-11-04
 sources:
   - code: src/webview/index.ts
-verified_at: f39b88d
+verified_at: c29f4f4
 ---
 
 # Documentation web view
