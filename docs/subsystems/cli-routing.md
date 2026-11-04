@@ -9,7 +9,7 @@ sources:
   - code: src/cli/args.ts
   - code: src/cli/audit-report.ts
   - code: tests/unit/cli/lazy-ui.spec.ts
-verified_at: 9568a6b
+verified_at: f39b88d
 ---
 
 # CLI entry and command routing
@@ -41,10 +41,10 @@ Related: [[ci-commit-identity]] guards how changes to this subsystem reach `main
 
 > ⚠️ The interactive UI must stay lazy. `tests/unit/cli/lazy-ui.spec.ts` reads the source of
 > `src/cli/index.ts` and requires the literal `import("./interactive.js")` there, so the
-> dynamic import cannot move into `commands.ts`. It is passed to `runCommand` as a loader.
+> dynamic import cannot move into `src/cli/commands.ts`. It is passed to `runCommand` as a loader.
 
 > ⚠️ Set `process.exitCode`, never call `process.exit()`. Exiting truncates large piped
 > stdout at the 64KB pipe buffer (`src/cli/index.ts` entry block).
 
 > ⚠️ `src/index.ts` does `export * from "./cli/index.js"`, so `formatReport`,
-> `createAuditReport` and the option types must remain re-exported from `index.ts`.
+> `createAuditReport` and the option types must remain re-exported from `src/cli/index.ts`.

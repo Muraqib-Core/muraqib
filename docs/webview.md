@@ -1,3 +1,13 @@
+---
+title: Documentation web view
+type: reference
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: src/webview/index.ts
+verified_at: f39b88d
+---
+
 # Documentation web view
 
 > Part of the [Muraqib documentation](../README.md).

@@ -1,3 +1,13 @@
+---
+title: Development
+type: operation
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: package.json
+verified_at: f39b88d
+---
+
 # Development
 
 > Part of the [Muraqib documentation](../README.md). See also [CONTRIBUTING.md](../CONTRIBUTING.md) and [ARCHITECTURE.md](../ARCHITECTURE.md).

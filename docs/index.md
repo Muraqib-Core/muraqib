@@ -7,38 +7,48 @@ repository. The rules are in [`CLAUDE.md`](CLAUDE.md).
 
 ## Start here
 
-1. [[cli]] -- how a command reaches a guard
+1. [[install]] -- install the package
+2. [[cli]] -- command line usage
+3. [[cli-routing]] -- how a command reaches a guard
+4. [[guards]] -- what each guard checks
 
 ---
 
 ## concepts
 
-<!-- TODO: pages under Domain and product concepts. Mostly survive code changes. `- [[page-name]] -- one line` -->
+_None yet._
 
 ## architecture
 
-<!-- TODO: pages under System structure, data model, main flows. `- [[page-name]] -- one line` -->
+_None yet._
 
 ## subsystems
 
-- [[cli]] -- CLI entry, routing and module map
+- [[cli-routing]] -- CLI entry, routing and module map
 - [[ci-commit-identity]] -- PR check that rejects Claude identity or attribution
 
 ## decisions
 
-<!-- TODO: pages under Why it was decided that way (ADRs, known defects). `- [[page-name]] -- one line` -->
+_None yet._
 
 ## reference
 
-<!-- TODO: pages under Schemas, APIs, env vars -- documents you look values up in. `- [[page-name]] -- one line` -->
+- [[cli]] -- CLI options and exit codes
+- [[ai]] -- AI agent commands and API
+- [[agent-v2]] -- ranked plan, verified fixes, Gemini
+- [[guards]] -- guard lists and BaseGuard API
+- [[webview]] -- documentation web view
+- [[REFERENCE]] -- generated project reference
 
 ## operations
 
-<!-- TODO: pages under Install, deploy, checks, incident response. `- [[page-name]] -- one line` -->
+- [[install]] -- installation
+- [[ci]] -- CI/CD workflows
+- [[development]] -- local development and contributing
 
 ## history
 
-<!-- TODO: pages under Development history, lessons, migrated records. `- [[page-name]] -- one line` -->
+_None yet._
 
 ---
 

@@ -1,3 +1,13 @@
+---
+title: CLI usage
+type: reference
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: src/cli/args.ts
+verified_at: f39b88d
+---
+
 # CLI usage
 
 > Part of the [Muraqib documentation](../README.md). AI agent commands are in [ai.md](ai.md) and [agent-v2.md](agent-v2.md); CI setup is in [ci.md](ci.md).

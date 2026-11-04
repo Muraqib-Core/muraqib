@@ -1,3 +1,13 @@
+---
+title: CI/CD and workflow integration
+type: operation
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: .github/workflows/ci.yml
+verified_at: f39b88d
+---
+
 # CI/CD and workflow integration
 
 > Part of the [Muraqib documentation](../README.md). Workflow tables below are generated from `.github/workflows/`.
@@ -51,7 +61,7 @@ Workflows (generated from `.github/workflows/`):
 | Release | `.github/workflows/release.yml` | push | `release` |
 <!-- AUTO:workflows:end -->
 
-### `ci.yml` jobs
+### `.github/workflows/ci.yml` jobs
 
 <!-- AUTO:ci-jobs:start -->
 - **Lint and Build** (`lint-and-build`) (matrix: node-version 20.12.0, 22.x)
