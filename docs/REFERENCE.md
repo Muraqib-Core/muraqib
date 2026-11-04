@@ -111,7 +111,7 @@ Run `muraqib --help` for the description of each flag.
 - **Generated Docs** (`docs-check`)
 - **Security Scan** (`security-scan`)
 
-## Public API (`src/index.ts`, 208 exports)
+## Public API (`src/index.ts`, 210 exports)
 
 ### Class (23)
 
@@ -158,7 +158,7 @@ Run `muraqib --help` for the description of each flag.
 | `SECRET_IGNORE_MARKER` | Inline marker that suppresses findings on its line. | `src/core/secret-guard.ts` |
 | `SEVERITY_PENALTY` | Points removed from 100 per finding of each severity. | `src/core/scorecard.ts` |
 
-### Function (79)
+### Function (81)
 
 | Export | Description | Source |
 |--------|-------------|--------|
@@ -176,6 +176,7 @@ Run `muraqib --help` for the description of each flag.
 | `calculateScorecard` | Calculate the scorecard for a set of findings. | `src/core/scorecard.ts` |
 | `classifyIssue` | Reduce an audit issue to a {@link ScorecardFinding}. | `src/core/scorecard.ts` |
 | `composeZodSchemas` | Validate with schema composition | `src/guard/engines/zod-engine.ts` |
+| `countOccurrences` | Counts whole-identifier occurrences of `name`; every regex metacharacter in `name` is escaped. | `src/rules/dead-code-guard.ts` |
 | `createArktypeEngine` | Create an ArkType validation engine from a schema | `src/guard/engines/arktype-engine.ts` |
 | `createAuditReport` | Create audit report. | `src/cli/audit-report.ts` |
 | `createCustomEngine` | Create a custom validation engine | `src/guard/engines/custom-engine.ts` |
@@ -240,6 +241,7 @@ Run `muraqib --help` for the description of each flag.
 | `scorecardFromReport` | Build the scorecard and the data behind it from a CLI audit report. | `src/cli/scorecard-markdown.ts` |
 | `scoreDomainOf` | Attribute an issue to a domain. Precedence: package/image advisories, then the scan category, then the producing module, then a `security`/`dependencies` tag; everything else is code quality. | `src/core/scorecard.ts` |
 | `scoreSeverityOf` | Map an issue to a score severity. The scan layer's five-level `level` wins when present; otherwise the guard severity maps `error` to high and `warning` to medium. | `src/core/scorecard.ts` |
+| `stripStringsAndComments` | Cuts the line at the first `//` and collapses string literals to `""`. Single linear pass: an unterminated quote of one kind cannot be closed by any later quote of the same kind, so it is remembered and never rescanned. | `src/rules/dead-code-guard.ts` |
 | `uninstallHooks` | Remove the Muraqib hooks. Every managed hook is removed unless `prePush` is the only one asked for. The default `.git/hooks` directory is checked too, so blocks left from before `core.hooksPath` was set are cleaned up. | `src/hooks/install.ts` |
 
 ### Interface (76)
