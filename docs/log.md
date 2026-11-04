@@ -13,4 +13,8 @@ Append-only. Newest entries at the bottom.
 
 ## [2026-11-04] seed | grow mode
 
-- Started in grow mode; wrote [[cli]] and [[ci-commit-identity]] from the code just refactored.
+- Started in grow mode; wrote [[cli-routing]] and [[ci-commit-identity]] from the code just refactored.
+
+## [2026-11-04] lint | wiki cleanup
+
+- Gave the hand-written docs pages wiki frontmatter and linked them from the index; renamed the CLI wiki page to [[cli-routing]] to avoid clashing with the `cli` user doc.

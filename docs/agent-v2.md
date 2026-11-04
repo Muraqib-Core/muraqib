@@ -1,3 +1,13 @@
+---
+title: Agent v2
+type: reference
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: src/agent-v2/cli.ts
+verified_at: f39b88d
+---
+
 # 🛠️ Agent v2: ranked plan, verified fixes, optional Gemini
 
 > Part of the [Muraqib documentation](../README.md). See also [ai.md](ai.md) and [cli.md](cli.md).

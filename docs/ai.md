@@ -1,3 +1,13 @@
+---
+title: AI agents
+type: reference
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: src/agent/index.ts
+verified_at: f39b88d
+---
+
 # 🤖 AI agents (Claude Code, Cursor, MCP clients)
 
 > Part of the [Muraqib documentation](../README.md). See also [agent-v2.md](agent-v2.md) and [cli.md](cli.md).

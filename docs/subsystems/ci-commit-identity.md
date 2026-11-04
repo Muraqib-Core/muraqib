@@ -7,7 +7,7 @@ sources:
   - code: scripts/check-commit-identity.mjs
   - code: .github/workflows/commit-identity.yml
   - code: tests/unit/check-commit-identity.spec.ts
-verified_at: 9568a6b
+verified_at: f39b88d
 ---
 
 # Commit identity check
@@ -16,7 +16,7 @@ Every pull request runs `scripts/check-commit-identity.mjs` over `base..head`. I
 author or committer name or email matches `claude` or `anthropic.com`, or if a message
 contains `Co-Authored-By: Claude`, `Claude-Session:` or `Generated with Claude Code`. This
 enforces the rule in the root `CLAUDE.md` that everything pushed carries the project
-owner's identity. The CLI it protects is described in [[cli]].
+owner's identity. The CLI it protects is described in [[cli-routing]].
 
 > ⚠️ The workflow checks out the PR head SHA, not the synthetic merge commit, and needs
 > `fetch-depth: 0`; otherwise the range contains the wrong commits (`.github/workflows/commit-identity.yml`).

@@ -374,10 +374,13 @@ function injectBlocks(rel) {
 for (const file of ["README.md", "API.md", "CONTRIBUTING.md", ...docPages]) injectBlocks(file);
 
 const referencePath = "docs/REFERENCE.md";
+const referenceOriginal = existsSync(join(root, referencePath)) ? read(referencePath) : "";
+// Keep the wiki frontmatter (verified_at is maintained by /docs-sync, not by this script).
+const referenceFrontmatter = /^---\n[\s\S]*?\n---\n\n/.exec(referenceOriginal)?.[0] ?? "";
 targets.push({
   rel: referencePath,
-  original: existsSync(join(root, referencePath)) ? read(referencePath) : "",
-  updated: renderReference({ guards, api, flags, commands, workflows }),
+  original: referenceOriginal,
+  updated: referenceFrontmatter + renderReference({ guards, api, flags, commands, workflows }),
 });
 
 const stale = targets.filter((t) => t.original !== t.updated);

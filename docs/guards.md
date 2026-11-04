@@ -1,3 +1,13 @@
+---
+title: Guards and checks
+type: reference
+created: 2026-11-04
+updated: 2026-11-04
+sources:
+  - code: src/core/base-guard.ts
+verified_at: f39b88d
+---
+
 # Guards and checks
 
 > Part of the [Muraqib documentation](../README.md). The guard table below is generated; see [REFERENCE.md](REFERENCE.md) for the full generated reference.
@@ -173,8 +183,8 @@ interface AuditContext {
 
 ## Adding a New Guard
 
-1. Create `src/core/new-guard.ts` extending `BaseGuard`
+1. Create a new file under `src/core/` extending `BaseGuard`
 2. Implement `async execute(): Promise<AuditResult>`
 3. Export from `src/index.ts`
-4. Add tests in `tests/unit/core/new-guard.spec.ts`
+4. Add tests under `tests/unit/core/`
 5. Update the guard documentation (this file) with guard details
