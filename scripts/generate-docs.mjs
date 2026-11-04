@@ -27,7 +27,7 @@ const checkOnly = process.argv.includes("--check");
 
 const read = (rel) => readFileSync(join(root, rel), "utf8");
 const readJson = (rel) => JSON.parse(read(rel));
-const escapeCell = (text) => String(text).replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+const escapeCell = (text) => String(text).replace(/[\\|]/g, "\\$&").replace(/\s+/g, " ").trim();
 const major = (range) => String(range ?? "").replace(/^[^\d]*/, "").split(".")[0] ?? "";
 const minVersion = (range) => String(range ?? "").replace(/^[^\d]*/, "");
 

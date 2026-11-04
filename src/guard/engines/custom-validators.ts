@@ -4,6 +4,21 @@
 import type { ValidationIssue } from "./custom-engine.js";
 
 /**
+ * Linear-time check equivalent to /^[^\s@]+@[^\s@]+\.[^\s@]+$/: no whitespace, exactly one `@`,
+ * a non-empty local part, and a domain with a `.` that has at least one character on each side.
+ */
+function isEmailShape(value: string): boolean {
+  if (/\s/.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at < 1 || value.indexOf("@", at + 1) !== -1) return false;
+  const domain = value.slice(at + 1);
+  for (let i = 1; i < domain.length - 1; i++) {
+    if (domain[i] === ".") return true;
+  }
+  return false;
+}
+
+/**
  * Common validators for reuse
  */
 export const commonValidators = {
@@ -82,8 +97,7 @@ export const commonValidators = {
    */
   isEmail: (data: unknown): ValidationIssue[] | null => {
     if (typeof data !== "string") return null;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data)) {
+    if (!isEmailShape(data)) {
       return [
         {
           field: "root",

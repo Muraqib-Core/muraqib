@@ -19,6 +19,26 @@ export function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_PATTERN.test(key);
 }
 
+const URL_AUTHORITY_PREFIX = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^@/\s]+)@/;
+
+/**
+ * JWT shape: `ey` + header, `.`, payload, optional further segments.
+ * Segment classes are disjoint from the `.` separator and the tail class only
+ * follows a single mandatory character, so matching is linear.
+ */
+const JWT_PATTERN = /^ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=][A-Za-z0-9-_.+/=]*$/;
+
+/**
+ * Detects `scheme://user:pass@` without ambiguous quantifiers: the userinfo is
+ * captured once (linear) and the `user:pass` colon is located with indexOf.
+ */
+function hasUrlCredentials(value: string): boolean {
+  const userinfo = URL_AUTHORITY_PREFIX.exec(value)?.[1];
+  if (userinfo === undefined) return false;
+  const colon = userinfo.indexOf(":", 1);
+  return colon !== -1 && colon <= userinfo.length - 2;
+}
+
 /**
  * Is sensitive value.
  *
@@ -29,12 +49,12 @@ export function isSensitiveValue(value: string): boolean {
   if (!value) return false;
 
   // URL with credentials (e.g. postgres://user:pass@host/db)
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^@/\s]+:[^@/\s]+@/i.test(value)) {
+  if (hasUrlCredentials(value)) {
     return true;
   }
 
   // JWT pattern (ey...)
-  if (/^ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/.test(value)) {
+  if (JWT_PATTERN.test(value)) {
     return true;
   }
 

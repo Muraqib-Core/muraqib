@@ -1,0 +1,5 @@
+name: Muraqib CodeQL config
+
+# Sample applications under examples/ are illustrative code, not shipped product code.
+paths-ignore:
+  - examples/**
