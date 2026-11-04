@@ -321,6 +321,19 @@ describe("commonValidators", () => {
   });
 
   describe("isEmail", () => {
+    it("keeps accepting and rejecting the same shapes", () => {
+      for (const ok of ["a@b.c", "a.b+c@d.example.org", "x@y..z"]) expect(commonValidators.isEmail(ok)).toBeNull();
+      for (const bad of ["", "@b.c", "a@.c", "a@b.", "a@b", "a@@b.c", "a@b@c.d", "a b@c.d", "a@b .c"]) {
+        expect(commonValidators.isEmail(bad)).not.toBeNull();
+      }
+    });
+
+    it("is linear on adversarial input", () => {
+      const start = performance.now();
+      commonValidators.isEmail("a@" + ".".repeat(100_000));
+      commonValidators.isEmail("a@" + "a.".repeat(50_000) + " ");
+      expect(performance.now() - start).toBeLessThan(1000);
+    });
     it("should validate emails", () => {
       const errors = commonValidators.isEmail("test@example.com");
       expect(errors).toBeNull();

@@ -73,15 +73,55 @@ function resolveStarReExports(barrelPath: string, content: string, knownFiles: S
   return resolved;
 }
 
-function countOccurrences(content: string, name: string): number {
-  const escaped = name.replace(/\$/g, "\\$");
+/** Counts whole-identifier occurrences of `name`; every regex metacharacter in `name` is escaped. */
+export function countOccurrences(content: string, name: string): number {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return (content.match(new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "g")) ?? []).length;
 }
 
-function stripStringsAndComments(line: string): string {
-  return line
-    .replace(/\/\/.*$/, "")
-    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g, '""');
+const LINE_TERMINATORS = new Set(["\n", "\r", "\u2028", "\u2029"]);
+
+/** Index just past the closing `quote` of a literal opened at `open`, or -1 when it is unterminated. Linear. */
+function findStringEnd(line: string, open: number, quote: string): number {
+  for (let i = open + 1; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === quote) return i + 1;
+    if (ch === "\\") {
+      const next = line[i + 1];
+      if (next === undefined || LINE_TERMINATORS.has(next)) return -1;
+      i++;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Cuts the line at the first `//` and collapses string literals to `""`.
+ * Single linear pass: an unterminated quote of one kind cannot be closed by any later quote of the
+ * same kind, so it is remembered and never rescanned.
+ */
+export function stripStringsAndComments(line: string): string {
+  const commentAt = line.indexOf("//");
+  const code = commentAt === -1 ? line : line.slice(0, commentAt);
+  const unterminated = new Set<string>();
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i] ?? "";
+    if ((ch === '"' || ch === "'" || ch === "`") && !unterminated.has(ch)) {
+      const end = findStringEnd(code, i, ch);
+      if (end === -1) {
+        unterminated.add(ch);
+      } else {
+        out += '""';
+        i = end;
+        continue;
+      }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
 function bracketDelta(line: string): number {
