@@ -1,0 +1,38 @@
+name: Commit Identity
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: jobs only read the repository.
+permissions:
+  contents: read
+
+jobs:
+  check-commit-identity:
+    name: Check commit identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Check out the PR head itself (not the synthetic merge commit) with full history.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20.x
+
+      # Fails on a Claude/anthropic.com author or committer, or Claude attribution trailers.
+      - name: Verify commit author, committer and messages
+        run: node scripts/check-commit-identity.mjs "$BASE_SHA" "$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}

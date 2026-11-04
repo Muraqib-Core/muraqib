@@ -69,3 +69,34 @@ test("CompatibilityEngine: evaluates the whole engines.node range against the ru
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("CompatibilityEngine: flags TypeScript 5 with ESLint 7 but accepts newer ESLint", async () => {
+  const engine = new CompatibilityEngine();
+  const scan = (eslint: string) =>
+    engine.scan({ projectPath: process.cwd(), files: [], dependencies: { typescript: "^5.4.0", eslint } });
+
+  const bad = await scan("^7.32.0");
+  assert.equal(bad.findings.length, 1);
+  assert.match(bad.findings[0]?.title ?? "", /typescript & eslint/);
+  assert.equal((await scan("^9.0.0")).findings.length, 0);
+});
+
+test("CompatibilityEngine: scan succeeds with no findings when package.json is missing", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "compat-nopkg-"));
+  try {
+    const result = await new CompatibilityEngine().scan({ projectPath: dir, files: [] });
+    assert.equal(result.status, "success");
+    assert.deepEqual(result.findings, []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("CompatibilityEngine: skips pairings whose versions cannot be parsed", async () => {
+  const result = await new CompatibilityEngine().scan({
+    projectPath: process.cwd(),
+    files: [],
+    dependencies: { react: "latest", next: "workspace:*" },
+  });
+  assert.equal(result.findings.length, 0);
+});

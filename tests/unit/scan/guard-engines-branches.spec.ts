@@ -102,3 +102,15 @@ describe("resolveValidationEngine", () => {
     expect(resolveValidationEngine("zod").name).toBe("zod");
   });
 });
+
+describe("ArkTypeValidationEngine type errors", () => {
+  it("reports arktype schema violations for non-string runtime values", async () => {
+    const result = await new ArkTypeValidationEngine().validate(
+      { DATABASE_URL: 123 as unknown as string },
+      ["postgres"]
+    );
+    const error = result.errors.find((e) => e.path[0] === "DATABASE_URL");
+    expect(error).toBeDefined();
+    expect(typeof error?.message).toBe("string");
+  });
+});

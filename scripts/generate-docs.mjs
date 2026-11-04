@@ -10,7 +10,7 @@
  * Two kinds of output:
  *   1. docs/REFERENCE.md                       - fully generated file.
  *   2. <!-- AUTO:name:start --> ... <!-- AUTO:name:end --> blocks inside hand-written
- *      Markdown files (README.md, API.md, CONTRIBUTING.md). Only the content between
+ *      Markdown files (README.md, API.md, CONTRIBUTING.md, docs/*.md). Only the content between
  *      the markers is replaced; everything else stays under human control.
  *
  * Output is deterministic (no timestamps, sorted lists) so `--check` has no false positives.
@@ -350,6 +350,12 @@ const blocks = {
 
 const targets = [];
 
+/** Hand-written pages under docs/ that may contain AUTO blocks. */
+const docPages = readdirSync(join(root, "docs"))
+  .filter((f) => f.endsWith(".md") && f !== "REFERENCE.md")
+  .sort()
+  .map((f) => `docs/${f}`);
+
 /** Replace the content of every AUTO block in a hand-written file. */
 function injectBlocks(rel) {
   const original = read(rel);
@@ -365,7 +371,7 @@ function injectBlocks(rel) {
   targets.push({ rel, original, updated });
 }
 
-for (const file of ["README.md", "API.md", "CONTRIBUTING.md"]) injectBlocks(file);
+for (const file of ["README.md", "API.md", "CONTRIBUTING.md", ...docPages]) injectBlocks(file);
 
 const referencePath = "docs/REFERENCE.md";
 targets.push({

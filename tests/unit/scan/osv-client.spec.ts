@@ -118,4 +118,42 @@ describe("queryOsv safety", () => {
     const result = await queryOsv("a", "1.0.0");
     expect(result).toEqual({ status: "unavailable", error: expect.stringContaining("OSV_API_URL") });
   });
+
+  test("ignores chunks that arrive after the size limit already aborted the request", async () => {
+    const result = await withServer(
+      (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        const chunk = Buffer.alloc(3 * 1024 * 1024, "a");
+        let sent = 0;
+        const timer = setInterval(() => {
+          if (res.destroyed || sent >= 6) {
+            clearInterval(timer);
+            return;
+          }
+          sent += 1;
+          res.write(chunk);
+        }, 5);
+        res.on("close", () => clearInterval(timer));
+      },
+      (queryOsv) => queryOsv("big", "1.0.0")
+    );
+    expect(result.status).toBe("error");
+    expect(result.status === "error" && result.error).toContain("5 MiB");
+  });
+
+  test("a socket timeout after the response completed does not change the result", async () => {
+    const result = await withServer(
+      (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ vulns: [] }));
+      },
+      async (queryOsv) => {
+        const outcome = await queryOsv("ok", "1.0.0");
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return outcome;
+      },
+      "100"
+    );
+    expect(result.status).toBe("success");
+  });
 });

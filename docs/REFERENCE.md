@@ -50,9 +50,9 @@
 
 ## CLI
 
-Commands: `agent`, `audit`, `context`, `resolve`, `tool-schema`
+Commands: `audit`
 
-Flags: `--ai-advisory`, `--docker`, `--docker-native`, `--engine`, `--env`, `--fail-on-warning`, `--format`, `--help`, `--interactive`, `--json`, `--max-issues`, `--modules`, `--no-interactive`, `--osv`, `--output`, `--package`, `--path`, `--presets`, `--project`, `--report`, `--safe`, `--schedule`, `--security-url`, `--silent`, `--upgrade`, `--url`, `--verbose`, `--version`
+Flags: `--path`, `--presets`, `--safe`, `--schedule`, `--silent`, `--upgrade`, `--url`
 
 Run `muraqib --help` for the description of each flag.
 
@@ -84,6 +84,8 @@ Run `muraqib --help` for the description of each flag.
 | agent-v2 on Windows | `.github/workflows/agent-v2-windows.yml` | pull_request | `windows` |
 | Audit | `.github/workflows/audit.yml` | push, pull_request, workflow_dispatch | `audit` |
 | CI/CD Pipeline | `.github/workflows/ci.yml` | push, pull_request | `lint-and-build`, `test-and-coverage`, `self-audit`, `extension`, `quality-gate`, `package-contents`, `docs-check`, `security-scan` |
+| CodeQL | `.github/workflows/codeql.yml` | push, pull_request, schedule | `analyze` |
+| Commit Identity | `.github/workflows/commit-identity.yml` | pull_request | `check-commit-identity` |
 | Docs | `.github/workflows/docs.yml` | push, schedule, workflow_dispatch | `refresh` |
 | Release VS Code extension | `.github/workflows/extension-release.yml` | push | `release` |
 | Release | `.github/workflows/release.yml` | push | `release` |
@@ -165,7 +167,7 @@ Run `muraqib --help` for the description of each flag.
 | `classifyIssue` | Reduce an audit issue to a {@link ScorecardFinding}. | `src/core/scorecard.ts` |
 | `composeZodSchemas` | Validate with schema composition | `src/guard/engines/zod-engine.ts` |
 | `createArktypeEngine` | Create an ArkType validation engine from a schema | `src/guard/engines/arktype-engine.ts` |
-| `createAuditReport` | Create audit report. | `src/cli/index.ts` |
+| `createAuditReport` | Create audit report. | `src/cli/audit-report.ts` |
 | `createCustomEngine` | Create a custom validation engine | `src/guard/engines/custom-engine.ts` |
 | `createEnv` | Create env. | `src/env/core.ts` |
 | `createEnvWithPresets` | Create env with presets. | `src/env/presets.ts` |
@@ -254,16 +256,16 @@ Run `muraqib --help` for the description of each flag.
 | `CliOptions` | - | `src/cli/types.ts` |
 | `CompatibilityAuditResult` | Result of a compatibility audit of a project's package.json. | `src/core/compatibility-guard.ts` |
 | `CompatibilityFinding` | A single structured compatibility finding. | `src/core/compatibility-guard.ts` |
-| `ConfigAuditResult` | - | `src/core/config-guard.ts` |
-| `ConfigIssue` | - | `src/core/config-guard.ts` |
+| `ConfigAuditResult` | - | `src/core/config-types.ts` |
+| `ConfigIssue` | Shared config audit result types. | `src/core/config-types.ts` |
 | `CreateEnvOptions` | - | `src/env/options.ts` |
 | `CustomValidationResult` | - | `src/guard/engines/custom-engine.ts` |
 | `DeadCodeAuditResult` | Result of a dead code audit | `src/rules/dead-code-guard.ts` |
 | `DependencyAuditResult` | - | `src/core/dependency-guard.ts` |
-| `DetectedSecret` | Detected secret with location and severity. | `src/core/secret-detector.ts` |
+| `DetectedSecret` | Detected secret with location and severity. | `src/core/secret-formats.ts` |
 | `DomainBreakdown` | - | `src/core/scorecard.ts` |
 | `EnvGuardOptions` | - | `src/core/env-guard.ts` |
-| `FindSecretsOptions` | Options for {@link findSecrets}. | `src/core/secret-detector.ts` |
+| `FindSecretsOptions` | Options for {@link findSecrets }. | `src/core/secret-formats.ts` |
 | `GuardFinding` | A structured finding produced by a guard's internal audit. `code` is stable and never derived from message text; `file`/`line` are present only for findings tied to a source location. | `src/core/types.ts` |
 | `GuardOptions` | - | `src/core/types.ts` |
 | `HookOutcome` | What happened to one hook file. | `src/hooks/install.ts` |
@@ -295,7 +297,7 @@ Run `muraqib --help` for the description of each flag.
 | `ScoreSlice` | Score for one slice of the findings (the whole project, or a single domain). | `src/core/scorecard.ts` |
 | `SecretDetectionResult` | - | `src/core/types.ts` |
 | `SecretGuardOptions` | Options accepted by {@link SecretGuard}. | `src/core/secret-guard.ts` |
-| `SecretMatch` | A {@link DetectedSecret} that also says whether it is strong enough to block a commit. | `src/core/secret-detector.ts` |
+| `SecretMatch` | A {@link DetectedSecret} that also says whether it is strong enough to block a commit. | `src/core/secret-formats.ts` |
 | `SecretRisk` | Risk assessment for a set of detected secrets. | `src/core/secret-detector.ts` |
 | `SecretScanTarget` | The added lines of one file. | `src/core/secret-guard.ts` |
 | `SecurityAuditOptions` | Options accepted by {@link SecurityGuard}. | `src/core/security-guard.ts` |
@@ -335,6 +337,6 @@ Run `muraqib --help` for the description of each flag.
 | `ScoreDomain` | - | `src/core/scorecard.ts` |
 | `ScoreGrade` | Letter grade for a score. | `src/core/scorecard.ts` |
 | `ScoreSeverity` | - | `src/core/scorecard.ts` |
-| `SecretType` | Kinds of secret that can be detected. | `src/core/secret-detector.ts` |
+| `SecretType` | Kinds of secret that can be detected. | `src/core/secret-formats.ts` |
 | `SecurityFinding` | A structured security finding. `code` is stable and never derived from message text. | `src/core/security-guard.ts` |
 | `ValidationFn` | - | `src/guard/engines/custom-engine.ts` |
