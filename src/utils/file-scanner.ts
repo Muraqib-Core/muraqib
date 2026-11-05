@@ -54,7 +54,7 @@ export function scanProjectFiles(
     } catch {
       continue;
     }
-    scannedFiles.push({ path: file, relativePath: path.relative(targetPath, file), content });
+    scannedFiles.push({ path: file, relativePath: path.relative(targetPath, file).split(path.sep).join("/"), content });
   }
 
   return scannedFiles;

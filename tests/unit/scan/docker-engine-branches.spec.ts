@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DockerScanner } from "../../../src/scan/scanners/docker/docker-engine.js";
 import type { ScanResult } from "../../../src/scan/core/contracts/scanner-engine.js";
+import { canSymlink } from "../symlink-support.js";
 
 type DockerCall = { args: string[]; cwd: string };
 
@@ -75,7 +76,7 @@ describe("Dockerfile analysis", () => {
     expect(result.findings.find((f) => f.code === "SE-01")?.location?.line).toBe(3);
   });
 
-  it("skips Dockerfiles outside the project, oversized ones and symlinks that escape", async () => {
+  it.skipIf(!canSymlink)("skips Dockerfiles outside the project, oversized ones and symlinks that escape", async () => {
     const outside = await fs.mkdtemp(path.join(os.tmpdir(), "muraqib-outside-"));
     try {
       await fs.writeFile(path.join(outside, "Dockerfile"), "FROM alpine:3\n");
@@ -280,7 +281,7 @@ describe("Compose build contexts", () => {
     }
   });
 
-  it("skips builds whose Dockerfile or ignore file cannot be used", async () => {
+  it.skipIf(!canSymlink)("skips builds whose Dockerfile or ignore file cannot be used", async () => {
     await write("sub/placeholder", "");
     expect((await scanBuild("sub")).diagnostics?.some((d) => d.includes("Dockerfile inaccessible"))).toBe(true);
 
@@ -308,7 +309,7 @@ describe("Compose build contexts", () => {
     expect((await scanBuild("sub")).diagnostics?.some((d) => d.includes("Ignore file unreadable"))).toBe(true);
   });
 
-  it("skips sensitive files that are symlinks leaving the context", async () => {
+  it.skipIf(!canSymlink)("skips sensitive files that are symlinks leaving the context", async () => {
     const outside = await fs.mkdtemp(path.join(os.tmpdir(), "muraqib-outside-"));
     try {
       await fs.writeFile(path.join(outside, "secret"), "x");
