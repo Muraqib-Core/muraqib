@@ -25,6 +25,7 @@ _None yet._
 ## subsystems
 
 - [[cli-routing]] -- CLI entry, routing and module map
+- [[git-hooks]] -- where `muraqib hook install` writes hooks
 - [[ci-commit-identity]] -- PR check that rejects Claude identity or attribution
 
 ## decisions
