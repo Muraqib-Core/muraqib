@@ -124,7 +124,8 @@ describe("runPreCommit", () => {
     stage(repo, { "big.ts": `${lines.join("\n")}\n`, "docs/readme.md": "# docs\n".repeat(2000) });
     const started = performance.now();
     expect(await runPreCommit(repo, {}, capture().io)).toBe(0);
-    expect(performance.now() - started).toBeLessThan(1000);
+    // Process spawning is several times slower on Windows, so only the order of magnitude is checked there.
+    expect(performance.now() - started).toBeLessThan(process.platform === "win32" ? 5000 : 1000);
   });
 });
 
@@ -212,7 +213,8 @@ describe("runPrePush", () => {
     let seen = "";
     const { io, err } = capture();
     expect(await runPrePush(root, {}, io, async (gitRoot) => ((seen = gitRoot), [result("scan", [])]))).toBe(0);
-    expect(seen).toBe(root);
+    // git reports forward slashes even on Windows
+    expect(seen.replace(/\\/g, "/")).toBe(root.replace(/\\/g, "/"));
     expect(err).toEqual([]);
   });
 
