@@ -1,8 +1,16 @@
 # Muraqib for VS Code
 
-Run the Muraqib audit engine (security, performance, dependency, Docker and configuration checks) from inside VS Code. Results appear in the **Problems** panel, in a status bar counter, and in a report view that groups issues by severity and by module, with scanner coverage and diagnostics. The report supports Arabic and right-to-left layouts.
+Run security, performance, dependency, Docker and configuration audits on your project from inside VS Code, and see the results where you already work: the **Problems** panel, a status bar counter, and a report that groups issues by severity and by module. The report supports Arabic and right-to-left layouts.
 
-The extension is a thin client of `muraqib-core`: it calls `runAuditForAgent` for audits and `getWebviewHtml` for the documentation page. It never edits your code.
+Muraqib is built to catch the mistakes that AI-generated code tends to leave behind: hardcoded secrets, missing `await`, environment variables that are used but never documented, risky configuration, and vulnerable dependencies.
+
+## Get started
+
+1. Install **Muraqib** from the Extensions view (or run `ext install muraqib-core.muraqib-vscode`).
+2. Open a project folder and trust the workspace when VS Code asks.
+3. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run **Muraqib: Run Audit**.
+
+The audit opens a report, fills the Problems panel with findings you can click to jump to the code, and shows a counter in the status bar. Click the status bar item to reopen the last report.
 
 ## Commands
 
@@ -10,98 +18,39 @@ The extension is a thin client of `muraqib-core`: it calls `runAuditForAgent` fo
 | --- | --- |
 | `Muraqib: Run Audit` | Audits the workspace folder, opens the report, fills the Problems panel and the status bar. |
 | `Muraqib: Show Documentation` | Opens the Muraqib documentation page (offline, no network). |
-| `Muraqib: Show Last Report` | Re-opens the most recent report (also what the status bar item does on click). |
+| `Muraqib: Show Last Report` | Re-opens the most recent report. |
 
-Findings are data, not crashes: a failing verdict (exit code 1) or an audit that could not run reliably (`ok: false`, exit code 3) is shown in the report and status bar. The extension never sets `process.exitCode`.
+A failing verdict, or an audit that could not run reliably, is shown in the report and status bar rather than as an error popup.
 
 ## Settings
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `muraqib.modules` | `[]` | Only run modules whose name contains one of these strings (`security`, `memory`, `docker`, ...). |
-| `muraqib.osv` | `false` | Include OSV dependency vulnerability scanning (contacts the OSV service). |
+| `muraqib.modules` | `[]` | Only run modules whose name contains one of these strings (`security`, `memory`, `docker`, ...). Empty runs everything. |
+| `muraqib.osv` | `false` | Include dependency vulnerability scanning (contacts the OSV service). |
 | `muraqib.docker` | `false` | Include Docker discovery and Dockerfile analysis. |
-| `muraqib.securityUrl` | `""` | `http(s)` URL of a running service for HTTP security-header checks. Other schemes are ignored. |
+| `muraqib.securityUrl` | `""` | `http(s)` URL of a running service to check its HTTP security headers. Empty skips the check. |
 | `muraqib.failOnWarning` | `false` | Treat warnings as a failing verdict. |
 | `muraqib.maxIssues` | `500` | Cap on returned issues; `0` means no limit. |
 
-The AI advisory option is deliberately not exposed, because it would send project data to an external service.
+## Privacy and safety
 
-## Security model
+- **Your code stays on your machine.** Audits run locally. The only network requests are the ones you turn on: `muraqib.osv` contacts the OSV vulnerability service, and `muraqib.securityUrl` contacts the URL you give it.
+- **No AI service is contacted.** The AI advisory option of the Muraqib engine is deliberately not exposed in this extension.
+- **It never edits your code.** The extension only reads files and reports findings.
+- **Trusted, local workspaces only.** Muraqib reads project files, so it does not run in untrusted or virtual workspaces.
+- The report view has a strict Content-Security-Policy (no network, no remote resources), and "open file at line" only opens existing files inside your workspace.
 
-- The report webview has a strict Content-Security-Policy (`default-src 'none'`, nonce-only inline style and script, no network, no remote resources).
-- Every dynamic string (messages, titles, paths, module and scanner names, diagnostics) goes through `escapeHtml`; the inline script is a constant that only reads `data-*` attributes.
-- Every message from the webview is validated by a type guard (`parseWebviewMessage`); malformed messages are ignored.
-- **Open file at line** only opens a path that (1) appears in the last report, (2) stays inside the workspace after resolving `..` and symlinks, and (3) is an existing regular file.
-- The extension requires a trusted, local workspace.
+## Requirements
 
-## Development
+VS Code 1.85 or newer, and a local project folder.
 
-The extension lives in `extension/` and has its own `package.json`, lock file, `tsconfig` and tests. It depends on the repository build of `muraqib-core` through `"muraqib-core": "file:.."` (an npm symlink to the repository root), so it always uses the audit engine in this checkout.
+## More
 
-```bash
-# 1. Build and install the core (repository root)
-npm ci
-npm run build
-
-# 2. Build and test the extension
-cd extension
-npm install
-npm run type-check
-npm run lint          # reuses the root ESLint config
-npm run build
-npm test
-```
-
-`npm run build:core` in `extension/` rebuilds the root package. `muraqib-core` is ESM-only and the extension host loads CommonJS, so the extension reaches it with a dynamic `import()` (see `src/host/engine.ts`) and borrows its types through `src/core/types.ts`.
-
-To try it: open the repository in VS Code and press F5 with an "Extension Development Host" launch configuration, or run `code --extensionDevelopmentPath=$PWD/extension <folder-to-audit>`.
-
-### Layout
-
-```
-extension/
-  src/core/   pure logic, no `vscode` import (unit-tested)
-    messages.ts      typed postMessage protocol + type guards
-    path-safety.ts   workspace containment, traversal and symlink checks
-    open-request.ts  "open file at line" authorization
-    report-html.ts   report renderer (CSP, escaping, RTL)
-    report-assets.ts constant CSS / JS for the webview
-    diagnostics.ts   issue -> Problems panel mapping
-    status.ts        status bar text
-    settings.ts      settings -> engine options
-    session.ts       audit orchestration behind injected ports
-  src/host/   thin VS Code adapter (not unit-tested; keep it small)
-    extension.ts     commands, panels, status bar, DiagnosticCollection
-    engine.ts        lazy dynamic import of muraqib-core
-  tests/      Vitest specs, including XSS and path-traversal cases
-```
-
-## Packaging and publishing
-
-`npm run package` builds the core and the extension and writes `muraqib-vscode-<version>.vsix`. It packages from a clean staging directory (`scripts/package.mjs`) because vsce does not follow the `file:..` symlink: the core is packed into a tarball and installed there with production dependencies only, so the `.vsix` carries the audit engine and runs on a machine that has nothing but VS Code.
-
-```bash
-cd extension
-npm run package
-code --install-extension muraqib-vscode-0.1.0.vsix   # smoke-test in a clean profile
-```
-
-Releases are published by `.github/workflows/extension-release.yml` when a tag `extension-v<version>` is pushed (the version must match `extension/package.json`):
-
-```bash
-# bump "version" in extension/package.json and add an entry to extension/CHANGELOG.md, merge, then:
-git tag extension-v0.1.0 && git push origin extension-v0.1.0
-```
-
-One-time setup:
-
-1. Create the `muraqib-core` publisher at https://marketplace.visualstudio.com/manage (the `publisher` field must match).
-2. Create an Azure DevOps personal access token (organization: all accessible organizations, scope **Marketplace > Manage**) and save it as the repository secret `VSCE_PAT`.
-3. Optional, for Open VSX (VSCodium, Cursor, ...): create the namespace with `npx ovsx create-namespace muraqib-core -p <token>`, then save the token as the repository secret `OVSX_PAT`. Without it the Open VSX step is skipped.
-
-The package is not bundled yet (about 1,300 files, mostly the core's production dependencies); bundling with esbuild would shrink it and silence the vsce warning.
+- Source, issues and the command line tool: https://github.com/Muraqib-Core/muraqib
+- Changes: see the [changelog](CHANGELOG.md).
+- Contributing to the extension: [DEVELOPMENT.md](https://github.com/Muraqib-Core/muraqib/blob/main/extension/DEVELOPMENT.md).
 
 ## License
 
-ISC, see [LICENSE](LICENSE) (identical to the repository root [LICENSE](../LICENSE)).
+ISC, see [LICENSE](LICENSE).

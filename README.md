@@ -125,9 +125,6 @@ The full list of checks and the guard architecture are in [docs/guards.md](docs/
 Prefer the editor? The [VS Code extension](extension/README.md) runs the same engine, fills the **Problems** panel and
 shows a status-bar counter. It never edits your code.
 
-Prefer the editor? The [VS Code extension](extension/README.md) runs the same engine, fills the **Problems** panel and
-shows a status-bar counter. It never edits your code.
-
 `muraqib audit --report` turns findings into a single **0–100 score** with a grade; the method is under
 [Security scorecard](docs/cli.md#security-scorecard---report----format-md). More in [docs/ci.md](docs/ci.md).
 
