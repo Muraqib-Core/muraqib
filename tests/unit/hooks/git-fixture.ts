@@ -30,9 +30,13 @@ export function write(root: string, file: string, content: string | Buffer): voi
 /** Keeps the machine's global/system git config (hooksPath, diff settings, ...) out of a test. */
 export function isolateGit(): () => void {
   const saved = { global: process.env["GIT_CONFIG_GLOBAL"], nosystem: process.env["GIT_CONFIG_NOSYSTEM"] };
-  process.env["GIT_CONFIG_GLOBAL"] = os.devNull;
+  // An empty file, not os.devNull: git for Windows fails to open the NUL device as a config file.
+  const emptyConfig = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "muraqib-gitcfg-")), "config");
+  fs.writeFileSync(emptyConfig, "");
+  process.env["GIT_CONFIG_GLOBAL"] = emptyConfig;
   process.env["GIT_CONFIG_NOSYSTEM"] = "1";
   return () => {
+    fs.rmSync(path.dirname(emptyConfig), { recursive: true, force: true });
     for (const [key, value] of [["GIT_CONFIG_GLOBAL", saved.global], ["GIT_CONFIG_NOSYSTEM", saved.nosystem]] as const) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;

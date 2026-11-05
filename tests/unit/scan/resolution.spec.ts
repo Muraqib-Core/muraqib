@@ -1,6 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { ResolutionApplier } from "../../../src/scan/core/resolution/resolution-applier.js";
 import { ResolutionEngine } from "../../../src/scan/core/resolution/resolution-engine.js";
@@ -10,7 +11,7 @@ import type { ResolutionPlan } from "../../../src/scan/core/resolution/resolutio
 
 // Helper to create an isolated test project fixture
 function createIsolatedFixture(pkgJson: Record<string, unknown>, lockfileName = "pnpm-lock.yaml"): DependencyGraph {
-  const tmpDir = fs.mkdtempSync(path.join("/tmp", "muraqib-fixture-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "muraqib-fixture-"));
   fs.writeFileSync(path.join(tmpDir, "package.json"), JSON.stringify(pkgJson, null, 2) + "\n", "utf8");
   fs.writeFileSync(path.join(tmpDir, lockfileName), "# lockfile content\n", "utf8");
 

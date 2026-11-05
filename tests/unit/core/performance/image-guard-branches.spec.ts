@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { ImageGuard, runImagePerformanceAudit } from "../../../../src/core/performance/image-guard.js";
+import { canSymlink } from "../../symlink-support.js";
 
 describe("ImageGuard branches", () => {
   let dir: string;
@@ -48,7 +49,7 @@ describe("ImageGuard branches", () => {
     expect(runImagePerformanceAudit(path.join(dir, "missing")).violations).toEqual([]);
   });
 
-  it("skips symlinks", () => {
+  it.skipIf(!canSymlink)("skips symlinks", () => {
     big(path.join(dir, "real.png"));
     fs.mkdirSync(path.join(dir, "d"));
     fs.symlinkSync(path.join(dir, "real.png"), path.join(dir, "d", "link.png"));

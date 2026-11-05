@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { scanProjectFiles } from "../../../src/utils/file-scanner.js";
+import { canSymlink } from "../symlink-support.js";
 
 describe("scanProjectFiles", () => {
   let root: string;
@@ -42,7 +43,7 @@ describe("scanProjectFiles", () => {
     expect(names(scanProjectFiles(root, ["ts"], { includeTests: true }))).toEqual(["src/a.spec.ts", "src/a.ts", "tests/b.ts"]);
   });
 
-  it("skips an unreadable file instead of throwing", () => {
+  it.skipIf(!canSymlink)("skips an unreadable file instead of throwing", () => {
     write("src/ok.ts");
     fs.symlinkSync(path.join(root, "missing-target.ts"), path.join(root, "src/broken.ts"));
 
