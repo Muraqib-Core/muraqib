@@ -14,15 +14,18 @@ import { detectProjectPackageManager } from "../../../src/utils/manager-detector
 import { fetchRemoteMuraqibPresets } from "../../../src/config/presets.js";
 import { runMuraqibUpgradeOrchestrator } from "../../../src/core/upgrade-orchestrator.js";
 
+// On Windows the orchestrator launches "npm.cmd"; the tests care about the tool, not the shim suffix.
+const tool = (command: unknown): string => String(command).replace(/\.cmd$/, "");
+
 type Outcome = (command: string, args: string[]) => Error | null;
 const mockExec = (outcome: Outcome = () => null): void => {
   vi.mocked(execFile).mockImplementation(((command: string, args: string[], _o: unknown, cb: (e: Error | null, so: string, se: string) => void) => {
-    cb(outcome(command, args), "", "");
+    cb(outcome(tool(command), args), "", "");
     return undefined as never;
   }) as never);
 };
 const calledWith = (command: string, args?: string[]): boolean =>
-  vi.mocked(execFile).mock.calls.some((c) => c[0] === command && (args === undefined || JSON.stringify(c[1]) === JSON.stringify(args)));
+  vi.mocked(execFile).mock.calls.some((c) => tool(c[0]) === command && (args === undefined || JSON.stringify(c[1]) === JSON.stringify(args)));
 
 const run = (over: Partial<Parameters<typeof runMuraqibUpgradeOrchestrator>[0]> = {}) =>
   runMuraqibUpgradeOrchestrator({

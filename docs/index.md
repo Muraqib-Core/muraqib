@@ -45,6 +45,7 @@ _None yet._
 - [[install]] -- installation
 - [[ci]] -- CI/CD workflows
 - [[development]] -- local development and contributing
+- [[testing]] -- running the suite, git and Windows pitfalls
 
 ## history
 

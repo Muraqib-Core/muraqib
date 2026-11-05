@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
+    setupFiles: ["./tests/setup-git-ceiling.ts"],
     // Real git/audit calls are several times slower on Windows than the 5 s default.
     testTimeout: 20000,
     environment: "node",

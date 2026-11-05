@@ -17,6 +17,9 @@ function mockExec(outcome: (command: string, args: string[]) => Error | null, ou
   }) as never);
 }
 
+// On Windows the orchestrator launches "npm.cmd"; the tests care about the tool, not the shim suffix.
+const tool = (command: unknown): string => String(command).replace(/\.cmd$/, "");
+
 describe("runMuraqibUpgradeOrchestrator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -236,9 +239,9 @@ describe("runMuraqibUpgradeOrchestrator", () => {
     for (const call of calls) {
       expect(call[2]).toMatchObject({ cwd: "/projects/other", timeout: expect.any(Number) });
     }
-    expect(calls[0]?.[0]).toBe("npx");
+    expect(tool(calls[0]?.[0])).toBe("npx");
     expect(calls[0]?.[1]).toEqual(["react-codemod@latest", "update-react-imports", "--force"]);
-    expect(calls[1]?.[0]).toBe("npm");
+    expect(tool(calls[1]?.[0])).toBe("npm");
     expect(calls[1]?.[1]).toEqual(["run", "build"]);
   });
 
@@ -288,7 +291,7 @@ describe("runMuraqibUpgradeOrchestrator", () => {
       newVersion: "6.0.0",
       rangeStrategy: "bump",
     });
-    const argv = vi.mocked(execFile).mock.calls.map((c) => [c[0], ...(c[1] as string[])].join(" "));
+    const argv = vi.mocked(execFile).mock.calls.map((c) => [tool(c[0]), ...(c[1] as string[])].join(" "));
     expect(argv).toEqual(["npx prisma format", "npm run build"]);
     expect(result).toEqual({ updatedVersion: "^6.0.0", schemaMigrated: false });
   });
@@ -302,7 +305,7 @@ describe("runMuraqibUpgradeOrchestrator", () => {
       rangeStrategy: "replace",
       runMigrations: false,
     });
-    const argv = vi.mocked(execFile).mock.calls.map((c) => c[0]);
+    const argv = vi.mocked(execFile).mock.calls.map((c) => tool(c[0]));
     expect(argv).toEqual(["npm"]);
     expect(result.schemaMigrated).toBe(false);
     expect(result.updatedVersion).toBe("^19.0.0");
@@ -331,7 +334,7 @@ describe("runMuraqibUpgradeOrchestrator", () => {
     expect(logged).toContain("err line 30");
     expect(logged).toContain("err line 11");
     expect(logged).not.toContain("err line 10\n");
-    expect(vi.mocked(execFile).mock.calls[0]?.[0]).toBe("pnpm");
+    expect(tool(vi.mocked(execFile).mock.calls[0]?.[0])).toBe("pnpm");
     expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual(["-w", "build"]);
     const warned = vi.mocked(console.log).mock.calls.map((c) => String(c[0])).join("\n");
     expect(warned).not.toContain("has been applied");
