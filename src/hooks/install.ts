@@ -56,7 +56,9 @@ function huskyEditableDir(hooksPath: string): string | undefined {
  */
 export function resolveHooksLocation(cwd: string): HooksLocation {
   const top = runGit(["rev-parse", "--show-toplevel"], cwd);
-  const gitRoot = top.stdout.trim();
+  // git prints forward slashes even on Windows; keep gitRoot in the platform's own form like the other paths here
+  const reported = top.stdout.trim();
+  const gitRoot = reported === "" ? "" : path.resolve(reported);
   if (top.status !== 0 || gitRoot === "") throw new Error("Not a git repository (run this inside a project that uses git).");
 
   const configured = runGit(["config", "--get", "core.hooksPath"], gitRoot).stdout.trim();

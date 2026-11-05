@@ -21,7 +21,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-const printed = (): string => out.join("\n");
+// Paths are printed with the platform's separator; compare them with forward slashes.
+const printed = (): string => out.join("\n").replace(/\\/g, "/");
 
 describe("muraqib hook install / uninstall", () => {
   test("install reports what it did and advertises the opt-in pre-push hook", async () => {
