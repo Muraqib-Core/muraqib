@@ -1,12 +1,12 @@
 {
   "name": "@muraqib/core",
-  "version": "1.0.3",
+  "version": "1.2.0",
   "description": "Muraqib Core - Unified Developer Environment Guardian & Performance Auditor. AI-complementary DevTool for detecting security vulnerabilities, performance issues, and architecture violations in AI-generated code.",
   "type": "module",
   "publishConfig": {
-  "access": "public",
-  "tag": "latest",
-  "registry": "https://registry.npmjs.org/"
+    "access": "public",
+    "tag": "latest",
+    "registry": "https://registry.npmjs.org/"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -43,7 +43,9 @@
     "audit:ci": "tsx scripts/collect-audit.ts",
     "self-audit": "node bin/muraqib.js audit --project . --no-interactive",
     "prepublishOnly": "npm run build && npm test",
-    "muraqib": "tsx src/cli/index.ts audit -i"
+    "muraqib": "tsx src/cli/index.ts audit -i",
+    "docs:generate": "node scripts/generate-docs.mjs",
+    "docs:check": "node scripts/generate-docs.mjs --check"
   },
   "keywords": [
     "audit",
@@ -73,7 +75,7 @@
     "@clack/prompts": "^1.4.0",
     "chalk": "^6.0.1",
     "cron-parser": "^5.5.0",
-    "glob": "^13.0.6",
+    "glob": "^14.0.3",
     "ignore": "^7.0.10",
     "semver": "^7.8.2",
     "yaml": "^2.9.1",
@@ -113,6 +115,7 @@
     "vitest": "^5.0.3"
   },
   "bin": {
-    "muraqib": "bin/muraqib.js"
+    "muraqib": "bin/muraqib.js",
+    "muraqib-agent": "bin/muraqib-agent.js"
   }
 }

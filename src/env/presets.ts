@@ -25,6 +25,7 @@ export function createEnvWithPresets<T extends Record<string, z.ZodTypeAny>>(
     formatError?: (issues: Array<{ path: string; message: string }>) => string;
     envFilePath?: string | string[];
     preserveProcessEnv?: boolean;
+    overrideProcessEnv?: boolean;
   }
 ): z.infer<z.ZodObject<T>> | null {
 
@@ -56,6 +57,7 @@ export function createEnvWithPresets<T extends Record<string, z.ZodTypeAny>>(
   if (options.formatError !== undefined) callOpts.formatError = options.formatError;
   if (options.envFilePath !== undefined) callOpts.envFilePath = options.envFilePath;
   if (options.preserveProcessEnv !== undefined) callOpts.preserveProcessEnv = options.preserveProcessEnv;
+  if (options.overrideProcessEnv !== undefined) callOpts.overrideProcessEnv = options.overrideProcessEnv;
 
   return createEnv(callOpts) as z.infer<z.ZodObject<T>> | null;
 }

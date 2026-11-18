@@ -1,12 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import semver, { type SemVer } from "semver";
 import type { ScannerEngine, ScanContext, ScanResult } from "../../core/contracts/scanner-engine.js";
 import { createScanIssue, type ScanIssueInput } from "../../core/findings/finding.js";
 
 interface KnownRule {
   packageA: string;
   packageB: string;
-  check: (verA: string, verB: string) => string | null;
+  check: (verA: SemVer, verB: SemVer) => string | null;
 }
 
 const KNOWN_COMPATIBILITY_RULES: KnownRule[] = [
@@ -14,11 +15,9 @@ const KNOWN_COMPATIBILITY_RULES: KnownRule[] = [
     packageA: "react",
     packageB: "next",
     check: (reactVer, nextVer) => {
-      if (
-        reactVer.startsWith("19") &&
-        (nextVer.startsWith("13") || nextVer.startsWith("14.0") || nextVer.startsWith("14.1"))
-      ) {
-        return `Next.js ${nextVer} has known stability issues with React 19. Upgrade Next.js to 15+ or use React 18.`;
+      const oldNext = nextVer.major === 13 || (nextVer.major === 14 && nextVer.minor <= 1);
+      if (reactVer.major === 19 && oldNext) {
+        return `Next.js ${nextVer.version} has known stability issues with React 19. Upgrade Next.js to 15+ or use React 18.`;
       }
       return null;
     },
@@ -27,7 +26,7 @@ const KNOWN_COMPATIBILITY_RULES: KnownRule[] = [
     packageA: "typescript",
     packageB: "eslint",
     check: (tsVer, eslintVer) => {
-      if (tsVer.startsWith("5") && eslintVer.startsWith("7")) {
+      if (tsVer.major >= 5 && eslintVer.major === 7) {
         return `TypeScript 5+ is incompatible with legacy ESLint 7. Upgrade ESLint to 8 or 9.`;
       }
       return null;
@@ -84,29 +83,19 @@ export class CompatibilityEngine implements ScannerEngine {
     }
 
     // 1. Node runtime engine check
-    if (packageJson.engines?.node) {
-      const requiredNode = packageJson.engines.node;
-      const currentNode = process.version;
-      const majorMatch = requiredNode.match(/\d+/);
-      const currentMajorMatch = currentNode.match(/\d+/);
-
-      if (majorMatch?.[0] && currentMajorMatch?.[0]) {
-        const requiredMajor = parseInt(majorMatch[0], 10);
-        const currentMajor = parseInt(currentMajorMatch[0], 10);
-        if (requiredNode.includes(">=") && currentMajor < requiredMajor) {
-          findings.push({
-            id: "compat-node-engine-mismatch",
-            title: "Node.js Engine Mismatch",
-            message: `Current Node.js runtime (${currentNode}) does not satisfy project requirement: ${requiredNode}`,
-            severity: "high",
-            category: "compatibility",
-            source: this.name,
-            confidence: "confirmed",
-            file: "package.json",
-            remediation: `Switch Node.js version to satisfy ${requiredNode}.`,
-          });
-        }
-      }
+    const requiredNode = packageJson.engines?.node;
+    if (requiredNode && semver.validRange(requiredNode) && !semver.satisfies(process.version, requiredNode)) {
+      findings.push({
+        id: "compat-node-engine-mismatch",
+        title: "Node.js Engine Mismatch",
+        message: `Current Node.js runtime (${process.version}) does not satisfy project requirement: ${requiredNode}`,
+        severity: "high",
+        category: "compatibility",
+        source: this.name,
+        confidence: "confirmed",
+        file: "package.json",
+        remediation: `Switch Node.js version to satisfy ${requiredNode}.`,
+      });
     }
 
     // 2. Known ecosystem pairings check
@@ -121,9 +110,10 @@ export class CompatibilityEngine implements ScannerEngine {
       const verA = allDeps[rule.packageA];
       const verB = allDeps[rule.packageB];
       if (verA && verB) {
-        const cleanA = verA.replace(/[\^~]/g, "");
-        const cleanB = verB.replace(/[\^~]/g, "");
-        const issue = rule.check(cleanA, cleanB);
+        const parsedA = semver.coerce(verA);
+        const parsedB = semver.coerce(verB);
+        if (!parsedA || !parsedB) continue;
+        const issue = rule.check(parsedA, parsedB);
         if (issue) {
           findings.push({
             id: `compat-${rule.packageA}-${rule.packageB}`,

@@ -5,7 +5,7 @@ export interface User { // muraqib-ignore-dead: auto-suppressed by script for Us
   passwordHash: string; // لا تخزني كلمة السر الصريحة أبداً!
   fullName: string;
   isActive: boolean;
-  role: 'USER' | 'ADMIN';
+  role: "USER" | "ADMIN";
   createdAt: Date;
   updatedAt: Date;
 }

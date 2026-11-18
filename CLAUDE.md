@@ -17,11 +17,15 @@
 
 ### Commit & Push Rules
 - اكتب رسائل Commit واضحة بصيغة imperative: `"fix: resolve npm ci failure"` ليس `"fixed npm ci"`
-- في كل commit، أضف سطر attribution:
-  ```
-  Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_...
-  ```
+- **كل شي ينرفع يكون باسم صاحب المشروع، مش باسم Claude** (commits، PR، تعليقات GitHub):
+  - قبل أول commit في أي جلسة: اضبط الهوية **محلياً فقط** (بدون `--global`):
+    ```bash
+    git config user.name "Aya almadhon"
+    git config user.email "aya.alaasel123@gmail.com"
+    ```
+  - **ممنوع** أي سطر attribution لـ Claude: لا `Co-Authored-By: Claude ...` ولا `Claude-Session: ...` ولا `Generated with Claude Code`، لا في رسائل الـ commit ولا في وصف الـ PR ولا في التعليقات.
+  - لا تترك الـ author أو الـ committer `Claude <noreply@anthropic.com>`.
+  - قبل أي push تحقق: `git log origin/main..HEAD --format='%an <%ae> | %cn <%ce>'` — لازم كل السطور باسم صاحب المشروع. لو لقيت غير هيك، صلحها (`--reset-author` + حذف سطور Claude) قبل الدمج.
 - اجعل الـ commits صغيرة ومركزة على موضوع واحد (Atomic Commits).
 - **اجعل جميع الـ commits مباشرة** — لا تعدل commits محمرة أو مدمجة.
 

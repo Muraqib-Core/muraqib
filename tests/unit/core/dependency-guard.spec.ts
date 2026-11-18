@@ -88,9 +88,12 @@ describe("dependency guard", () => {
 
     test("flags duplicate versions in a lock file", () => {
       write("package.json", JSON.stringify({}));
-      write("yarn.lock", `"left-pad@1.0.0":\n  x\n"left-pad@2.0.0":\n  y\n"once@1.0.0":\n  z\n`);
+      write(
+        "yarn.lock",
+        `left-pad@^1.0.0:\n  version "1.0.0"\n\nleft-pad@^2.0.0:\n  version "2.0.0"\n\nonce@^1.0.0:\n  version "1.0.0"\n`
+      );
       const result = performDependencyAudit(dir);
-      expect(result.duplicatePackages).toEqual(["left-pad (2 versions in lock file)"]);
+      expect(result.duplicatePackages).toEqual(["left-pad (2 versions in lock file: 1.0.0, 2.0.0)"]);
     });
   });
 

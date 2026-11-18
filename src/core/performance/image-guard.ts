@@ -1,22 +1,12 @@
-import fs from 'fs';
-import path from 'path';
-import { BaseGuard } from '../base-guard.js';
-import type { AuditResult, AuditIssue, AuditContext } from '../types.js';
+import fs from "fs";
+import path from "path";
+import { BaseGuard } from "../base-guard.js";
+import type { AuditResult, AuditIssue, AuditContext } from "../types.js";
+import { SKIPPED_DIR_NAMES } from "../../shared/constants.js";
 
 const MAX_IMAGE_SIZE_BYTES = 500 * 1024;
 
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
-
-const SKIP_DIR_NAMES = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'coverage',
-  '.next',
-  '.nuxt',
-  'out',
-]);
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg"];
 
 export interface ImageViolation {
   filePath: string;
@@ -32,7 +22,7 @@ const scanDirectoryForImages = (
   dirPath: string,
   violations: ImageViolation[] = []
 ): ImageViolation[] => {
-  if (SKIP_DIR_NAMES.has(path.basename(dirPath))) {
+  if (SKIPPED_DIR_NAMES.has(path.basename(dirPath))) {
     return violations;
   }
 
@@ -85,14 +75,14 @@ function performImageAuditInternal(targetPath?: string): ImageAuditResult {
 export { performImageAuditInternal as runImagePerformanceAudit };
 
 /**
- * Image guard class.
+ * Audits image assets for oversized files and non-optimal formats.
  * Severity levels used: warning.
  */
 export class ImageGuard extends BaseGuard {
   private targetPath?: string | undefined;
 
   constructor(targetPath?: string, context?: AuditContext) {
-    super('image-guard', context);
+    super("image-guard", context);
     this.targetPath = targetPath;
   }
 
@@ -108,23 +98,23 @@ export class ImageGuard extends BaseGuard {
     for (const violation of result.violations) {
       issues.push(
         this.createIssue(
-          'IMAGE_SIZE_EXCEEDED',
-          'warning',
-          'Large Image Detected',
+          "IMAGE_SIZE_EXCEEDED",
+          "warning",
+          "Large Image Detected",
           `Image '${violation.filePath}' is ${violation.sizeKB}KB (exceeds 500KB limit)`,
           { file: violation.filePath },
           violation.recommendation,
-          ['performance', 'image']
+          ["performance", "image"]
         )
       );
     }
 
-    const status = result.violations.length === 0 ? 'ok' : 'warning';
+    const status = result.violations.length === 0 ? "ok" : "warning";
     return this.createResult(
       status,
       issues,
-      status === 'ok'
-        ? '✅ All images optimized (< 500KB)'
+      status === "ok"
+        ? "✅ All images optimized (< 500KB)"
         : `⚠️ ${result.violations.length} image(s) exceed size limit`
     );
   }

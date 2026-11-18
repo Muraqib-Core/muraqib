@@ -7,12 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-03
+
 ### Added
 
+- `muraqib-agent`, a separate command (v1 and `src/index.ts` are unchanged; code in `src/agent-v2/`, see its README and `EVALUATION.md`):
+  - `plan`: a deterministic, offline ranking of what to fix first (severity, then auto-fixable, then location), as text or `--json`. Adds detectors for hardcoded secrets in source and for environment variables missing from `.env.example`.
+  - `fix` / `fix --dry-run`: proposes fixes and writes one patch file; `fix --apply` applies them on a new `agent/fix-<time>` branch after asking about each one, without committing. Fixers: add a missing `await` (asks before making a function `async` or adding `.catch`), move a hardcoded secret to `process.env.NAME` and document it in `.env.example` (warns to rotate it), and create or complete `.env.example`. Every fix is applied to a temporary copy and re-audited, and is kept only if its issue disappears and no new one appears. Fixes that remove a secret are never written to the patch file.
+  - `plan --explain [--lang ar|en]`: optional explanations from Gemini with a free key (`GEMINI_API_KEY`, optional `@google/genai`), one batched request for the top steps, secrets redacted before sending, a disk cache, at most 3 requests per run with retries after 429 and 503, and an automatic fallback to built-in explanations. The model defaults to the alias `gemini-flash-lite-latest` and can be changed with `MURAQIB_AGENT_MODEL`.
+  - `pr-description`: writes a PR description from the real verification result. `eval`: runs the fixers on three built-in projects with known problems and reports correct, asked and wrong fixes.
+  - `fix --verify-cmd <command>` (repeatable) and `--verify-timeout <s>`: also run your own commands (for example `npm run type-check`) on the fixed copy; a fix that makes a passing command fail is rejected. Commands that already fail before the fix are ignored.
+  - The `.env.example` detector also reads one-line destructuring (`const { PORT, DB_URL: url } = process.env`).
+  - Fewer false positives: `process.env.X` inside comments and string literals is not an environment read, public certificates are not reported as secrets, weak secret hits on comment-only lines are dropped, and the secret fixer never rewrites a commented line.
+  - Fix sessions reuse the audit already done for the round and for verification in propose mode (about 1.7x to 2.1x faster).
+
+### Removed
+
+- The shield-and-eye logo: it is gone from the documentation web view and from the VS Code extension (`images/icon.png` and `icon.svg` were deleted and the manifest `icon` field was removed), and the README no longer uses it.
+
+## [1.1.0] - 2026-10-18
+
+### Added
+
+- VS Code extension release pipeline: the extension (`extension/`) is no longer private, has a 128x128 icon, and `npm run package` now builds a self-contained `.vsix` (the core and its production dependencies are installed into a clean staging directory, because vsce does not follow the development `file:..` symlink). The `Release VS Code extension` workflow publishes it to the Visual Studio Marketplace (`VSCE_PAT`) and, when `OVSX_PAT` is set, to Open VSX, on an `extension-v<version>` tag; CI now type-checks, lints, tests and packages the extension on every change.
+- Guards for the audits that only existed as workflow functions: `BundleBudgetGuard`, `RenderBlockingGuard`, `HttpOptimizerGuard`, `CachePerformanceGuard` and `EnvGuard` (all `BaseGuard`s, exported, with `GuardFactory` methods and opt-in `createAllGuards` settings). `BaseGuard.skipped()` reports a check that had nothing to measure (status `ok` plus an info issue coded `CHECK_SKIPPED`). `runBundleAudit`, `runEnvAudit`, `runPerformanceAudit`, `runOptimizerAudit` and `runRenderBlockingAudit` now run through these guards; their results are unchanged.
+- Git hooks: `muraqib hook install` adds a pre-commit hook that scans only the staged changes (`git diff --cached`, added lines only) for secrets and blocks the commit on real credentials, in well under a second; `--pre-push` opts in to the heavier security audit before pushing; `muraqib hook uninstall` removes exactly Muraqib's marked blocks. Existing hooks, `core.hooksPath` and Husky are respected, and a missing binary or internal error never blocks git. `MURAQIB_SKIP_HOOKS=1` and `--no-verify` bypass, and `muraqib-ignore-secret` on a line suppresses a false positive.
+- `SecretGuard` (a `BaseGuard`) for scanning added lines, and `findSecrets()` which says whether each match is strong enough to block.
+- Security scorecard & compliance report: a pure, deterministic 0-100 score (`calculateScorecard`) broken down by severity (critical/high/medium/low) and domain (security/dependencies/code quality), where any critical finding hard-caps the score at 59. Rendered as Markdown (README badge, CI step summary) via `muraqib audit --report` / `--format md`; golden-file tested.
+- Dynamic documentation: `npm run docs:generate` (`scripts/generate-docs.mjs`) derives `docs/REFERENCE.md` and the `<!-- AUTO:... -->` blocks in README.md, API.md and CONTRIBUTING.md (versions, badges, requirements, guards, CLI flags, npm scripts, public API, CI workflows) from the source, `package.json` and `.github/workflows/`. `npm run docs:check` fails when they are stale; the new `docs-check` CI job enforces it and the `Docs` workflow opens a refresh PR automatically.
 - VS Code extension in `extension/` (separate package, built against the repository's `muraqib-core`): `Muraqib: Run Audit`, `Show Documentation` and `Show Last Report` commands; an audit report webview grouped by severity and module with scanner coverage, a strict nonce CSP, validated `postMessage` messages and an "open file at line" action restricted to the workspace; Problems-panel diagnostics; a status bar issue counter; and `muraqib.*` settings. Arabic/RTL friendly.
+
+### Changed
+
+- Removed the unused `rules/http1-advisor`, `utils/font-validator` and `shared/progress` modules. Package-manager detection is shared (`utils/manager-detector` now also knows `bun` and the `packageManager` field) and the four public engines share one `ValidationIssue` type.
+- The two secret detectors (`src/ai/secret-detector.ts`, `src/core/helpers/secret-detector.ts`) are merged into one module, `src/core/secret-detector.ts`, with a single table of token formats shared by text scanning and env/package value checks. The public `detectSecretsInText`, `detectSecretsInEnv` and `assessSecretRisk` behave as before. Tokens are now also recognised for GitHub fine-grained and `gho_`/`ghu_`/`ghs_`/`ghr_` tokens, Slack, OpenAI-style `sk-` keys, Google API keys and JWTs in free text, and secrets are masked completely when 8 characters or shorter.
+- CI/CD hardening: least-privilege `permissions`, `type-check:tests` in CI, no full-history checkouts, audit workflow limited to `main`/`develop`/PRs with concurrency control, and the release workflow now verifies that the tag matches `package.json`, type-checks and checks generated docs before publishing.
+- Documentation corrected to match the code: package name (`@muraqib/core`), Node/TypeScript/Vitest versions, CI job list, guard descriptions.
+- **Behaviour change:** `loadEnv` (and `createEnv`'s `envFilePath`) no longer lets a `.env` file replace a variable that is already set in the real environment. Pass `override: true` to `loadEnv`, or `overrideProcessEnv: true` to `createEnv` / `createEnvWithPresets`, to restore the previous behaviour. The returned record holds the values actually in effect. In verbose mode an undefined `$VAR` reference now logs a warning that points to single quotes / `\$`.
 
 ### Fixed
 
+- Scan layer false positives: `PORT` accepts 1-65535 (80 and 443 are valid), `DATABASE_URL` accepts every common database scheme (`mysql://`, `mongodb://`, `file:` ...) instead of PostgreSQL only, `AWS_REGION` accepts `us-gov-*` style regions, and `MONGODB_URL` is validated like `MONGODB_URI`. Generic `*_URL` variables may use `mysql://`/`mariadb://`.
+- Scan-layer `.env` parser (`parseEnvFile`) accepts the `export` prefix and multi-line quoted values (for example PEM keys), and reports findings under the project-relative file name rather than the absolute path.
+- Compatibility engine compares versions with `semver` (`next@14.10` is no longer treated as `14.1`) and evaluates the whole `engines.node` range.
+- `OSV_API_URL` is parsed when a query runs, so a malformed value is reported by the scan instead of crashing the CLI on import; the 5 MiB OSV response limit is enforced while the response streams in.
+- A `.env` file that cannot be read, or a detected validation engine (`zod`, `valibot`, `arktype`) that is not installed, no longer aborts the whole scan: the gap is reported as a finding and coverage entry and the OSV/Docker scanners still run.
+- Dead-code guard: a trailing `muraqib-ignore-dead` / `muraqib-unreachable` comment now silences only its own line (a comment-only marker line still silences the file), and the marker inside a string literal is ignored, so the guard no longer skips its own source.
+- File scanner ignores `node_modules`, `dist` and `coverage` at any depth (monorepo workspaces) and skips unreadable files instead of aborting.
+- Render-blocking detection reads tag attributes (not substrings): `defer`/`async` in any position, module scripts and non-JavaScript script types are not blocking, `<head lang="en">` and minified single-line documents are handled. `runRenderBlockingAudit` now reuses `performRenderBlockingAudit`.
+- Report boxes and the header banner are aligned when they contain color codes, the renderers share one silent flag with the logger, and `NO_COLOR` disables ANSI colors.
+- `collectAuditResults` passes the module filter to the orchestrator (`moduleFilter`) so unselected guards no longer run.
+- Package-manager commands run by the resolution applier/verifier use a 64 MiB output buffer so a verbose install is not reported as a failure.
+- `createEnv` typing: with no `clientPrefix` every key matched the default `""` prefix, so any `server` schema failed to compile. The prefix checks now apply only when a concrete prefix is given (and the "logical error" message no longer says "financial").
+- Server/client separation is now enforced at runtime: with `isServer: false` only the `client` schema is validated and reading a server-only key from the returned env throws instead of returning `undefined`.
+- `.env` parser: quoted values may span several lines (`"..."`, `'...'`, backticks); only double quotes decode `\n`/`\"`/`\\`; single-quoted and backtick values are literal (no `$VAR` expansion); `\$` writes a literal dollar; `#` starts a comment only after whitespace (so `pa#ss` survives); a BOM and invalid keys are ignored; an unterminated quote no longer swallows the rest of the file. `${VAR:-default}` now also falls back for empty values and `${VAR-default}` only for unset ones; references resolve through chains and later keys, and a self-reference such as `PATH=$PATH:/x` uses the real value instead of looping.
+- A `PRIVATE KEY` header without an algorithm (`-----BEGIN PRIVATE KEY-----`, PKCS#8) or with another (`OPENSSH`, `ENCRYPTED`) was not detected in text; `urlCarriesSecret` no longer throws on a URL password with malformed percent-encoding.
 - Preserve scan policy outcomes in the unified CLI: medium findings block `prod`, and scanner failures return exit code 3 rather than a generic findings exit code.
 - Retain scanner coverage, scanned/skipped inputs and diagnostics in unified and agent reports; display them in text, HTML, CSV and interactive output.
 - Report thrown scan execution errors as unreliable audits, including in the agent API.

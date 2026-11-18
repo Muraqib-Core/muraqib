@@ -1,0 +1,80 @@
+name: Docs
+
+# Generated documentation (docs/REFERENCE.md and the <!-- AUTO:... --> blocks in
+# README.md, API.md and CONTRIBUTING.md) is derived from the source code,
+# package.json and .github/workflows/ by scripts/generate-docs.mjs.
+#
+#  - Pushes to main/develop, weekly schedule, manual run: regenerate and open (or
+#    update) a PR with the refreshed docs, so nobody has to update them by hand.
+#  - Staleness on pull requests is enforced by the `docs-check` job in ci.yml.
+#
+# PRs opened with the default GITHUB_TOKEN do not trigger other workflows. To have CI
+# run on the refresh PR, add a repository secret DOCS_BOT_TOKEN (fine-grained PAT or
+# GitHub App token with contents + pull-requests write); it is used when present.
+
+on:
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    name: Refresh generated docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.DOCS_BOT_TOKEN || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate documentation
+        run: npm run docs:generate
+
+      - name: Open or update refresh pull request
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_BOT_TOKEN || github.token }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$(git status --porcelain -- README.md API.md CONTRIBUTING.md docs)" ]; then
+            echo "Generated docs are already up to date."
+            exit 0
+          fi
+
+          branch="docs/auto-refresh-${BASE_BRANCH}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add README.md API.md CONTRIBUTING.md docs
+          git commit -m "docs: refresh generated documentation"
+          git push --force-with-lease --set-upstream origin "$branch" || git push --force --set-upstream origin "$branch"
+
+          if [ -z "$(gh pr list --head "$branch" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number')" ]; then
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$branch" \
+              --title "docs: refresh generated documentation" \
+              --body "Automated refresh of \`docs/REFERENCE.md\` and the \`AUTO\` blocks in README.md, API.md and CONTRIBUTING.md, produced by \`npm run docs:generate\` after a change to the source, \`package.json\` or the workflows. Review the diff and squash-merge once CI is green."
+          fi

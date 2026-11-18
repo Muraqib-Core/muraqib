@@ -10,12 +10,10 @@
  * contract. The two sets share no logic, so they are not merged.
  */
 
-export interface ValidationIssue {
-  field: string;
-  message: string;
-  code: string;
-  path: (string | number)[];
-}
+import type { ValidationIssue } from "./validation-issue.js";
+import { dataOrThrow, unknownErrorIssue } from "./validation-issue.js";
+
+export type { ValidationIssue };
 
 export interface CustomValidationResult {
   success: boolean;
@@ -105,9 +103,9 @@ export class CustomEngine {
           success: false,
           errors: [
             {
-              field: 'root',
-              message: `Value is ${data === undefined ? 'undefined' : 'null'} but schema does not allow it`,
-              code: 'NULL_VALIDATION_ERROR',
+              field: "root",
+              message: `Value is ${data === undefined ? "undefined" : "null"} but schema does not allow it`,
+              code: "NULL_VALIDATION_ERROR",
               path: [],
             },
           ],
@@ -133,14 +131,7 @@ export class CustomEngine {
     } catch (error) {
       return {
         success: false,
-        errors: [
-          {
-            field: 'unknown',
-            message: error instanceof Error ? error.message : String(error),
-            code: 'VALIDATION_ERROR',
-            path: [],
-          },
-        ],
+        errors: [unknownErrorIssue(error, "VALIDATION_ERROR")],
       };
     }
   }
@@ -149,12 +140,7 @@ export class CustomEngine {
    * Validate with strict mode (throws on error)
    */
   validateStrict(data: unknown): unknown {
-    const result = this.validate(data);
-    if (!result.success) {
-      const messages = result.errors.map(e => `${e.field}: ${e.message}`).join('; ');
-      throw new Error(`Validation failed: ${messages}`);
-    }
-    return result.data;
+    return dataOrThrow(this.validate(data));
   }
 
   /**
@@ -169,7 +155,7 @@ export class CustomEngine {
    */
   getSchemaInfo(): { type: string; description?: string | undefined } {
     return {
-      type: 'CustomSchema',
+      type: "CustomSchema",
       description: `Custom validation with ${this.validators.length} validator(s) and ${this.transforms.length} transform(s)`,
     };
   }
@@ -275,4 +261,4 @@ export function batchValidateCustom(
   });
 }
 
-export { commonValidators } from './custom-validators.js';
+export { commonValidators } from "./custom-validators.js";

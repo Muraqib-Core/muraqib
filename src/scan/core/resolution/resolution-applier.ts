@@ -8,6 +8,7 @@ import type {
   VerificationStepResult,
   PackageChange,
 } from "./resolution-plan.js";
+import { COMMAND_MAX_BUFFER } from "./resolution-plan.js";
 import { DependencyGraph } from "./dependency-graph.js";
 import type { PackageManifest } from "./dependency-graph.js";
 import { runVerification } from "./resolution-verifier.js";
@@ -256,6 +257,7 @@ export class ResolutionApplier {
       stdio: "pipe",
       env: process.env,
       timeout: 300_000,
+      maxBuffer: COMMAND_MAX_BUFFER,
     });
   }
 

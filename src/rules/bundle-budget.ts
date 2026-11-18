@@ -1,16 +1,16 @@
-import fs from 'fs';
-import path from 'path';
-import { log, error, warn } from '../shared/logger.js';
+import fs from "fs";
+import path from "path";
+import { log, error, warn } from "../shared/logger.js";
+import { SKIPPED_DIR_NAMES } from "../shared/constants.js";
+import { readDirEntries } from "../shared/fs-safe.js";
 
 const BUNDLE_LIMIT_KB = 14;
-const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js', '.svelte', '.vue'];
-const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', 'coverage', 'out']);
+const SUPPORTED_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".svelte", ".vue"];
 
 interface BundleViolation {
     filePath: string;
     sizeKB: number;
     limitKB: number;
-    suggestions: string[];
 }
 
 interface BundleAuditResult {
@@ -24,22 +24,15 @@ interface BundleAuditResult {
 }
 
 const collectSourceFiles = (dir: string, found: string[] = []): string[] => {
-    let entries: fs.Dirent[];
-    try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-        return found;
-    }
-
-    for (const entry of entries) {
+    for (const entry of readDirEntries(dir)) {
         // Match on the entry's own name only, never on a substring of the full path.
         const name = path.basename(entry.name);
-        if (name.startsWith('.') || entry.isSymbolicLink()) continue;
+        if (name.startsWith(".") || entry.isSymbolicLink()) continue;
 
         const fullPath = path.join(dir, name);
         if (entry.isDirectory()) {
-            if (!SKIP_DIR_NAMES.has(name)) collectSourceFiles(fullPath, found);
-        } else if (entry.isFile() && SUPPORTED_EXTENSIONS.includes(path.extname(name)) && !name.endsWith('.d.ts')) {
+            if (!SKIPPED_DIR_NAMES.has(name)) collectSourceFiles(fullPath, found);
+        } else if (entry.isFile() && SUPPORTED_EXTENSIONS.includes(path.extname(name)) && !name.endsWith(".d.ts")) {
             found.push(fullPath);
         }
     }
@@ -69,17 +62,14 @@ export const runComprehensiveBundleAudit = (targetPath?: string): BundleAuditRes
         if (sizeKB <= BUNDLE_LIMIT_KB) continue;
 
         const filePath = path.relative(projectRoot, file);
-        violations.push({ filePath, sizeKB: Number(sizeKB.toFixed(2)), limitKB: BUNDLE_LIMIT_KB, suggestions: [] });
+        violations.push({ filePath, sizeKB: Number(sizeKB.toFixed(2)), limitKB: BUNDLE_LIMIT_KB });
 
         error(`❌ [Budget Violation]: ${filePath} is ${sizeKB.toFixed(2)}KB (limit ${BUNDLE_LIMIT_KB}KB).`);
     }
 
-    const projectIssues: string[] = [];
-    projectIssues.forEach(msg => warn(msg));
-
-    if (violations.length === 0 && projectIssues.length === 0) {
+    if (violations.length === 0) {
         log(`✅ [Muraqib]: All ${files.length} source file(s) are within the ${BUNDLE_LIMIT_KB}KB budget.`);
     }
 
-    return { scannedFiles: files.length, skipped: false, violations, projectIssues };
+    return { scannedFiles: files.length, skipped: false, violations, projectIssues: [] };
 };

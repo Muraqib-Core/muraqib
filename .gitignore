@@ -46,7 +46,11 @@ Thumbs.db
 
 # Project-specific
 examples/node_modules/
-.claude/
+.claude/*
+!.claude/scripts/
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/docs-*.md
 
 # VS Code extension build output
 extension/dist/

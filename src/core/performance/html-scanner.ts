@@ -44,6 +44,134 @@ const deprecatedTags = [
   "noframe",
 ];
 
+/** An issue and the report line that accompanies it (some issues have no report). */
+interface Finding {
+  issue: HtmlIssue;
+  report?: string;
+}
+
+/** Whole-document checks: each one fires when `missing` holds for the full HTML text. */
+const DOCUMENT_RULES: ReadonlyArray<{ missing: (html: string) => boolean } & Finding> = [
+  {
+    missing: (html) => !html.toUpperCase().includes("<!DOCTYPE"),
+    issue: {
+      type: "missing_doctype",
+      severity: "critical",
+      message: "Missing DOCTYPE declaration",
+      suggestion: "Add '<!DOCTYPE html>' at the beginning of the file",
+    },
+    report: "🔴 Missing DOCTYPE declaration",
+  },
+  {
+    missing: (html) => !html.includes("charset"),
+    issue: {
+      type: "missing_charset",
+      severity: "high",
+      message: "Missing character encoding specification",
+      suggestion: 'Add <meta charset="UTF-8"> in the <head> section',
+    },
+    report: "❌ Missing charset meta tag",
+  },
+  {
+    missing: (html) => !html.includes("viewport"),
+    issue: {
+      type: "missing_viewport",
+      severity: "high",
+      message: "Missing viewport meta tag for responsive design",
+      suggestion: 'Add <meta name="viewport" content="width=device-width, initial-scale=1">',
+    },
+    report: "⚠️ Missing viewport meta tag",
+  },
+  {
+    missing: (html) => !html.includes("<title>") || !html.includes("</title>"),
+    issue: {
+      type: "missing_title",
+      severity: "high",
+      message: "Missing page title",
+      suggestion: "Add <title>Page Title</title> in the <head> section",
+    },
+    report: "❌ Missing <title> tag",
+  },
+  {
+    missing: (html) => !html.includes('lang="') && !html.includes("lang='"),
+    issue: {
+      type: "missing_lang",
+      severity: "medium",
+      message: "Missing language attribute on html element",
+      suggestion: 'Add lang attribute: <html lang="en">',
+    },
+    report: "ℹ️ Missing lang attribute on <html>",
+  },
+];
+
+/** Element counters: a line adds one to `key` when `matches` holds. */
+const ELEMENT_COUNTERS: ReadonlyArray<{
+  key: keyof Omit<HtmlScanResult["statistics"], "totalElements">;
+  matches: (line: string) => boolean;
+}> = [
+  { key: "images", matches: (line) => line.includes("<img") },
+  { key: "links", matches: (line) => line.includes("<a ") || line.includes("<a>") },
+  { key: "scripts", matches: (line) => line.includes("<script") },
+  { key: "stylesheets", matches: (line) => line.includes("<link") && line.includes("stylesheet") },
+];
+
+/** Adds one line's element counts to `statistics`. */
+function countElements(line: string, statistics: HtmlScanResult["statistics"]): void {
+  statistics.totalElements += line.match(/<(\w+)[>\s]/g)?.length ?? 0;
+  for (const { key, matches } of ELEMENT_COUNTERS) {
+    if (matches(line)) statistics[key]++;
+  }
+}
+
+function deprecatedTagFindings(line: string, lineNo: number): Finding[] {
+  return deprecatedTags
+    .filter((tag) => line.includes(`<${tag}`))
+    .map((tag) => ({
+      issue: {
+        type: "deprecated_tags",
+        element: tag,
+        line: lineNo,
+        severity: "medium",
+        message: `Deprecated HTML tag used: <${tag}>`,
+        suggestion: `Replace <${tag}> with appropriate semantic HTML5 elements or CSS`,
+      },
+      report: `⚠️ Deprecated tag <${tag}> found at line ${lineNo}`,
+    }));
+}
+
+function missingAltFindings(line: string, lineNo: number): Finding[] {
+  if (!line.includes("<img") || line.includes("alt=")) return [];
+  const src = line.match(/src=["']([^"']+)["']/)?.[1];
+  return [
+    {
+      issue: {
+        type: "missing_alt_text",
+        element: "img",
+        line: lineNo,
+        severity: "high",
+        message: "Image missing alt text (accessibility issue)",
+        suggestion: `Add descriptive alt text: <img src="${src || ""}" alt="description">`,
+      },
+      report: `🔴 Image missing alt text at line ${lineNo}: ${src}`,
+    },
+  ];
+}
+
+function emptyStyleFindings(line: string, lineNo: number): Finding[] {
+  if (!line.includes('style=""') && !line.includes("style=''")) return [];
+  return [
+    {
+      issue: {
+        type: "unused_attributes",
+        line: lineNo,
+        severity: "low",
+        message: "Empty style attribute found",
+        suggestion: "Remove empty style attributes",
+      },
+    },
+  ];
+}
+
 /**
  * Scan html.
  *
@@ -53,132 +181,25 @@ const deprecatedTags = [
 export function scanHtml(htmlContent: string): HtmlScanResult {
   const issues: HtmlIssue[] = [];
   const reports: string[] = [];
-  const lines = htmlContent.split("\n");
+  const statistics = { totalElements: 0, images: 0, links: 0, scripts: 0, stylesheets: 0 };
 
-  const statistics = {
-    totalElements: 0,
-    images: 0,
-    links: 0,
-    scripts: 0,
-    stylesheets: 0,
+  const record = (finding: Finding): void => {
+    issues.push(finding.issue);
+    if (finding.report !== undefined) reports.push(finding.report);
   };
 
-  // Check doctype
-  if (!htmlContent.toUpperCase().includes("<!DOCTYPE")) {
-    issues.push({
-      type: "missing_doctype",
-      severity: "critical",
-      message: "Missing DOCTYPE declaration",
-      suggestion: "Add '<!DOCTYPE html>' at the beginning of the file",
-    });
-    reports.push("🔴 Missing DOCTYPE declaration");
-  }
+  DOCUMENT_RULES.filter((rule) => rule.missing(htmlContent)).forEach(record);
 
-  // Check charset in head
-  if (!htmlContent.includes("charset")) {
-    issues.push({
-      type: "missing_charset",
-      severity: "high",
-      message: "Missing character encoding specification",
-      suggestion:
-        'Add <meta charset="UTF-8"> in the <head> section',
-    });
-    reports.push("❌ Missing charset meta tag");
-  }
-
-  // Check viewport meta tag
-  if (!htmlContent.includes("viewport")) {
-    issues.push({
-      type: "missing_viewport",
-      severity: "high",
-      message: "Missing viewport meta tag for responsive design",
-      suggestion:
-        'Add <meta name="viewport" content="width=device-width, initial-scale=1">',
-    });
-    reports.push("⚠️ Missing viewport meta tag");
-  }
-
-  // Check title tag
-  if (!htmlContent.includes("<title>") || !htmlContent.includes("</title>")) {
-    issues.push({
-      type: "missing_title",
-      severity: "high",
-      message: "Missing page title",
-      suggestion: "Add <title>Page Title</title> in the <head> section",
-    });
-    reports.push("❌ Missing <title> tag");
-  }
-
-  // Check lang attribute on html tag
-  if (!htmlContent.includes('lang="') && !htmlContent.includes("lang='")) {
-    issues.push({
-      type: "missing_lang",
-      severity: "medium",
-      message: "Missing language attribute on html element",
-      suggestion: 'Add lang attribute: <html lang="en">',
-    });
-    reports.push("ℹ️ Missing lang attribute on <html>");
-  }
-
-  // Scan for issues line by line
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]?.trim() || "";
-
-    // Count elements
-    const tagMatches = line.match(/<(\w+)[>\s]/g);
-    if (tagMatches) {
-      statistics.totalElements += tagMatches.length;
-    }
-
-    // Count specific elements
-    if (line.includes("<img")) statistics.images++;
-    if (line.includes("<a ") || line.includes("<a>")) statistics.links++;
-    if (line.includes("<script")) statistics.scripts++;
-    if (line.includes("<link") && line.includes("stylesheet"))
-      statistics.stylesheets++;
-
-    // Check for deprecated tags
-    for (const tag of deprecatedTags) {
-      if (line.includes(`<${tag}`)) {
-        issues.push({
-          type: "deprecated_tags",
-          element: tag,
-          line: i + 1,
-          severity: "medium",
-          message: `Deprecated HTML tag used: <${tag}>`,
-          suggestion: `Replace <${tag}> with appropriate semantic HTML5 elements or CSS`,
-        });
-        reports.push(`⚠️ Deprecated tag <${tag}> found at line ${i + 1}`);
-      }
-    }
-
-    // Check for missing alt text on images
-    if (line.includes("<img") && !line.includes("alt=")) {
-      const srcMatch = line.match(/src=["']([^"']+)["']/);
-      issues.push({
-        type: "missing_alt_text",
-        element: "img",
-        line: i + 1,
-        severity: "high",
-        message: "Image missing alt text (accessibility issue)",
-        suggestion: `Add descriptive alt text: <img src="${srcMatch?.[1] || ''}" alt="description">`,
-      });
-      reports.push(
-        `🔴 Image missing alt text at line ${i + 1}: ${srcMatch?.[1]}`
-      );
-    }
-
-    // Check for unused style attributes
-    if (line.includes('style=""') || line.includes("style=''")) {
-      issues.push({
-        type: "unused_attributes",
-        line: i + 1,
-        severity: "low",
-        message: "Empty style attribute found",
-        suggestion: "Remove empty style attributes",
-      });
-    }
-  }
+  htmlContent.split("\n").forEach((raw, index) => {
+    const line = raw.trim();
+    const lineNo = index + 1;
+    countElements(line, statistics);
+    [
+      ...deprecatedTagFindings(line, lineNo),
+      ...missingAltFindings(line, lineNo),
+      ...emptyStyleFindings(line, lineNo),
+    ].forEach(record);
+  });
 
   const isValid =
     issues.filter((i) => i.severity === "critical" || i.severity === "high")

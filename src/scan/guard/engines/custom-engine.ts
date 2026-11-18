@@ -2,7 +2,7 @@
 // themselves from preset rules and validate the runtime env. They are distinct
 // from the public caller-schema wrappers in src/guard/engines (not duplicates).
 import type { ValidationEngine, ValidationResult, ValidationError } from "../../core/contracts/validation-engine.js";
-import { PRESET_RULES, validateField, detectPresets } from "../rules/preset-rules.js";
+import { PRESET_RULES, validateField, detectPresets, URL_SCHEME_PATTERN } from "../rules/preset-rules.js";
 
 /**
  * Custom validation engine class.
@@ -47,7 +47,7 @@ export class CustomValidationEngine implements ValidationEngine {
         const value = runtimeEnv[key];
         if (value === undefined || value === "") return;
 
-        if (!/^(https?|postgres(ql)?|mongodb(\+srv)?|rediss?|cloudinary):\/\//.test(value)) {
+        if (!URL_SCHEME_PATTERN.test(value)) {
           errors.push({
             path: [key],
             message: "Field suggests a URL/URI format but lacks a valid protocol prefix.",

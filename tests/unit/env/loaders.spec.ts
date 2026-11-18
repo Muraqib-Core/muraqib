@@ -22,6 +22,15 @@ const TOUCHED = [
   "LD_EXPORTED",
   "LD_COMMENT",
   "LD_HASH",
+  "LD_PASS",
+  "LD_PEM",
+  "LD_ESC",
+  "LD_LIT",
+  "LD_SYS",
+  "LD_SELF",
+  "LD_EMPTY",
+  "LD_CHAIN",
+  "LD_BOM",
 ];
 
 describe("loadEnv", () => {
@@ -153,5 +162,109 @@ describe("loadEnv", () => {
     process.env.PORT = "8080";
     loadEnv({ cwd: dir, preserveProcessEnv: true });
     expect(process.env.PORT).toBe("8080");
+  });
+
+  describe("dotenv syntax", () => {
+    const load = (content: string): Record<string, string> => {
+      write(".env", content);
+      return loadEnv({ cwd: dir, preserveProcessEnv: true });
+    };
+
+    test("reads multi-line double-quoted values (PEM style)", () => {
+      const loaded = load('LD_PEM="-----BEGIN-----\nabc\n-----END-----"\nLD_A=1\n');
+      expect(loaded.LD_PEM).toBe("-----BEGIN-----\nabc\n-----END-----");
+      expect(loaded.LD_A).toBe("1");
+    });
+
+    test("decodes escapes only inside double quotes", () => {
+      const loaded = load('LD_ESC="a\\nb\\"c"\nLD_LIT=\'a\\nb\'\n');
+      expect(loaded.LD_ESC).toBe('a\nb"c');
+      expect(loaded.LD_LIT).toBe("a\\nb");
+    });
+
+    test("does not expand single-quoted or backtick values", () => {
+      const loaded = load("LD_A=base\nLD_LIT='$LD_A and ${LD_A}'\nLD_B=`$LD_A`\n");
+      expect(loaded.LD_LIT).toBe("$LD_A and ${LD_A}");
+      expect(loaded.LD_B).toBe("$LD_A");
+    });
+
+    test("keeps a literal dollar written as \\$", () => {
+      expect(load("LD_PASS=pa\\$word\n").LD_PASS).toBe("pa$word");
+    });
+
+    test("starts a comment only after whitespace, so '#' inside a value survives", () => {
+      const loaded = load("LD_PASS=pa#ss\nLD_COMMENT=x #c\nLD_HASH=#whole\n");
+      expect(loaded.LD_PASS).toBe("pa#ss");
+      expect(loaded.LD_COMMENT).toBe("x");
+      expect(loaded.LD_HASH).toBe("");
+    });
+
+    test("treats an unterminated quote as a plain value without swallowing the file", () => {
+      const loaded = load('LD_A="oops\nLD_B=2\n');
+      expect(loaded.LD_A).toBe('"oops');
+      expect(loaded.LD_B).toBe("2");
+    });
+
+    test("strips a BOM and ignores invalid keys", () => {
+      const loaded = load("\uFEFFLD_BOM=1\n=x\n1BAD=y\nbad key=z\n");
+      expect(loaded).toEqual({ LD_BOM: "1" });
+    });
+
+    test("${VAR:-d} falls back for empty values, ${VAR-d} only for unset ones", () => {
+      const loaded = load("LD_EMPTY=\nLD_A=${LD_EMPTY:-colon}\nLD_B=${LD_EMPTY-dash}\nLD_C=${LD_NOPE-dash}\n");
+      expect(loaded.LD_A).toBe("colon");
+      expect(loaded.LD_B).toBe("");
+      expect(loaded.LD_C).toBe("dash");
+    });
+
+    test("resolves references to later keys and chains", () => {
+      const loaded = load("LD_CHAIN=$LD_B/c\nLD_B=$LD_A/b\nLD_A=a\n");
+      expect(loaded.LD_CHAIN).toBe("a/b/c");
+    });
+
+    test("does not treat unbalanced braces as a reference", () => {
+      expect(load("LD_A=x\nLD_B=${LD_A\n").LD_B).toBe("${LD_A");
+    });
+
+    test("warns about undefined references in verbose mode only", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      write(".env", "LD_A=pa$word\n");
+      loadEnv({ cwd: dir, preserveProcessEnv: true });
+      expect(warn).not.toHaveBeenCalled();
+      loadEnv({ cwd: dir, preserveProcessEnv: true, verbose: true });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"word"'));
+    });
+  });
+
+  describe("precedence", () => {
+    test("variables already in process.env win by default", () => {
+      process.env.LD_SYS = "system";
+      write(".env", "LD_SYS=file\nLD_REF=${LD_SYS}!\n");
+      const loaded = loadEnv({ cwd: dir });
+      expect(loaded.LD_SYS).toBe("system");
+      expect(loaded.LD_REF).toBe("system!");
+      expect(process.env.LD_SYS).toBe("system");
+    });
+
+    test("override lets the file replace process.env", () => {
+      process.env.LD_SYS = "system";
+      write(".env", "LD_SYS=file\nLD_REF=${LD_SYS}!\n");
+      const loaded = loadEnv({ cwd: dir, override: true });
+      expect(loaded.LD_SYS).toBe("file");
+      expect(loaded.LD_REF).toBe("file!");
+      expect(process.env.LD_SYS).toBe("file");
+    });
+
+    test("an empty system value still counts as set", () => {
+      process.env.LD_SYS = "";
+      write(".env", "LD_SYS=file\n");
+      expect(loadEnv({ cwd: dir }).LD_SYS).toBe("");
+    });
+
+    test("a self-reference appends to the real value instead of looping", () => {
+      process.env.LD_SELF = "base";
+      write(".env", "LD_SELF=$LD_SELF:/x\n");
+      expect(loadEnv({ cwd: dir, override: true }).LD_SELF).toBe("base:/x");
+    });
   });
 });

@@ -60,8 +60,8 @@ describe("generateFallbackSuggestions", () => {
 
 describe("analyzeUnknownVariablesWithFallback", () => {
   test.each([
-    ["DATABASE_NAME", "database configuration", 4],
-    ["REDIS_SQL", "database configuration", 4],
+    ["DATABASE_NAME", "If your project uses a database", 1],
+    ["REDIS_SQL", "If your project uses a database", 1],
     ["STRIPE_API", "API key or secret", 5],
     ["MY_SECRET", "API key or secret", 5],
     ["APP_PORT", "server configuration", 3],

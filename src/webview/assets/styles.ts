@@ -24,7 +24,6 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .skip:focus { inset-block-start: 8px; }
 .page { max-inline-size: 1120px; margin-inline: auto; padding-inline: 16px; }
 .hero { display: flex; gap: 20px; align-items: center; padding-block: 32px 20px; border-block-end: 1px solid var(--border); }
-.logo { flex: none; inline-size: 72px; block-size: 72px; color: var(--accent); }
 .hero > div { min-inline-size: 0; }
 .hero h1 { margin: 0; font-size: clamp(1.5rem, 4vw, 2.1rem); line-height: 1.2; }
 .version { margin-inline-start: 8px; padding: 2px 8px; font-size: .8rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; vertical-align: middle; }

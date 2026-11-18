@@ -18,6 +18,9 @@ const context = {
 
 class MemoryGuard {
   constructor(private readonly outcome: () => Promise<AuditResult>) {}
+  getModule(): string {
+    return "memory-guard";
+  }
   run(): Promise<AuditResult> {
     return this.outcome();
   }
@@ -60,7 +63,7 @@ describe("AuditOrchestrator guard failures", () => {
     expect(result.success).toBe(true);
     const rejected = result.results.filter((r) => r.status === "error");
     expect(rejected).toHaveLength(2);
-    expect(rejected[0]?.module).toBe("memory");
+    expect(rejected[0]?.module).toBe("memory-guard");
     expect(rejected[0]?.issues[0]?.code).toBe("GUARD_REJECTED");
     expect(rejected[0]?.issues[0]?.message).toBe("guard crashed");
     expect(rejected[1]?.issues[0]?.message).toBe("plain failure");
@@ -107,7 +110,7 @@ describe("AuditOrchestrator guard failures", () => {
       ),
     ]);
     const result = await new AuditOrchestrator(context, { sortBy: "module", sortOrder: "desc" }).execute();
-    expect(result.issues.map((i) => i.title)).toEqual(["z", "a", "n"]);
+    expect(result.issues.map((i) => i.title)).toEqual(["z", "n", "a"]);
   });
 
   test("prints a summary with the duration in ms or seconds", () => {

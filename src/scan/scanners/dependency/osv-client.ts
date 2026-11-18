@@ -1,6 +1,8 @@
 import https from "node:https";
 import http from "node:http";
-import { osvConfig } from "../../config/osv.config.js";
+import { getOsvConfig, type OsvConfig } from "../../config/osv.config.js";
+
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 export interface OsvVulnerabilityEvent {
   introduced?: string;
@@ -49,6 +51,13 @@ export function queryOsv(
   packageName: string,
   version: string
 ): Promise<OsvQueryResult> {
+  let osvConfig: OsvConfig;
+  try {
+    osvConfig = getOsvConfig();
+  } catch (err) {
+    return Promise.resolve({ status: "unavailable", error: err instanceof Error ? err.message : String(err) });
+  }
+
   return new Promise((resolve) => {
     const postData = JSON.stringify({
       version,
@@ -75,27 +84,25 @@ export function queryOsv(
 
     const requestModule = osvConfig.protocol === "http:" ? http : https;
     const req = requestModule.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
+      const chunks: Buffer[] = [];
+      let received = 0;
+
+      res.on("data", (chunk: Buffer) => {
+        if (isHandled) return;
+        received += chunk.length;
+        if (received > MAX_RESPONSE_BYTES) {
+          isHandled = true;
+          req.destroy();
+          resolve({ status: "error", error: `OSV response for ${packageName} exceeded the 5 MiB safety limit` });
+          return;
+        }
+        chunks.push(chunk);
       });
 
       res.on("end", () => {
         if (isHandled) return;
         isHandled = true;
 
-        // if (res.statusCode && (res.statusCode >= 500 || res.statusCode === 429)) {
-        //   resolve({
-        //     status: "unavailable",
-        //     error: `OSV service returned HTTP status ${res.statusCode}`,
-        //   });
-        //   return;
-        // }
-        if (Buffer.byteLength(data) > 5 * 1024 * 1024) {
-          req.destroy(
-            new Error("OSV response exceeded the 5 MiB safety limit")
-          );
-        }
         if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
           resolve({
             status: "unavailable",
@@ -105,7 +112,7 @@ export function queryOsv(
         }
 
         try {
-          const parsed = JSON.parse(data) as OsvResponse;
+          const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8")) as OsvResponse;
           resolve({ status: "success", data: parsed });
         } catch {
           resolve({

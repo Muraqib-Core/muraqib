@@ -7,6 +7,57 @@ export interface ChangelogRelease {
 
 /** Newest first. Keep the top entry in sync with `package.json` (a unit test enforces it). */
 export const CHANGELOG: readonly ChangelogRelease[] = [
+  {
+    version: "1.2.0",
+    date: "2026-11-03",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "`muraqib-agent`, a separate command: `plan` ranks what to fix first, `fix` proposes fixes proven by re-running the audit on a copy (a patch file, or `--apply` on a new branch after asking), `pr-description` and `eval`",
+          "`fix --verify-cmd` also runs your own commands (for example the type-check) on the fixed copy and rejects a fix that breaks them",
+          "Optional Gemini explanations with `plan --explain` (free key, secrets redacted, automatic fallback to built-in text)",
+        ],
+      },
+      {
+        title: "Removed",
+        items: ["The shield-and-eye logo from the documentation web view and the VS Code extension"],
+      },
+    ],
+  },
+  {
+    version: "1.1.0",
+    date: "2026-10-18",
+    groups: [
+      {
+        title: "Added",
+        items: [
+          "Git hooks: `muraqib hook install` scans staged changes for secrets before each commit",
+          "Security scorecard (0-100) and Markdown compliance report via `muraqib audit --report`",
+          "Guards for the bundle, env, cache, HTTP optimizer and render-blocking audits, and `SecretGuard`",
+          "VS Code extension (Problems panel, report view, status bar counter)",
+          "Generated documentation (`npm run docs:generate`) checked in CI",
+        ],
+      },
+      {
+        title: "Changed",
+        items: [
+          "Behaviour change: `loadEnv` no longer lets a `.env` file replace a variable already set in the real environment (pass `override: true` to restore it)",
+          "The two secret detectors are merged into one module with more token formats",
+        ],
+      },
+      {
+        title: "Fixed",
+        items: [
+          "Scan layer false positives for `PORT`, `DATABASE_URL`, `AWS_REGION`, `export KEY=` lines and multi-line `.env` values",
+          "Compatibility checks compare versions with semver; a malformed `OSV_API_URL` no longer crashes the CLI",
+          "An unreadable `.env` file or missing validation engine no longer aborts the whole scan",
+          "Dead-code suppression comments apply to their own line; render-blocking detection reads tag attributes",
+          "`createEnv` typing and server/client separation, and the `.env` parser's quoting rules",
+        ],
+      },
+    ],
+  },
    {
     version: "1.0.3",
     date: "2026-10-13",

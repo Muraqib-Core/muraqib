@@ -73,7 +73,7 @@ function detailsTab(info: PackageInfo): TabContent {
         "npm install",
         "npm run build",
         "npx muraqib audit                 # text report of every module",
-        "npx muraqib audit --format json   # json | text | html | csv",
+        "npx muraqib audit --format json   # json | text | html | csv | md",
         "npx muraqib audit --osv           # also check dependencies against OSV",
       ].join("\n"),
     },
@@ -173,7 +173,8 @@ function configurationTab(): TabContent {
         headers: ["Flag", "Effect"],
         rows: [
           ["`-p, --project <path>`", "Project root (default: current directory)"],
-          ["`-f, --format <fmt>`", "`text`, `json`, `html` or `csv`"],
+          ["`-f, --format <fmt>`", "`text`, `json`, `html`, `csv` or `md`"],
+          ["`--report`", "Shorthand for `--format md`: Markdown security scorecard (0-100) for READMEs and CI summaries"],
           ["`-o, --output <path>`", "Write the report to a file instead of stdout"],
           ["`-m, --modules <list>`", "Comma-separated module name filter"],
           ["`--osv`", "Check dependencies against [OSV](https://osv.dev) for known vulnerabilities"],

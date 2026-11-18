@@ -25,50 +25,45 @@ export class FindingCollector {
   }
 
   /**
-   * Get all.
+   * All collected findings.
    *
-   * @returns Get all result
+   * @returns A copy of the list, in the order they were added
    */
   getAll(): ScanIssue[] {
     return [...this.findings];
   }
 
   /**
-   * Get by category.
+   * Findings of one category.
    *
-   * @param category - Category
-   * @returns Get by category result
+   * @param category - Category to keep
+   * @returns The matching findings
    */
   getByCategory(category: ScanIssue["category"]): ScanIssue[] {
     return this.findings.filter((f) => f.category === category);
   }
 
   /**
-   * Get by severity.
+   * Findings of one severity level.
    *
-   * @param severity - Severity
-   * @returns Get by severity result
+   * @param severity - Level to keep
+   * @returns The matching findings
    */
   getBySeverity(severity: ScanIssue["level"]): ScanIssue[] {
     return this.findings.filter((f) => f.level === severity);
   }
 
   /**
-   * Has blocking issues.
+   * Whether any finding is severe enough to block the build.
    *
-   * @param minimumSeverity - Minimum severity
-   * @returns Has blocking issues result
+   * @param minimumSeverity - `high` blocks on critical and high findings, `medium` also blocks on medium ones
+   * @returns True when at least one finding blocks
    */
   hasBlockingIssues(minimumSeverity: "high" | "medium" = "high"): boolean {
-  const blocking =
-    minimumSeverity === "medium"
-      ? new Set(["critical", "high", "medium"])
-      : new Set(["critical", "high"]);
-
-  return this.findings.some((finding) =>
-    blocking.has(finding.level)
-  );
-}
+    const blocking: ReadonlySet<string> =
+      minimumSeverity === "medium" ? new Set(["critical", "high", "medium"]) : new Set(["critical", "high"]);
+    return this.findings.some((finding) => blocking.has(finding.level));
+  }
 
   /**
    * Clear.

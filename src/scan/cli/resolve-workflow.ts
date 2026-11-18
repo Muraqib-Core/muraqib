@@ -4,51 +4,30 @@ import type { ProjectContext } from "../core/context/project-context.js";
 import { DependencyGraph } from "../core/resolution/dependency-graph.js";
 import { ResolutionEngine } from "../core/resolution/resolution-engine.js";
 import { ResolutionApplier } from "../core/resolution/resolution-applier.js";
-import type { ApprovalDecision } from "../core/resolution/resolution-plan.js";
-import { AuditRunner } from "../core/runner/audit-runner.js";
+import type { ApprovalDecision, ResolutionPlan, ResolutionResult } from "../core/resolution/resolution-plan.js";
+import { AuditRunner, type AuditReport } from "../core/runner/audit-runner.js";
 
-/**
- * Run resolve workflow.
- *
- * @param context - Context
- */
-export async function runResolveWorkflow(context: ProjectContext): Promise<void> {
-  console.log(styleText("dim", "────────────────────────────────────────────"));
-  console.log(styleText(["bold", "cyan"], "Muraqib Dependency Resolution 🛡️"));
-  console.log(styleText("dim", "────────────────────────────────────────────\n"));
+const RULE = "────────────────────────────────────────────";
 
-  const spinner = x.spinner();
-  spinner.start("Analyzing dependency graph & security advisories...");
-
-  // 1. Run audit runner to collect findings
-  const runner = new AuditRunner();
-  let report;
+/** Scans the project; a failed scan ends the process. */
+async function scanProject(context: ProjectContext, spinner: { stop: (message: string) => void }): Promise<AuditReport> {
   try {
-    report = await runner.run(context, { enableAi: false });
+    return await new AuditRunner().run(context, { enableAi: false });
   } catch (err: unknown) {
     spinner.stop("Failed to scan project dependencies.");
-    const msg = err instanceof Error ? err.message : String(err);
-    console.log(styleText("red", `\nScan error: ${msg}\n`));
-    process.exit(1);
+    return failScan(err);
   }
+}
 
-  spinner.stop("Dependency analysis complete.\n");
+function failScan(err: unknown): never {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.log(styleText("red", `\nScan error: ${msg}\n`));
+  return process.exit(1);
+}
 
-  // 2. Build dependency graph and resolution engine
-  const graph = new DependencyGraph(context.projectPath);
-  const engine = new ResolutionEngine(graph);
-
-  const plans = engine.generatePlans(report.findings);
-
-  if (plans.length === 0) {
-    x.note(
-      "No resolvable dependency problems detected in the current project.",
-      "Clean Dependencies ✨"
-    );
-    process.exit(0);
-  }
-
-  // Plans are alternatives. Applying one invalidates every plan generated from the old state.
+/** Plans are alternatives: with several, the user picks one to inspect. Returns undefined when cancelled or gone. */
+async function choosePlan(plans: ResolutionPlan[]): Promise<ResolutionPlan | undefined> {
+  // Applying one plan invalidates every plan generated from the old state.
   let selectedPlanId = plans[0]?.id;
   if (plans.length > 1) {
     const selection = await x.select({
@@ -61,20 +40,19 @@ export async function runResolveWorkflow(context: ProjectContext): Promise<void>
     });
     if (x.isCancel(selection)) {
       x.cancel("Resolution cancelled. No changes were applied.");
-      return;
+      return undefined;
     }
     selectedPlanId = String(selection);
   }
 
   const plan = plans.find((candidate) => candidate.id === selectedPlanId);
-  if (!plan) {
-    x.cancel("The selected resolution candidate is no longer available.");
-    return;
-  }
+  if (!plan) x.cancel("The selected resolution candidate is no longer available.");
+  return plan;
+}
 
+function printPlan(plan: ResolutionPlan): void {
   const primaryChange = plan.changes[0];
-  const finding = plan.findingsResolved[0];
-  const problem = finding?.dependencyProblem;
+  const problem = plan.findingsResolved[0]?.dependencyProblem;
   const advisoryCount = problem?.advisoryCount ?? 1;
 
   console.log(
@@ -115,8 +93,10 @@ export async function runResolveWorkflow(context: ProjectContext): Promise<void>
 
   console.log("Risk:");
   console.log(`${plan.risk}\n`);
+}
 
-  // 4. STRICT APPROVAL PROMPT (DEFAULT: NO)
+/** Strict approval prompt (default: No). */
+async function confirmApply(): Promise<boolean> {
   const approval = await x.select({
     message: "Apply this resolution?",
     options: [
@@ -129,10 +109,23 @@ export async function runResolveWorkflow(context: ProjectContext): Promise<void>
   if (x.isCancel(approval) || approval !== "yes") {
     console.log("\n" + styleText("yellow", "Resolution cancelled."));
     console.log(styleText("dim", "No changes were applied.\n"));
-    return;
+    return false;
   }
+  return true;
+}
 
-    // Explicit approval decision
+function printVerification(result: ResolutionResult): void {
+  console.log("Verifying...");
+  for (const step of result.verificationResults ?? []) {
+    const icon = step.passed ? styleText("green", "✓") : styleText("red", "✗");
+    const title = step.step.charAt(0).toUpperCase() + step.step.slice(1);
+    console.log(`${icon} ${title}: ${step.status ?? "unknown"}${step.message ? ` — ${step.message}` : ""}`);
+  }
+}
+
+/** Applies an approved plan, reporting each stage; failure and stale states end the flow early. */
+async function applyApprovedPlan(plan: ResolutionPlan, graph: DependencyGraph): Promise<void> {
+  // Explicit approval decision
   const decision: ApprovalDecision = "approved";
   const applier = new ResolutionApplier(graph);
 
@@ -160,19 +153,49 @@ export async function runResolveWorkflow(context: ProjectContext): Promise<void>
     return;
   }
 
-  console.log("Verifying...");
-  if (result.verificationResults) {
-    for (const step of result.verificationResults) {
-      const icon = step.passed ? styleText("green", "✓") : styleText("red", "✗");
-      const title = step.step.charAt(0).toUpperCase() + step.step.slice(1);
-      console.log(`${icon} ${title}: ${step.status ?? "unknown"}${step.message ? ` — ${step.message}` : ""}`);
-    }
-  }
+  printVerification(result);
 
   if (result.status === "applied") {
     console.log(styleText(["bold", "green"], "\nResolution completed successfully.\n"));
   } else {
     console.log(styleText(["bold", "yellow"], `\n${result.message}\n`));
   }
-  console.log(styleText("dim", "────────────────────────────────────────────"));
+  console.log(styleText("dim", RULE));
+}
+
+/**
+ * Run resolve workflow.
+ *
+ * @param context - Context
+ */
+export async function runResolveWorkflow(context: ProjectContext): Promise<void> {
+  console.log(styleText("dim", RULE));
+  console.log(styleText(["bold", "cyan"], "Muraqib Dependency Resolution 🛡️"));
+  console.log(styleText("dim", `${RULE}\n`));
+
+  const spinner = x.spinner();
+  spinner.start("Analyzing dependency graph & security advisories...");
+
+  // 1. Run audit runner to collect findings
+  const report = await scanProject(context, spinner);
+  spinner.stop("Dependency analysis complete.\n");
+
+  // 2. Build dependency graph and resolution engine
+  const graph = new DependencyGraph(context.projectPath);
+  const plans = new ResolutionEngine(graph).generatePlans(report.findings);
+
+  if (plans.length === 0) {
+    x.note(
+      "No resolvable dependency problems detected in the current project.",
+      "Clean Dependencies ✨"
+    );
+    process.exit(0);
+  }
+
+  const plan = await choosePlan(plans);
+  if (!plan) return;
+
+  printPlan(plan);
+  if (!(await confirmApply())) return;
+  await applyApprovedPlan(plan, graph);
 }

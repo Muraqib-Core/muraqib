@@ -3,6 +3,11 @@
  * Extracted to reduce config-guard.ts bundle size.
  */
 
+/** Matches `.env`, `.env.local`, `.env.production`, ... */
+export const ENV_FILE_PATTERN = /^\.env(?:\..+)?$/;
+/** Matches templates that are meant to be committed, such as `.env.example`. */
+export const ENV_TEMPLATE_PATTERN = /\.(?:example|sample|template|dist|defaults?)$/i;
+
 export interface EnvEntry {
   key: string;
   value: string;

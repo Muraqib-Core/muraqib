@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="76" viewBox="0 0 1000 76" role="img" aria-labelledby="t d">
+<title id="t">Wave divider</title>
+<desc id="d">Decorative rolling amber waves.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}
+@keyframes dv0{from{transform:translateX(0px)}to{transform:translateX(-400px)}}.dv0{animation:dv0 14s linear infinite}@keyframes dv1{from{transform:translateX(-500px)}to{transform:translateX(0px)}}.dv1{animation:dv1 19s linear infinite}@keyframes dv2{from{transform:translateX(0px)}to{transform:translateX(-250px)}}.dv2{animation:dv2 9s linear infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+<defs><linearGradient id="edge" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".18" stop-color="#fff"/><stop offset=".82" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="m"><rect width="1000" height="76" fill="url(#edge)"/></mask></defs>
+<g mask="url(#m)"><g class="dv0"><path d="M0 38 Q100 20 200 38 Q300 56 400 38 Q500 20 600 38 Q700 56 800 38 Q900 20 1000 38 Q1100 56 1200 38 Q1300 20 1400 38 Q1500 56 1600 38 Q1700 20 1800 38" fill="none" stroke="#E7A141" stroke-opacity="0.9" stroke-width="2" stroke-linecap="round"/></g><g class="dv1"><path d="M0 40 Q125 16 250 40 Q375 64 500 40 Q625 16 750 40 Q875 64 1000 40 Q1125 16 1250 40 Q1375 64 1500 40 Q1625 16 1750 40 Q1875 64 2000 40" fill="none" stroke="#E7A141" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round"/></g><g class="dv2"><path d="M0 36 Q62.5 22 125 36 Q187.5 50 250 36 Q312.5 22 375 36 Q437.5 50 500 36 Q562.5 22 625 36 Q687.5 50 750 36 Q812.5 22 875 36 Q937.5 50 1000 36 Q1062.5 22 1125 36 Q1187.5 50 1250 36 Q1312.5 22 1375 36 Q1437.5 50 1500 36" fill="none" stroke="#E7A141" stroke-opacity="0.25" stroke-width="1.5" stroke-linecap="round"/></g></g>
+</svg>

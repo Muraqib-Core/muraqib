@@ -1,0 +1,74 @@
+{
+  "score": 0,
+  "grade": "F",
+  "uncappedScore": 0,
+  "capped": false,
+  "findings": 35,
+  "bySeverity": [
+    {
+      "severity": "critical",
+      "count": 0,
+      "penalty": 0
+    },
+    {
+      "severity": "high",
+      "count": 5,
+      "penalty": 50
+    },
+    {
+      "severity": "medium",
+      "count": 30,
+      "penalty": 120
+    },
+    {
+      "severity": "low",
+      "count": 0,
+      "penalty": 0
+    }
+  ],
+  "byDomain": [
+    {
+      "domain": "security",
+      "counts": {
+        "critical": 0,
+        "high": 5,
+        "medium": 0,
+        "low": 0
+      },
+      "score": 50,
+      "grade": "F",
+      "uncappedScore": 50,
+      "capped": false,
+      "findings": 5
+    },
+    {
+      "domain": "dependencies",
+      "counts": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      },
+      "score": 100,
+      "grade": "A",
+      "uncappedScore": 100,
+      "capped": false,
+      "findings": 0
+    },
+    {
+      "domain": "code-quality",
+      "counts": {
+        "critical": 0,
+        "high": 0,
+        "medium": 30,
+        "low": 0
+      },
+      "score": 0,
+      "grade": "F",
+      "uncappedScore": 0,
+      "capped": false,
+      "findings": 30
+    }
+  ],
+  "info": 0
+}

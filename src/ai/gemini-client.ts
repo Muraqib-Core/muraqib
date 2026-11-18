@@ -1,4 +1,5 @@
 import type { GoogleGenAI } from "@google/genai";
+import { warn } from "../shared/logger.js";
 import { loadOptionalDependency, MissingOptionalDependencyError } from "../utils/optional-dependency.js";
 
 /**
@@ -19,6 +20,6 @@ let missingGenAIWarned = false;
 export function warnIfGenAIMissing(error: unknown): void {
   if (error instanceof MissingOptionalDependencyError && !missingGenAIWarned) {
     missingGenAIWarned = true;
-    console.warn(`[muraqib] AI advisor disabled: ${error.message}`);
+    warn(`[muraqib] AI advisor disabled: ${error.message}`);
   }
 }

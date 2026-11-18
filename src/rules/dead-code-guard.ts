@@ -3,6 +3,7 @@ import path from "path";
 import { BaseGuard } from "../core/base-guard.js";
 import type { AuditResult, AuditIssue, AuditContext } from "../core/types.js";
 import { scanProjectFiles } from "../utils/file-scanner.js";
+import { toPosix } from "../shared/paths.js";
 
 /**
  * Result of a dead code audit
@@ -72,15 +73,55 @@ function resolveStarReExports(barrelPath: string, content: string, knownFiles: S
   return resolved;
 }
 
-function countOccurrences(content: string, name: string): number {
-  const escaped = name.replace(/\$/g, "\\$");
+/** Counts whole-identifier occurrences of `name`; every regex metacharacter in `name` is escaped. */
+export function countOccurrences(content: string, name: string): number {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return (content.match(new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "g")) ?? []).length;
 }
 
-function stripStringsAndComments(line: string): string {
-  return line
-    .replace(/\/\/.*$/, "")
-    .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g, '""');
+const LINE_TERMINATORS = new Set(["\n", "\r", "\u2028", "\u2029"]);
+
+/** Index just past the closing `quote` of a literal opened at `open`, or -1 when it is unterminated. Linear. */
+function findStringEnd(line: string, open: number, quote: string): number {
+  for (let i = open + 1; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === quote) return i + 1;
+    if (ch === "\\") {
+      const next = line[i + 1];
+      if (next === undefined || LINE_TERMINATORS.has(next)) return -1;
+      i++;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Cuts the line at the first `//` and collapses string literals to `""`.
+ * Single linear pass: an unterminated quote of one kind cannot be closed by any later quote of the
+ * same kind, so it is remembered and never rescanned.
+ */
+export function stripStringsAndComments(line: string): string {
+  const commentAt = line.indexOf("//");
+  const code = commentAt === -1 ? line : line.slice(0, commentAt);
+  const unterminated = new Set<string>();
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i] ?? "";
+    if ((ch === '"' || ch === "'" || ch === "`") && !unterminated.has(ch)) {
+      const end = findStringEnd(code, i, ch);
+      if (end === -1) {
+        unterminated.add(ch);
+      } else {
+        out += '""';
+        i = end;
+        continue;
+      }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
 function bracketDelta(line: string): number {
@@ -92,6 +133,52 @@ function bracketDelta(line: string): number {
   return delta;
 }
 
+const MAX_STATEMENT_LINES = 40;
+
+const isBlankOrLineComment = (line: string): boolean => line === "" || line.startsWith("//");
+
+/** `if (x)\n  return y;` has no braces: the jump only guards that branch, so nothing after it is dead. */
+function isGuardedJump(lines: string[], index: number): boolean {
+  let p = index - 1;
+  while (p >= 0 && isBlankOrLineComment((lines[p] ?? "").trim())) p--;
+  const previous = p >= 0 ? stripStringsAndComments(lines[p] ?? "").trim() : "";
+  return previous.endsWith(")") || previous === "else" || previous.endsWith("=>");
+}
+
+/** Index of the line where the (possibly multi-line) jump statement starting at `start` ends, or -1. */
+function jumpStatementEnd(lines: string[], start: number): number {
+  let depth = 0;
+  for (let j = start; j < Math.min(lines.length, start + MAX_STATEMENT_LINES); j++) {
+    depth += bracketDelta(lines[j] ?? "");
+    const code = stripStringsAndComments(lines[j] ?? "").trim();
+    if (depth <= 0 && (code.endsWith(";") || /^(?:break|continue|return|throw)$/.test(code) || depth < 0)) {
+      return depth < 0 ? -1 : j;
+    }
+  }
+  return -1;
+}
+
+/** Index of the first line at or after `from` that is code (not blank or a comment). */
+function nextCodeIndex(lines: string[], from: number): number {
+  let n = from;
+  while (n < lines.length) {
+    const next = (lines[n] ?? "").trim();
+    if (next !== "" && !next.startsWith("//") && !next.startsWith("*") && !next.startsWith("/*")) break;
+    n++;
+  }
+  return n;
+}
+
+/** Whether `next` (the line after a jump) is normal code: a block end, `case`/`default`/`else`, or a hoisted function. */
+function isReachableAfterJump(next: string): boolean {
+  return (
+    next === "" ||
+    /^[}\])]/.test(next) ||
+    /^(?:case\b|default\s*:|else\b)/.test(next) ||
+    /^(?:async\s+)?function\b/.test(next)
+  );
+}
+
 /**
  * Returns the 1-based line numbers of statements that sit directly after a complete
  * `return`/`throw`/`break`/`continue` statement inside the same block.
@@ -99,152 +186,179 @@ function bracketDelta(line: string): number {
  */
 export function findUnreachableLines(lines: string[]): number[] {
   const found: number[] = [];
-  const MAX_STATEMENT_LINES = 40;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = (lines[i] ?? "").trim();
-    if (!JUMP_STATEMENT_REGEX.test(line)) continue;
+    if (!JUMP_STATEMENT_REGEX.test((lines[i] ?? "").trim()) || isGuardedJump(lines, i)) continue;
 
-    // `if (x)\n  return y;` has no braces: the jump only guards that branch
-    let p = i - 1;
-    while (p >= 0 && ((lines[p] ?? "").trim() === "" || (lines[p] ?? "").trim().startsWith("//"))) p--;
-    const previous = p >= 0 ? stripStringsAndComments(lines[p] ?? "").trim() : "";
-    if (previous.endsWith(")") || previous === "else" || previous.endsWith("=>")) continue;
-
-    // Find where the (possibly multi-line) statement ends
-    let depth = 0;
-    let end = -1;
-    for (let j = i; j < Math.min(lines.length, i + MAX_STATEMENT_LINES); j++) {
-      depth += bracketDelta(lines[j] ?? "");
-      const code = stripStringsAndComments(lines[j] ?? "").trim();
-      if (depth <= 0 && (code.endsWith(";") || /^(?:break|continue|return|throw)$/.test(code) || depth < 0)) {
-        end = depth < 0 ? -1 : j;
-        break;
-      }
-    }
+    const end = jumpStatementEnd(lines, i);
     if (end === -1) continue;
 
-    let n = end + 1;
-    while (n < lines.length) {
-      const next = (lines[n] ?? "").trim();
-      if (next !== "" && !next.startsWith("//") && !next.startsWith("*") && !next.startsWith("/*")) break;
-      n++;
-    }
+    const n = nextCodeIndex(lines, end + 1);
     const next = n < lines.length ? (lines[n] ?? "").trim() : "";
-    if (next === "" || /^[}\])]/.test(next) || /^(?:case\b|default\s*:|else\b)/.test(next)) continue;
-    if (/^(?:async\s+)?function\b/.test(next)) continue; // hoisted declarations stay reachable
-
-    found.push(n + 1);
+    if (!isReachableAfterJump(next)) found.push(n + 1);
   }
   return found;
 }
 
-function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
-  const reports: string[] = [];
-  const emptyFunctions: string[] = [];
-  const unreachableBranches: string[] = [];
-  const unusedExports: string[] = [];
+type ScannedFile = ReturnType<typeof scanProjectFiles>[number];
 
-  const scannedFiles = scanProjectFiles(targetPath, ["ts"]);
+const SUPPRESSION_MARKER = /\/\/\s*muraqib-(?:ignore-dead|unreachable)\b/;
 
-  // An export counts as used when its name appears in ANY other project file: sources, specs,
-  // tests, bin scripts and plain JS consumers included (not only `import ... from` lines in src).
+interface Suppressions {
+  /** A comment-only marker line silences the whole file. */
+  wholeFile: boolean;
+  /** A marker trailing code silences findings reported on that line only. */
+  lines: Set<number>;
+}
+
+/** Reads suppression comments; markers inside string literals do not count because a real comment must start with `//`. */
+function readSuppressions(content: string): Suppressions {
+  const suppressions: Suppressions = { wholeFile: false, lines: new Set() };
+  content.split("\n").forEach((line, index) => {
+    const marker = SUPPRESSION_MARKER.exec(line);
+    if (!marker) return;
+    if (line.slice(0, marker.index).trim() === "") suppressions.wholeFile = true;
+    else suppressions.lines.add(index + 1);
+  });
+  return suppressions;
+}
+
+/** 1-based line of a character offset. */
+const lineOf = (content: string, index: number): number => content.slice(0, index).split("\n").length;
+
+/**
+ * An export counts as used when its name appears in ANY other project file: sources, specs,
+ * tests, bin scripts and plain JS consumers included (not only `import ... from` lines in src).
+ */
+function indexIdentifiers(targetPath: string): Map<string, Set<string>> {
   const identifiersByFile = new Map<string, Set<string>>();
   for (const consumer of scanProjectFiles(targetPath, ["ts", "tsx", "js", "mjs", "cjs"], { includeTests: true })) {
     identifiersByFile.set(consumer.path, new Set(consumer.content.match(IDENTIFIER_REGEX) ?? []));
   }
+  return identifiersByFile;
+}
 
-  // Package entrypoints (and anything they `export *` from) are public API consumed outside the repo.
-  const knownFiles = new Set(scannedFiles.map((f) => f.relativePath.replace(/\\/g, "/")));
+/** Package entrypoints (and anything they `export *` from) are public API consumed outside the repo. */
+function collectPublicFiles(targetPath: string, scannedFiles: ScannedFile[]): Set<string> {
+  const knownFiles = new Set(scannedFiles.map((f) => toPosix(f.relativePath)));
   const publicFiles = readPackageEntrypoints(targetPath);
   for (const f of scannedFiles) {
-    const rel = f.relativePath.replace(/\\/g, "/");
+    const rel = toPosix(f.relativePath);
     if (isEntryOrBarrel(rel) || publicFiles.has(rel)) {
       for (const reExported of resolveStarReExports(rel, f.content, knownFiles)) publicFiles.add(reExported);
     }
   }
+  return publicFiles;
+}
 
-  for (const scannedFile of scannedFiles) {
-    const { path: filePath, relativePath, content } = scannedFile;
-    if (content.includes("muraqib-ignore-dead") || content.includes("muraqib-unreachable")) {
-      continue;
-    }
+function reportEmptyFunctions({ relativePath, content }: ScannedFile, suppressed: Set<number>, out: DeadCodeAuditResult): void {
+  const emptyFuncRegex = /(?:function\s+(\w+)\s*\([^)]*\)|(\w+)\s*(?::\s*[^=]+)?=\s*(?:async\s*)?\([^)]*\)\s*=>)\s*{\s*}/g;
+  let match: RegExpExecArray | null;
+  while ((match = emptyFuncRegex.exec(content)) !== null) {
+    const name = match[1] || match[2] || "anonymous";
+    const lineNum = lineOf(content, match.index);
+    if (suppressed.has(lineNum)) continue;
+    out.emptyFunctions.push(`${relativePath}:${lineNum} (${name})`);
+    out.reports.push(`Empty function body: ${relativePath}:${lineNum} — "${name}" does nothing`);
+  }
+}
 
-    const lines = content.split("\n");
+function reportUnreachable({ relativePath, content }: ScannedFile, suppressed: Set<number>, out: DeadCodeAuditResult): void {
+  for (const lineNum of findUnreachableLines(content.split("\n"))) {
+    if (suppressed.has(lineNum)) continue;
+    out.unreachableBranches.push(`${relativePath}:${lineNum}`);
+    out.reports.push(`Unreachable code: ${relativePath}:${lineNum} — statement follows return/throw/break/continue in the same block`);
+  }
+}
 
-    const emptyFuncRegex = /(?:function\s+(\w+)\s*\([^)]*\)|(\w+)\s*(?::\s*[^=]+)?=\s*(?:async\s*)?\([^)]*\)\s*=>)\s*{\s*}/g;
-    let match: RegExpExecArray | null;
-    while ((match = emptyFuncRegex.exec(content)) !== null) {
-      const name = match[1] || match[2] || "anonymous";
-      const lineNum = content.slice(0, match.index).split("\n").length;
-      emptyFunctions.push(`${relativePath}:${lineNum} (${name})`);
-      reports.push(`Empty function body: ${relativePath}:${lineNum} — "${name}" does nothing`);
-    }
+/**
+ * Whether an exported name is accounted for: type-only exports that the file itself still uses are
+ * part of the signature of its other declarations (public API shape), and any other file mentioning
+ * the name counts as a consumer.
+ */
+function isExportUsed(
+  file: ScannedFile,
+  exportKind: string | undefined,
+  exportedName: string,
+  identifiersByFile: Map<string, Set<string>>
+): boolean {
+  if ((exportKind === "interface" || exportKind === "type") && countOccurrences(file.content, exportedName) > 1) {
+    return true;
+  }
+  for (const [otherFile, identifiers] of identifiersByFile) {
+    if (otherFile !== file.path && identifiers.has(exportedName)) return true;
+  }
+  return false;
+}
 
-    for (const lineNum of findUnreachableLines(lines)) {
-      unreachableBranches.push(`${relativePath}:${lineNum}`);
-      reports.push(`Unreachable code: ${relativePath}:${lineNum} — statement follows return/throw/break/continue in the same block`);
-    }
-
-    const isPublicFile = isEntryOrBarrel(relativePath) || publicFiles.has(relativePath.replace(/\\/g, "/"));
-    const unusedInFile: Array<{ name: string; line: number }> = [];
-    const exportRegex = /export\s+(?:async\s+)?(function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
-    while ((match = exportRegex.exec(content)) !== null) {
-      const exportKind = match[1];
-      const exportedName = match[2];
-      if (!exportedName || exportedName === "default") continue;
-
-      if (isPublicFile) {
-        continue;
-      }
-
-      // A type-only export that the file itself still uses is part of the signature of its
-      // other declarations (public API shape), not dead code.
-      if ((exportKind === "interface" || exportKind === "type") && countOccurrences(content, exportedName) > 1) {
-        continue;
-      }
-
-      let usedElsewhere = false;
-      for (const [otherFile, identifiers] of identifiersByFile) {
-        if (otherFile !== filePath && identifiers.has(exportedName)) {
-          usedElsewhere = true;
-          break;
-        }
-      }
-
-      if (!usedElsewhere) {
-        const lineNum = content.slice(0, match.index).split("\n").length;
-        unusedInFile.push({ name: exportedName, line: lineNum });
-      }
-    }
-
-    // One summary entry per file keeps unused-export noise from burying real findings.
-    const [first] = unusedInFile;
-    if (first) {
-      const names = unusedInFile.map((e) => e.name).join(", ");
-      unusedExports.push(`${relativePath}:${first.line} (${names})`);
-      reports.push(
-        `Potentially unused export${unusedInFile.length > 1 ? "s" : ""}: ${relativePath}:${first.line} — ${unusedInFile.length} not imported anywhere else (${names})`
-      );
+function findUnusedExports(
+  file: ScannedFile,
+  identifiersByFile: Map<string, Set<string>>
+): Array<{ name: string; line: number }> {
+  const unused: Array<{ name: string; line: number }> = [];
+  const exportRegex = /export\s+(?:async\s+)?(function|class|const|interface|type)\s+([A-Za-z_$][\w$]*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = exportRegex.exec(file.content)) !== null) {
+    const exportedName = match[2];
+    if (!exportedName || exportedName === "default") continue;
+    if (!isExportUsed(file, match[1], exportedName, identifiersByFile)) {
+      unused.push({ name: exportedName, line: lineOf(file.content, match.index) });
     }
   }
+  return unused;
+}
 
-  return {
-    isClean: reports.length === 0,
-    reports,
-    emptyFunctions,
-    unreachableBranches,
-    unusedExports,
-  };
+/** One summary entry per file keeps unused-export noise from burying real findings. */
+function reportUnusedExports(
+  file: ScannedFile,
+  suppressed: Set<number>,
+  publicFiles: Set<string>,
+  identifiersByFile: Map<string, Set<string>>,
+  out: DeadCodeAuditResult
+): void {
+  const { relativePath } = file;
+  if (isEntryOrBarrel(relativePath) || publicFiles.has(toPosix(relativePath))) return;
+  const unusedInFile = findUnusedExports(file, identifiersByFile).filter((e) => !suppressed.has(e.line));
+  const [first] = unusedInFile;
+  if (!first) return;
+  const names = unusedInFile.map((e) => e.name).join(", ");
+  out.unusedExports.push(`${relativePath}:${first.line} (${names})`);
+  out.reports.push(
+    `Potentially unused export${unusedInFile.length > 1 ? "s" : ""}: ${relativePath}:${first.line} — ${unusedInFile.length} not imported anywhere else (${names})`
+  );
+}
+
+function performDeadCodeAuditInternal(targetPath: string): DeadCodeAuditResult {
+  const out: DeadCodeAuditResult = { isClean: true, reports: [], emptyFunctions: [], unreachableBranches: [], unusedExports: [] };
+
+  const scannedFiles = scanProjectFiles(targetPath, ["ts"]);
+  const identifiersByFile = indexIdentifiers(targetPath);
+  const publicFiles = collectPublicFiles(targetPath, scannedFiles);
+
+  for (const file of scannedFiles) {
+    const suppressions = readSuppressions(file.content);
+    if (suppressions.wholeFile) continue;
+    reportEmptyFunctions(file, suppressions.lines, out);
+    reportUnreachable(file, suppressions.lines, out);
+    reportUnusedExports(file, suppressions.lines, publicFiles, identifiersByFile, out);
+  }
+
+  out.isClean = out.reports.length === 0;
+  return out;
 }
 
 export { performDeadCodeAuditInternal as performDeadCodeAudit };
 
+/**
+ * Dead code guard class.
+ * Detects empty functions, unreachable branches and unused exports.
+ * Severity levels used: warning.
+ */
 export class DeadCodeGuard extends BaseGuard {
   private targetPath: string;
 
   constructor(targetPath: string, context?: AuditContext) {
-    super('dead-code-guard', context);
+    super("dead-code-guard", context);
     this.targetPath = targetPath;
   }
 
@@ -255,13 +369,13 @@ export class DeadCodeGuard extends BaseGuard {
     for (const emptyFunc of result.emptyFunctions) {
       issues.push(
         this.createIssue(
-          'EMPTY_FUNCTION',
-          'warning',
-          'Empty Function Detected',
+          "EMPTY_FUNCTION",
+          "warning",
+          "Empty Function Detected",
           `Dead code detected: ${emptyFunc}`,
           undefined,
-          'Remove unused functions or add implementation',
-          ['dead-code', 'code-quality']
+          "Remove unused functions or add implementation",
+          ["dead-code", "code-quality"]
         )
       );
     }
@@ -269,13 +383,13 @@ export class DeadCodeGuard extends BaseGuard {
     for (const unreachable of result.unreachableBranches) {
       issues.push(
         this.createIssue(
-          'UNREACHABLE_CODE',
-          'warning',
-          'Unreachable Code',
+          "UNREACHABLE_CODE",
+          "warning",
+          "Unreachable Code",
           `Code after control flow statement: ${unreachable}`,
           undefined,
-          'Remove or refactor unreachable code paths',
-          ['dead-code', 'control-flow']
+          "Remove or refactor unreachable code paths",
+          ["dead-code", "control-flow"]
         )
       );
     }
@@ -283,23 +397,23 @@ export class DeadCodeGuard extends BaseGuard {
     for (const unused of result.unusedExports) {
       issues.push(
         this.createIssue(
-          'UNUSED_EXPORT',
-          'info',
-          'Potentially Unused Export',
+          "UNUSED_EXPORT",
+          "info",
+          "Potentially Unused Export",
           `Export not used elsewhere: ${unused}`,
           undefined,
-          'Remove if truly unused or import in dependent modules',
-          ['dead-code', 'exports']
+          "Remove if truly unused or import in dependent modules",
+          ["dead-code", "exports"]
         )
       );
     }
 
-    const status = result.isClean ? 'ok' : 'warning';
+    const status = result.isClean ? "ok" : "warning";
     return this.createResult(
       status,
       issues,
-      status === 'ok'
-        ? '✅ No dead code detected'
+      status === "ok"
+        ? "✅ No dead code detected"
         : `⚠️ Found ${result.reports.length} potential dead code issues`
     );
   }

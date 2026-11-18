@@ -4,6 +4,8 @@ Thank you for your interest in contributing to Muraqib Core! This document provi
 
 ## Code of Conduct
 
+The full text is in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). In short:
+
 - Be respectful and inclusive
 - Focus on the code, not the person
 - Help others learn and grow
@@ -12,8 +14,12 @@ Thank you for your interest in contributing to Muraqib Core! This document provi
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20.12+
-- TypeScript 5.0+
+
+<!-- AUTO:requirements:start -->
+- Node.js 20.12.0+ (see `engines.node` in `package.json`)
+- npm 9.0.0+
+- TypeScript 6.x for development (the published package ships compiled JavaScript and `.d.ts` files)
+<!-- AUTO:requirements:end -->
 - npm or yarn
 
 ### Setup Development Environment
@@ -214,7 +220,7 @@ export function performNewFeatureAudit(path: string): NewFeatureResult {
 ### 2. Add Tests
 
 ```typescript
-// src/core/new-feature-guard.spec.ts
+// tests/unit/core/new-feature-guard.spec.ts
 describe("New Feature Guard", () => {
   it("should detect issues", () => {
     const result = performNewFeatureAudit("./test");
@@ -250,6 +256,7 @@ Submit PR with:
 2. **Feedback:** Address any requested changes
 3. **Approval:** PR is approved by at least one maintainer
 4. **Tests:** All CI checks must pass
+5. **Docs:** Run `npm run docs:generate` and commit the result when you change a guard, CLI flag, public export, script, workflow or `package.json`. Never edit `docs/REFERENCE.md` or `<!-- AUTO:... -->` blocks by hand.
 5. **Merge:** Squash and merge to main
 
 ## Testing Guidelines

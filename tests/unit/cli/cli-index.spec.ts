@@ -152,6 +152,34 @@ describe("CLI entry (runCli)", () => {
     expect(() => JSON.parse(out.join("\n"))).not.toThrow();
   });
 
+  test("--report is shorthand for --format md and prints the scorecard", async () => {
+    execute.mockResolvedValue(unified(moduleResult("security-guard", ["warning"])));
+    expect(await runCli(["--report", "-p", dir])).toBe(0);
+    const printed = out.join("\n");
+    expect(printed).toContain("# Muraqib Security Scorecard");
+    expect(printed).toContain("**Overall score: 96/100 (grade A)**");
+  });
+
+  test("--format md and --format markdown both select the Markdown report", async () => {
+    for (const value of ["md", "markdown"]) {
+      out = [];
+      expect(await runCli(["-p", dir, "--format", value])).toBe(0);
+      expect(out.join("\n")).toContain("# Muraqib Security Scorecard");
+    }
+  });
+
+  test("the scorecard hard-caps at 59 and keeps the blocking exit code for a critical finding", async () => {
+    execute.mockResolvedValue(unified(moduleResult("security-guard", ["critical"])));
+    expect(await runCli(["-p", dir, "--report"])).toBe(1);
+    expect(out.join("\n")).toContain("**Overall score: 59/100 (grade F)**");
+  });
+
+  test("--report --output writes the Markdown to a file (CI step summary)", async () => {
+    const file = path.join(dir, "summary.md");
+    expect(await runCli(["-p", dir, "--report", "-o", file])).toBe(0);
+    expect(fs.readFileSync(file, "utf8")).toContain("# Muraqib Security Scorecard");
+  });
+
   test("returns 1 when critical or error issues exist", async () => {
     execute.mockResolvedValue(unified(moduleResult("m", ["critical"])));
     expect(await runCli(["-p", dir])).toBe(1);

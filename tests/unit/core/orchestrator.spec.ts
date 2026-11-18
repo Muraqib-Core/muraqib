@@ -1,38 +1,38 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AuditOrchestrator } from '../../../src/core/orchestrator.js';
-import type { AuditContext } from '../../../src/core/types.js';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { AuditOrchestrator } from "../../../src/core/orchestrator.js";
+import type { AuditContext } from "../../../src/core/types.js";
 
 const createTestContext = (): AuditContext => ({
-  projectRoot: '/test/project',
+  projectRoot: "/test/project",
   timestamp: Date.now(),
-  environment: 'development',
+  environment: "development",
   nodeVersion: process.version,
-  npmVersion: '9.0.0',
-  gitBranch: 'main',
-  gitCommit: 'abc123',
+  npmVersion: "9.0.0",
+  gitBranch: "main",
+  gitCommit: "abc123",
 });
 
-describe('AuditOrchestrator', () => {
+describe("AuditOrchestrator", () => {
   let context: AuditContext;
 
   beforeEach(() => {
     context = createTestContext();
   });
 
-  describe('creation', () => {
-    it('should create an orchestrator with context', () => {
+  describe("creation", () => {
+    it("should create an orchestrator with context", () => {
       const orchestrator = AuditOrchestrator.create(context);
 
       expect(orchestrator).toBeDefined();
-      expect(orchestrator).toHaveProperty('execute');
-      expect(orchestrator).toHaveProperty('printSummary');
+      expect(orchestrator).toHaveProperty("execute");
+      expect(orchestrator).toHaveProperty("printSummary");
     });
 
-    it('should accept configuration', () => {
+    it("should accept configuration", () => {
       const config = {
-        projectRoot: '/test',
-        sortBy: 'module' as const,
-        sortOrder: 'desc' as const,
+        projectRoot: "/test",
+        sortBy: "module" as const,
+        sortOrder: "desc" as const,
       };
 
       const orchestrator = AuditOrchestrator.create(context, config);
@@ -40,35 +40,35 @@ describe('AuditOrchestrator', () => {
     });
   });
 
-  describe('execute()', () => {
-    it('should return unified audit result', async () => {
+  describe("execute()", () => {
+    it("should return unified audit result", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
 
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('results');
-      expect(result).toHaveProperty('issues');
-      expect(result).toHaveProperty('summary');
+      expect(result).toHaveProperty("success");
+      expect(result).toHaveProperty("results");
+      expect(result).toHaveProperty("issues");
+      expect(result).toHaveProperty("summary");
     });
 
-    it('should have valid summary structure', async () => {
+    it("should have valid summary structure", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
 
       const { summary } = result;
-      expect(summary).toHaveProperty('totalIssues');
-      expect(summary).toHaveProperty('critical');
-      expect(summary).toHaveProperty('errors');
-      expect(summary).toHaveProperty('warnings');
-      expect(summary).toHaveProperty('duration');
-      expect(summary).toHaveProperty('timestamp');
+      expect(summary).toHaveProperty("totalIssues");
+      expect(summary).toHaveProperty("critical");
+      expect(summary).toHaveProperty("errors");
+      expect(summary).toHaveProperty("warnings");
+      expect(summary).toHaveProperty("duration");
+      expect(summary).toHaveProperty("timestamp");
 
-      expect(typeof summary.totalIssues).toBe('number');
-      expect(typeof summary.duration).toBe('number');
+      expect(typeof summary.totalIssues).toBe("number");
+      expect(typeof summary.duration).toBe("number");
       expect(summary.duration).toBeGreaterThanOrEqual(0);
     });
 
-    it('should execute guards in parallel', async () => {
+    it("should execute guards in parallel", async () => {
       const orchestrator = AuditOrchestrator.create(context, { parallel: true });
       const startTime = Date.now();
       const result = await orchestrator.execute();
@@ -80,9 +80,9 @@ describe('AuditOrchestrator', () => {
       expect(duration).toBeLessThan(5000);
     });
 
-    it('should aggregate all issues from all guards', async () => {
+    it("should aggregate all issues from all guards", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        projectRoot: '/test',
+        projectRoot: "/test",
       });
 
       const result = await orchestrator.execute();
@@ -92,13 +92,13 @@ describe('AuditOrchestrator', () => {
 
       // Every aggregated issue carries the unified AuditIssue fields
       for (const issue of result.issues) {
-        expect(issue).toHaveProperty('code');
-        expect(issue).toHaveProperty('severity');
-        expect(issue).toHaveProperty('title');
+        expect(issue).toHaveProperty("code");
+        expect(issue).toHaveProperty("severity");
+        expect(issue).toHaveProperty("title");
       }
     });
 
-    it('should report a summary that matches the aggregated issues', async () => {
+    it("should report a summary that matches the aggregated issues", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
 
@@ -106,11 +106,11 @@ describe('AuditOrchestrator', () => {
     });
   });
 
-  describe('sorting', () => {
-    it('should sort by severity (ascending)', async () => {
+  describe("sorting", () => {
+    it("should sort by severity (ascending)", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        sortBy: 'severity',
-        sortOrder: 'asc',
+        sortBy: "severity",
+        sortOrder: "asc",
       });
 
       const result = await orchestrator.execute();
@@ -126,10 +126,10 @@ describe('AuditOrchestrator', () => {
       }
     });
 
-    it('should sort by severity (descending)', async () => {
+    it("should sort by severity (descending)", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        sortBy: 'severity',
-        sortOrder: 'desc',
+        sortBy: "severity",
+        sortOrder: "desc",
       });
 
       const result = await orchestrator.execute();
@@ -145,40 +145,40 @@ describe('AuditOrchestrator', () => {
       }
     });
 
-    it('should sort by module', async () => {
+    it("should sort by module", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        sortBy: 'module',
-        sortOrder: 'asc',
+        sortBy: "module",
+        sortOrder: "asc",
       });
 
       const result = await orchestrator.execute();
       const issues = result.issues;
 
       // Verify alphabetical sort
-      const modules = issues.map((i) => i.tags?.[0] ?? '');
+      const modules = issues.map((i) => i.tags?.[0] ?? "");
       for (let i = 0; i < modules.length - 1; i++) {
         expect(modules[i].localeCompare(modules[i + 1])).toBeLessThanOrEqual(0);
       }
     });
   });
 
-  describe('issue filtering', () => {
-    it('should filter issues by severity', async () => {
+  describe("issue filtering", () => {
+    it("should filter issues by severity", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
       const allIssues = result.issues;
 
       const critical = orchestrator.getIssuesBySeverity(
         allIssues,
-        'critical'
+        "critical"
       );
       const errors = orchestrator.getIssuesBySeverity(
         allIssues,
-        'error'
+        "error"
       );
       const warnings = orchestrator.getIssuesBySeverity(
         allIssues,
-        'warning'
+        "warning"
       );
 
       expect(critical.length).toBeLessThanOrEqual(allIssues.length);
@@ -186,7 +186,7 @@ describe('AuditOrchestrator', () => {
       expect(warnings.length).toBeLessThanOrEqual(allIssues.length);
     });
 
-    it('should group issues by module', async () => {
+    it("should group issues by module", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
       const allIssues = result.issues;
@@ -205,48 +205,48 @@ describe('AuditOrchestrator', () => {
     });
   });
 
-  describe('summary reporting', () => {
-    it('should print summary without errors', async () => {
+  describe("summary reporting", () => {
+    it("should print summary without errors", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
-      const logSpy = vi.spyOn(console, 'log');
+      const logSpy = vi.spyOn(console, "log");
 
       orchestrator.printSummary(result);
 
       expect(logSpy).toHaveBeenCalled();
-      const calls = logSpy.mock.calls.map((c) => c[0]).join('\n');
+      const calls = logSpy.mock.calls.map((c) => c[0]).join("\n");
 
-      expect(calls).toContain('Muraqib Audit Summary');
-      expect(calls).toContain('Duration');
-      expect(calls).toContain('Total Issues');
+      expect(calls).toContain("Muraqib Audit Summary");
+      expect(calls).toContain("Duration");
+      expect(calls).toContain("Total Issues");
 
       logSpy.mockRestore();
     });
 
-    it('should indicate success when no issues', async () => {
+    it("should indicate success when no issues", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
-      const logSpy = vi.spyOn(console, 'log');
+      const logSpy = vi.spyOn(console, "log");
 
       orchestrator.printSummary(result);
 
       // Check if either success message or issue count is printed
-      const calls = logSpy.mock.calls.map((c) => c[0]).join('\n');
+      const calls = logSpy.mock.calls.map((c) => c[0]).join("\n");
       expect(
-        calls.includes('passed') ||
-        calls.includes('issue(s) to address')
+        calls.includes("passed") ||
+        calls.includes("issue(s) to address")
       ).toBe(true);
 
       logSpy.mockRestore();
     });
   });
 
-  describe('parallel execution', () => {
-    it('should handle multiple guards concurrently', async () => {
+  describe("parallel execution", () => {
+    it("should handle multiple guards concurrently", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        asyncTargetPath: '/src',
-        dependencyTargetPath: '/src',
-        projectRoot: '/test',
+        asyncTargetPath: "/src",
+        dependencyTargetPath: "/src",
+        projectRoot: "/test",
       });
 
       const result = await orchestrator.execute();
@@ -255,10 +255,10 @@ describe('AuditOrchestrator', () => {
       expect(result.results.length).toBeGreaterThan(1);
     });
 
-    it('should complete all guards even if some fail', async () => {
+    it("should complete all guards even if some fail", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        asyncTargetPath: '/non/existent/path',
-        projectRoot: '/test',
+        asyncTargetPath: "/non/existent/path",
+        projectRoot: "/test",
       });
 
       const result = await orchestrator.execute();
@@ -268,19 +268,19 @@ describe('AuditOrchestrator', () => {
     });
   });
 
-  describe('configuration', () => {
-    it('should apply default configuration', () => {
+  describe("configuration", () => {
+    it("should apply default configuration", () => {
       const orchestrator = AuditOrchestrator.create(context);
       const result1 = orchestrator.execute();
 
       expect(result1).toBeInstanceOf(Promise);
     });
 
-    it('should accept custom configuration', async () => {
+    it("should accept custom configuration", async () => {
       const config = {
-        projectRoot: '/custom',
-        sortBy: 'module' as const,
-        sortOrder: 'desc' as const,
+        projectRoot: "/custom",
+        sortBy: "module" as const,
+        sortOrder: "desc" as const,
         parallel: true,
       };
 
@@ -291,26 +291,26 @@ describe('AuditOrchestrator', () => {
     });
   });
 
-  describe('error handling', () => {
-    it('should return success false on critical error', async () => {
+  describe("error handling", () => {
+    it("should return success false on critical error", async () => {
       // Create an orchestrator and manually trigger an error scenario
       const orchestrator = AuditOrchestrator.create(context);
       const result = await orchestrator.execute();
 
       // Even with errors, should have a valid result structure
-      expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('summary');
-      expect(result.summary).toHaveProperty('duration');
+      expect(result).toHaveProperty("success");
+      expect(result).toHaveProperty("summary");
+      expect(result.summary).toHaveProperty("duration");
     });
   });
 
-  describe('integration', () => {
-    it('should execute full audit pipeline', async () => {
+  describe("integration", () => {
+    it("should execute full audit pipeline", async () => {
       const orchestrator = AuditOrchestrator.create(context, {
-        projectRoot: '/test',
+        projectRoot: "/test",
         memoryOptions: { heapWarnMb: 100 },
-        sortBy: 'severity',
-        sortOrder: 'asc',
+        sortBy: "severity",
+        sortOrder: "asc",
       });
 
       const result = await orchestrator.execute();
@@ -324,13 +324,13 @@ describe('AuditOrchestrator', () => {
 
       // Verify issues are properly aggregated
       const criticalCount = result.issues.filter(
-        (f) => f.severity === 'critical'
+        (f) => f.severity === "critical"
       ).length;
       const errorCount = result.issues.filter(
-        (f) => f.severity === 'error'
+        (f) => f.severity === "error"
       ).length;
       const warningCount = result.issues.filter(
-        (f) => f.severity === 'warning'
+        (f) => f.severity === "warning"
       ).length;
 
       expect(
@@ -338,7 +338,7 @@ describe('AuditOrchestrator', () => {
       ).toBeLessThanOrEqual(result.summary.totalIssues);
     });
 
-    it('should maintain execution order through orchestration', async () => {
+    it("should maintain execution order through orchestration", async () => {
       const orchestrator = AuditOrchestrator.create(context);
       const start = Date.now();
       const result = await orchestrator.execute();

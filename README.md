@@ -1,615 +1,192 @@
 <div align="center">
 
-#  @muraqib/core
+<img src="docs/assets/hero.svg" alt="Muraqib (مراقب): the guardian for your dev environment" width="100%">
 
-**Unified Developer Environment Guardian & Performance Auditor**
+<br>
 
-Comprehensive audit framework for Node.js/TypeScript projects. Detects security vulnerabilities, performance issues, architecture violations, and configuration problems in code.
+**Unified Developer Environment Guardian &amp; Performance Auditor**
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+Comprehensive audit framework for Node.js/TypeScript projects. It finds security vulnerabilities,
+performance issues, architecture violations and configuration problems, and tells you how to fix them.
+
+<!-- AUTO:badges:start -->
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20.12+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Vitest](https://img.shields.io/badge/Vitest-2.0+-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github&logoColor=white)](https://github.com/Muraqib-Core/muraqib/actions)
+[![Vitest](https://img.shields.io/badge/Vitest-5.x-729B1B?logo=vitest&logoColor=white)](https://vitest.dev)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/Muraqib-Core/muraqib/ci.yml?branch=main&label=CI%2FCD&logo=github)](https://github.com/Muraqib-Core/muraqib/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+<!-- AUTO:badges:end -->
+
+
+<br>
+
+[🚀 Quick start](#-quick-start) &nbsp;·&nbsp; [🎬 Video](#-see-it-in-action) &nbsp;·&nbsp; [🔎 Key features](#-key-features) &nbsp;·&nbsp; [🔌 Workflow](#-fits-where-you-work) &nbsp;·&nbsp; [📟 CLI](docs/cli.md) &nbsp;·&nbsp; [📖 Docs](#-documentation) &nbsp;·&nbsp; [🌙 العربية](#arabic)
 
 </div>
 
----
 
-##  Features
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-###  Security Auditing
-- **Injection Prevention**: SQL/XSS detection and prevention
-- **Secret Detection**: API keys, passwords, tokens, credentials
-- **Auth/Crypto Validation**: Security protocols and cryptographic best practices
-- **Security Headers Analysis**: HTTP security header validation
+## 🎬 See it in action
 
-###  Performance (13+ Modules)
-- **Memory Management**: Heap leak detection and memory profile analysis
-- **Bundle Optimization**: Size monitoring and budget enforcement (14 KB default)
-- **Network Analysis**: Latency measurement and optimization recommendations
-- **Dead Code Detection**: Unreachable code and unused exports
-- **Dependency Analysis**: Circular dependencies and duplication detection
-- **Async Patterns**: Floating promises and missing await validation
-- **Cache Strategy**: Performance optimization and caching recommendations
-- **Image Optimization**: Image size analysis and format recommendations
-- **Render Blocking**: Render-blocking resource detection
-- **HTTP/2 Support**: Protocol and compression optimization
+<p align="center">
+  <a href="docs/assets/muraqib-promo.mp4" title="Watch the full video">
+    <img src="docs/assets/promo-trailer.gif" width="860" alt="Muraqib promo, sped up: AI writes code fast, but who is watching? Muraqib audits the project, covers security, performance, architecture and agent-ready reports, and fits Write, Commit, Review, Ship.">
+  </a>
+</p>
 
-###  Architecture Validation
-- **Configuration Validation**: Environment variables and config file validation
-- **Docker Best Practices**: Containerization checks and recommendations
-- **Compatibility Checking**: Node.js version and peer dependency validation
-- **AI-Powered Recommendations**: Context-aware issue resolution suggestions
+<p align="center">
+  <a href="docs/assets/muraqib-promo.mp4"><b>▶ Watch the full 65-second video</b></a> <sub>(1080p, no sound needed)</sub>
+</p>
 
-###  AI Integration
-- **AI-Complementary**: Works with AI-generated code to catch issues
-- **Secret Detection**: Advanced pattern matching for sensitive data
-- **Intelligent Recommendations**: AI-powered fix suggestions
+<!--
+  Want the video to play right here, inline, with controls? GitHub only does that for files
+  uploaded through its own editor. Edit this README on github.com, drag docs/assets/muraqib-promo.mp4
+  into the editor, and GitHub inserts a https://github.com/user-attachments/assets/... link on its own
+  line. Paste that line in place of the GIF block above.
+-->
 
----
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
-##  Usage from npm
 
-The npm package is `@muraqib/core`; the CLI command it installs is `muraqib`.
-The muraqib version will be available after publication:
+## 🧭 Why Muraqib
+
+<p align="center">
+  <img src="docs/assets/problem.svg" width="100%" alt="AI writes code. Fast. But who is watching? A code editor shows a hard-coded secret, an SQL injection and a floating promise flagged in red.">
+</p>
+
+AI assistants write code in seconds. They also hard-code a key, concatenate a query, or forget an `await`, and the
+code still runs. **Muraqib** (Arabic *مراقب*, "the one who watches") is the second pair of eyes: it audits your project and
+reports what an assistant, or a tired human, missed, in a form both people and tools can act on.
+
+| Principle | In practice |
+|-----------|-------------|
+| 🤝 **Complementary** | Built to sit beside AI coding tools and check their output, not to replace them. |
+| 🎯 **Actionable** | Every finding carries a severity, a file and line, and a recommended fix. |
+| 🤖 **Machine-readable** | The agent report is versioned JSON with stable issue ids, so an agent can confirm a fix by re-running. |
+| 🛟 **Safe by design** | Git hooks fail open and never trap a commit; secrets are masked in output and redacted before any AI request. |
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+
+## 🚀 Quick start
 
 ```bash
-# Full audit
+npx @muraqib/core audit        # audit the current project
+npx @muraqib/core audit -i     # guided, interactive mode
+```
+
+<p align="center">
+  <img src="docs/assets/terminal.svg" width="100%" alt="Terminal running npx @muraqib/core audit: eight guards report one by one, ending with 0 critical, 5 warnings, 4 info and exit code 0.">
+</p>
+
+> Illustrative output (a real run of `muraqib audit` on this repository). Install, flags and CI setup are in [Installation](docs/install.md), [CLI usage](docs/cli.md) and [CI/CD](docs/ci.md).
+
+Install locally with `npm install -D @muraqib/core`, then run `npx muraqib audit`. In CI, pass `--no-interactive`
+(and `--fail-on-warning` when warnings should block the build). Details, optional peer dependencies and local
+development are in [docs/install.md](docs/install.md) and [docs/development.md](docs/development.md).
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 🔎 Key features
+
+<p align="center">
+  <img src="docs/assets/pillars.svg" width="100%" alt="Four pillars: Security, Performance, Architecture and Agent-ready.">
+</p>
+
+- 🔐 **Security:** injection prevention, secret detection, auth/crypto validation, security header analysis.
+- ⚡ **Performance:** memory, bundle budget (14 KB default), network latency, dead code, dependencies, async patterns, caching, images, render blocking, HTTP/2.
+- 🏗️ **Architecture:** configuration validation, Docker best practices, compatibility checking, AI-powered recommendations.
+- 🤖 **AI integration:** AI-complementary checks, advanced secret detection, intelligent fix suggestions, agent-ready JSON reports ([AI agents](docs/ai.md), [Agent v2](docs/agent-v2.md)).
+
+The full list of checks and the guard architecture are in [docs/guards.md](docs/guards.md).
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+## 🔌 Fits where you work
+
+<p align="center">
+  <img src="docs/assets/pipeline.svg" width="100%" alt="Write, Commit, Review, Ship: muraqib agent, muraqib hook install, muraqib audit --report, exit code 0.">
+</p>
+
+| Stage | Command | What happens |
+|-------|---------|--------------|
+| **Write** | `muraqib agent -p . --osv` | Your assistant gets a deterministic JSON report: issues sorted by severity, stable ids, no timestamps. |
+| **Commit** | `muraqib hook install` | The pre-commit hook scans only the lines you stage and blocks credentials that are almost certainly real. |
+| **Review** | `muraqib audit --report -o "$GITHUB_STEP_SUMMARY"` | A Markdown scorecard lands in the CI job summary; add `--fail-on-warning` to gate on warnings. |
+| **Ship** | `muraqib audit --no-interactive` | Exit code `0` means nothing blocks the build; `1` means blocking findings; `3` means a scanner failed. |
+
+```yaml
+# .github/workflows/audit.yml (excerpt)
+- name: Muraqib audit
+  run: npx @muraqib/core audit --no-interactive --report -o "$GITHUB_STEP_SUMMARY"
+```
+
+Prefer the editor? The [VS Code extension](extension/README.md) runs the same engine, fills the **Problems** panel and
+shows a status-bar counter. It never edits your code.
+
+`muraqib audit --report` turns findings into a single **0–100 score** with a grade; the method is under
+[Security scorecard](docs/cli.md#security-scorecard---report----format-md). More in [docs/ci.md](docs/ci.md).
+
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
+
+<a id="arabic"></a>
+
+<details>
+<summary><b>🌙 بالعربية: ما هو مراقب؟</b></summary>
+
+<br>
+
+<div dir="rtl" align="right">
+
+**مراقب** هو حارس بيئة التطوير. الذكاء الاصطناعي يكتب الشيفرة بسرعة، فمن يراجعها؟
+مراقب أداة تدقيق لمشاريع Node.js وTypeScript، تفحص مشروعك وتخبرك بما فاتك وكيف تصلحه:
+
+- 🔐 **الأمان:** الأسرار المكتوبة داخل الشيفرة، وحقن SQL وXSS، والمصادقة والتشفير، وترويسات HTTP الأمنية.
+- ⚡ **الأداء:** الذاكرة، وحجم الحزمة، والأنماط غير المتزامنة، والشيفرة الميتة، وزمن الاستجابة.
+- 🏗️ **البنية:** الإعدادات، وDocker، والتبعيات، والتوافق، والتحقق من متغيرات البيئة.
+- 🤖 **جاهز للوكلاء:** تقارير JSON ومخططات أدوات تستطيع أدوات الذكاء الاصطناعي قراءتها.
+
+يعمل في الطرفية، وفي خطافات Git قبل الإيداع، وفي أنظمة التكامل المستمر، وداخل VS Code.
+
+</div>
+
+```bash
 npx @muraqib/core audit
-
-# Guided interactive mode (Clack)
-npx @muraqib/core audit -i
-
-# Install locally, then use the CLI command
-npm install -D @muraqib/core
-npx muraqib audit
 ```
 
-> After installing `@muraqib/core`, use `npx muraqib`.
-> Without a local installation, use `npx @muraqib/core@beta`.
+<div dir="rtl" align="right">
 
-In CI, pass `--no-interactive` and use `--fail-on-warning` when warnings should block the build.
-### Optional peer dependencies
+**ثق بالشيفرة. وتحقّق منها على أي حال.**
 
-The default install is lightweight. These packages are optional peer dependencies; install only what you use:
+</div>
 
-| Package | Needed for | Install |
-|---|---|---|
-| `valibot` | `--engine valibot` / `ValibotEngine` | `npm i valibot` |
-| `arktype` | `--engine arktype` / `ArktypeEngine` | `npm i arktype` |
-| `@google/genai` | AI advisor (`--ai-advisory`, Gemini) | `npm i @google/genai` |
+</details>
 
-`zod` is installed with `muraqib-core` because the built-in environment presets use it internally. If an optional package is missing, Muraqib fails with an actionable message such as `install valibot to use engine 'valibot'`; the AI advisor degrades gracefully (a one-time warning, audit continues). HTTP probes use the built-in `fetch`, so there is no HTTP client dependency.
+<p align="center"><img src="docs/assets/divider.svg" width="100%" alt=""></p>
 
----
+## 📖 Documentation
 
-##  Local development
+> Facts such as versions, guards, CLI flags, scripts and workflows are **generated** from the source (`npm run docs:generate`). Blocks marked `<!-- AUTO:... -->` and `docs/REFERENCE.md` must not be edited by hand.
 
-```bash
-# Clone the repository
-git clone https://github.com/Muraqib-Core/muraqib.git
-cd muraqib
-
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-
-# Run tests
-npm test
-```
-
----
-
-##  Quick Start
-
-```bash
-# Run full audit on current project
-npm run audit
-
-# Run in demo/dry-run mode
-npm run audit:demo
-
-# Development mode with watch
-npm run dev
-
-# Run test suite
-npm test
-
-# Run tests with coverage
-npm test -- --coverage
-
-# Lint code
-npm run lint
-
-# Type check
-npm run type-check
-```
-
----
-
-##  Documentation Web View
-
-`npm run build` also writes a self-contained documentation page (Details, Features, Installation, Configuration, Requirements, Changelog tabs) to `dist/webview/index.html`. It has no server and no network access: open the file directly in a browser.
-
-```bash
-npm run webview   # rebuild and print the path of the page
-```
-
-To show the same page inside a VS Code webview panel, pass the nonce from your extension's CSP:
-
-```typescript
-import { getWebviewHtml } from "@muraqib/core";
-
-panel.webview.html = getWebviewHtml(nonce);
-```
-
-A ready-made VS Code extension built on `runAuditForAgent` and `getWebviewHtml` lives in [`extension/`](extension/README.md).
-
-The page text lives in `src/webview/content/` as typed data, so adding a tab or translating it never touches the markup. The version and the dependency list are read from `package.json` at build time.
-
----
-
-##  CLI Usage
-
-After `npm run build`, the `muraqib` binary (`bin/muraqib.js`) exposes four commands.
-
-| Command | Purpose |
-|---------|---------|
-| `muraqib audit` (default) | Run the guard modules, optionally adding the scan layer (OSV, Docker, AI advisory) |
-| `muraqib resolve` | Interactive, evidence-based dependency resolution with an approval step and rollback |
-| `muraqib image --image <name>` | Scan an existing local Docker image with [Trivy](https://trivy.dev) (must be installed) |
-| `muraqib runtime --container <name>` | Read-only inspection of a running Docker container |
-
-### `audit` options
-
-```bash
-muraqib audit                              # text report of every module
-muraqib audit --format json                # json | text | html | csv
-muraqib audit --format html -o report.html # write the report to a file
-muraqib audit -p ./my-app                  # audit another project root
-muraqib audit -m memory-guard,security-guard  # only matching modules
-muraqib audit --fail-on-warning            # exit 1 on warnings too
-```
-
-| Flag | Effect |
-|------|--------|
-| `--osv` | Add the scan layer: check dependencies against [OSV](https://osv.dev) for known vulnerabilities |
-| `--docker` | Add the scan layer: Docker configuration discovery (Dockerfile / Compose) |
-| `--ai-advisory` | Add the scan layer plus an optional AI advisory (needs `GEMINI_API_KEY`; secrets are redacted before anything is sent) |
-| `-p, --project <path>` | Project root (default: current directory) |
-| `-f, --format <fmt>` | `text`, `json`, `html` or `csv` |
-| `-o, --output <path>` | Write the report to a file instead of stdout |
-| `-m, --modules <list>` | Comma-separated module name filter |
-| `--fail-on-warning` | Treat warnings as failures |
-| `-i`, `--interactive` | Guided mode: choose what to audit, review colour-coded results, then fixes / AI hand-off / HTML report (terminal only) |
-| `--no-interactive` | Disable the spinner and prompts in a terminal |
-| `-v, --verbose` | Verbose logging |
-
-Any of `--osv`, `--docker` or `--ai-advisory` switches on the scan layer; its findings are merged into the same report. The unified report includes `exitCode` and `modules.scan.scan`, which retains the scan policy, blocking decision and per-scanner coverage (`status`, scanned/skipped inputs and diagnostics). Text, HTML, CSV and interactive reports display these coverage details too. `-e prod` blocks medium scan findings even though their displayed severity stays `warning`; `build` blocks high and critical findings. A scanner failure takes precedence and returns exit code `3`. Agent module summaries also retain scan metadata; scanner failures set `ok: false`, `verdict: "fail"` and `exitCode: 3`. The OSV endpoint and timeout can be overridden with `OSV_API_URL` and `OSV_TIMEOUT` (ms).
-
-### `resolve`
-
-```bash
-muraqib resolve            # run inside the project you want to resolve
-muraqib -p ./my-app resolve
-```
-
-Builds a resolution plan from OSV evidence, shows it for approval, applies it, verifies the result and rolls back on failure. Put `-p` **before** `resolve`; `resolve` itself takes no other flags.
-
-### `image` and `runtime`
-
-```bash
-muraqib image --image my-app:latest [--json]
-muraqib runtime --container my-app [--json]
-```
-
-`image` requires the `trivy` binary and only scans images that already exist locally. `runtime` inspects the container read-only; it never starts, stops or modifies it.
-
-###  AI agents (Claude Code, Cursor, MCP clients)
-
-Muraqib is usable as a tool by LLM agents. The agent output is a versioned (`schemaVersion: "1.0"`), deterministic JSON report: no timestamps or durations, issues sorted by severity, and stable issue `id`s so an agent can confirm a fix by re-running.
-
-```bash
-muraqib agent -p ./my-app --osv --max-issues 50   # AgentReport as JSON; exit 1 on blocking findings, 3 on scanner failure
-muraqib context                                    # capabilities, modules, severity semantics
-muraqib tool-schema                                # tool definitions (MCP / tool-use compatible)
-muraqib audit --json                               # classic report as JSON (shorthand for --format json)
-```
-
-Programmatic use:
-
-```typescript
-import { runAuditForAgent, getSystemContext, AGENT_TOOL_DEFINITIONS, executeAgentTool } from "@muraqib/core";
-
-const report = await runAuditForAgent({ projectRoot: process.cwd(), osv: true, maxIssues: 50 });
-// { ok, verdict: "pass" | "fail", summary, modules, issues[], truncated }
-
-await executeAgentTool("muraqib_audit", { projectRoot: "/app" }); // tool-call dispatcher
-```
-
-`runAuditForAgent` never throws or prints: if the audit cannot run it returns `{ ok: false, error }`. The engine has no dependency on the CLI renderers, so a VS Code extension can call the same API.
-
-### Interactive mode
-
-In a terminal, `muraqib audit` shows a Clack spinner and a pass/fail summary. Add `-i` for the guided flow:
-
-1. **What to audit**: pick categories (Full, Security, Performance & images, Configuration, Code health). Skipped when you pass `-m`.
-2. **Security URL**: asked only when the security module is included; leave it empty to skip.
-3. **Optional scans**: OSV, Docker, AI advisory (skipped when you pass `--osv`/`--docker`/`--ai-advisory`).
-4. **Results**: a colour-coded overview, per-module issues with file, line and fix, and prioritised next steps.
-5. **Follow-ups** (repeated until you pick *Finish*): recommended fixes (de-duplicated, most severe first), every issue, a paste-ready prompt for an AI assistant (ends with the `muraqib agent` re-check command), or save an HTML report.
-
-The exit code is the same as in non-interactive runs (`1` on critical/error, `130` if you cancel). If `-i` is used where no terminal is available it prints a one-line note and runs normally. Interactive output is turned off automatically for `--json`/`--format`, `--output`, piped output and CI (`CI=true`), so machine-readable output is never polluted. Use `--no-interactive` to force it off.
-
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | No blocking findings |
-| `1` | Blocking findings (critical/error; warnings too with `--fail-on-warning`) |
-| `3` | A scanner failed, so the result is not reliable |
-| `130` | Interactive prompt cancelled by the user |
-
----
-
-##  Architecture Overview
-
-### Core Components
-
-#### BaseGuard (Abstract Base Class)
-The foundation for all audit modules. Each guard specializes in one audit category:
-
-```typescript
-import { BaseGuard, AuditContext, AuditResult } from '@muraqib/core';
-
-class CustomGuard extends BaseGuard {
-  constructor(context?: AuditContext) {
-    super('custom-guard', context);
-  }
-
-  async execute(): Promise<AuditResult> {
-    // Implement audit logic
-    const issue = this.createIssue(
-      'CUSTOM_001',
-      'warning',
-      'Issue Title',
-      'Issue description',
-      { file: 'src/app.ts', line: 42 },
-      'How to fix this'
-    );
-    
-    return this.issues([issue], 'Found issues');
-  }
-}
-
-const guard = new CustomGuard({ projectRoot: process.cwd() });
-const result = await guard.run();
-```
-
-#### Built-in Guards
-
-| Guard | Purpose | Key Detections |
-|-------|---------|-----------------|
-| **MemoryGuard** | Heap/memory analysis | Memory leaks, heap dumps |
-| **SecurityGuard** | Security scanning | Vulnerabilities, security headers |
-| **DependencyGuard** | Dependency analysis | Circular deps, duplicates, deprecated APIs |
-| **AsyncGuard** | Async pattern validation | Floating promises, missing awaits |
-| **ConfigGuard** | Configuration validation | Missing env vars, invalid settings |
-| **DockerGuard** | Docker best practices | Containerization checks |
-| **CompatibilityGuard** | Version compatibility | Node.js EOL, peer dependencies |
-| **ImageGuard** | Image optimization | Image size, format, optimization |
-| **DeadCodeGuard** | Code quality | Unreachable code, unused exports |
-
-#### Guard Results
-
-Each guard returns a structured `AuditResult`:
-
-```typescript
-interface AuditResult {
-  status: 'ok' | 'warning' | 'issues' | 'error';
-  module: string;              // Guard name
-  issues: AuditIssue[];        // Detected issues
-  message: string;             // Human-readable summary
-  timestamp: number;           // When audit ran
-  duration: number;            // Execution time (ms)
-}
-
-interface AuditIssue {
-  code: string;                // Issue identifier
-  severity: 'critical' | 'error' | 'warning' | 'info';
-  title: string;               // Short title
-  message: string;             // Detailed description
-  location?: {                 // Source location
-    file: string;
-    line?: number;
-  };
-  recommendation?: string;     // How to fix
-  tags?: string[];             // Categorization
-}
-```
-
----
-
-##  Testing
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm test -- --watch
-
-# Run specific test file
-npm test -- src/core/base-guard.spec.ts
-
-# Generate coverage report
-npm test -- --coverage
-```
-
-### Test Coverage
-
-Target: **85%+ coverage** on all modules
-
-- **BaseGuard**: 100% coverage (256 test cases)
-- **All Guards**: Comprehensive unit and integration tests
-- **CLI**: E2E testing for command execution
-
-### Test Structure
-
-```
-tests/
-├── unit/                    # Unit tests for individual modules
-│   └── core/
-│       ├── base-guard.spec.ts
-│       ├── guard-factory.spec.ts
-│       └── orchestrator.spec.ts
-├── integration/             # Integration tests
-└── fixtures.ts              # Shared test data
-```
-
----
-
-##  CI/CD Pipeline
-
-GitHub Actions workflow with multi-stage validation:
-
-### Jobs
-
-1. **lint-and-build** (Matrix: Node 20.12.0 (minimum), 22.x)
-   - Type checking
-   - Build compilation
-   - ESLint validation
-   - Artifact upload
-
-2. **test-and-coverage**
-   - Vitest execution
-   - Coverage report generation
-   - Codecov upload
-   - Coverage artifacts
-
-3. **quality-gate**
-   - Validates lint-and-build success
-   - Validates test-and-coverage success
-   - Overall pipeline check
-
-4. **security-scan** (Main branch only)
-   - npm audit --production
-   - Vulnerable dependency detection
-
-### Running Locally
-
-```bash
-# Verify CI passes locally
-npm run type-check    # TypeScript strict check
-npm run build         # Verify compilation
-npm run lint          # ESLint validation
-npm test              # Run all tests
-```
-
----
-
-##  Project Structure
-
-The project has two layers that share the unified `AuditIssue` model:
-the **guard layer** (`src/core`, `src/rules`, `src/orchestrator`, ...) runs the
-13-module audit, and the **scan layer** (`src/scan`) provides OSV, Docker,
-dependency resolution and AI advisory scanning.
-
-```
-src/
-├── index.ts               # Public API exports
-├── core/                  # Guard layer: BaseGuard + guards
-│   ├── base-guard.ts      # Abstract base class for all guards
-│   ├── types.ts           # Shared types (AuditIssue, AuditResult, ...)
-│   ├── *-guard.ts         # memory, security, dependency, async, config, docker, compatibility
-│   ├── orchestrator.ts    # Runs guards and aggregates results
-│   ├── upgrade-orchestrator.ts  # Package upgrade workflow
-│   ├── helpers/           # Guard helpers
-│   └── performance/       # Cache, images, HTTP probe, render-blocking, optimizer
-├── rules/                 # cache, bundle budget, dead code, HTTP/1 advisor
-├── orchestrator/          # Unified audit pipeline (audit.ts)
-├── guard/engines/         # Schema engines: zod, valibot, arktype, custom
-├── config/                # Package upgrade presets (not env presets)
-├── env/                   # Environment validation engine (+ platform presets)
-├── ai/                    # Secret detector and AI advisor (guard layer)
-├── cli/                   # CLI entry (index.ts), audit workflow, formatters
-├── renderers/ + shared/   # Output renderers, logger, progress, constants
-├── utils/                 # File scanner, schedule validator, manager detector
-└── scan/                  # Scan layer
-    ├── cli.ts             # resolve / image / runtime commands (strict arg parsing)
-    ├── cli/               # resolve workflow and renderers
-    ├── bridge.ts          # Merges scan results into the unified audit
-    ├── scanners/
-    │   ├── dependency/    # OSV client, scanner and engine (--osv)
-    │   ├── docker/        # Discovery, rules and engine (--docker)
-    │   └── compatibility/ # Version / peer dependency checks
-    ├── core/
-    │   ├── resolution/    # Dependency graph, conflict resolution, applier
-    │   ├── contracts/     # Scanner and engine contracts
-    │   ├── context/       # Scan context
-    │   ├── findings/      # Issue model and collector
-    │   ├── parsers/       # Env file parser
-    │   └── runner/        # Audit runner
-    ├── ai/                # AI advisor, fallback, secret detector (--ai-advisory)
-    ├── guard/             # Env validation rules and engines for the scan layer
-    ├── config/ + types/   # Scan configuration and types
-
-tests/
-├── unit/                  # Guard-layer tests (core, rules, env, cli, ai, ...)
-├── scan/                  # Scan-layer tests (OSV, Docker, resolution, ...)
-├── validate.spec.ts
-└── fixtures.ts            # Shared test data
-
-.github/workflows/
-├── ci.yml                 # Build, lint, test and coverage
-├── audit.yml              # Runs the audit on push
-└── release.yml            # Creates a GitHub Release on v*.*.* tags
-```
-
----
-
-##  API Reference
-
-### BaseGuard Methods
-
-```typescript
-// Core execution
-async run(): Promise<AuditResult>
-abstract execute(): Promise<AuditResult>
-
-// Result creation
-protected ok(message: string): AuditResult
-protected issues(issues: AuditIssue[], message?: string): AuditResult
-protected createResult(status, issues, message): AuditResult
-
-// Issue creation
-protected createIssue(
-  code: string,
-  severity: 'critical' | 'error' | 'warning' | 'info',
-  title: string,
-  message: string,
-  location?: { file: string; line?: number },
-  recommendation?: string,
-  tags?: string[]
-): AuditIssue
-
-// Utility methods
-protected log(message: string): void
-protected warn(message: string): void
-protected error(message: string): void
-protected parseJSON<T>(json: string, fallback: T): T
-protected formatDuration(ms: number): string
-protected formatBytes(bytes: number): string
-```
-
-### AuditContext
-
-```typescript
-interface AuditContext {
-  projectRoot: string;     // Project root directory
-  timestamp: number;       // Audit timestamp
-  environment: string;     // 'development' | 'production' | etc
-  nodeVersion: string;     // process.version
-  npmVersion: string;      // npm version
-  gitBranch?: string;      // Current git branch
-  gitCommit?: string;      // Current git commit hash
-}
-```
-
----
-
-##  Development
-
-### Build
-
-```bash
-npm run build              # TypeScript compilation
-npm run dev                # Watch mode
-npm run type-check         # Strict type checking
-```
-
-### Linting
-
-```bash
-npm run lint               # Run ESLint
-npm run lint -- --fix      # Auto-fix issues
-```
-
-### TypeScript Configuration
-
-- **Strict Mode**: All strict checks enabled
-- **No Implicit Any**: All types must be explicit
-- **Source Maps**: Generated for debugging
-- **Declaration Maps**: TypeScript definition mapping
-
----
-
-##  Contributing
-
-### Code Standards
-
-- **TypeScript**: Strict type safety required
-- **Tests**: Minimum 85% coverage required
-- **Linting**: Must pass ESLint before commit
-- **Commits**: Atomic, descriptive commit messages
-
-### Adding a New Guard
-
-1. Create `src/core/new-guard.ts` extending `BaseGuard`
-2. Implement `async execute(): Promise<AuditResult>`
-3. Export from `src/index.ts`
-4. Add tests in `tests/unit/core/new-guard.spec.ts`
-5. Update README with guard details
-
-### Commit Message Format
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-Co-Authored-By: <name> <email>
-Claude-Session: <link>
-```
-
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
-
----
-
-##  Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| Test Coverage | ≥85% |
-| Build Time | <30s |
-| Lint Time | <10s |
-| Full Audit Time | <5s |
-| Memory Usage | <100MB |
-
----
-
-##  Related Documentation
-
+- [docs/install.md](docs/install.md) - Install from npm, optional peer dependencies
+- [docs/cli.md](docs/cli.md) - CLI commands, options, scorecard, hooks, interactive mode, exit codes
+- [docs/ai.md](docs/ai.md) - Using Muraqib from AI agents (Claude Code, Cursor, MCP clients)
+- [docs/agent-v2.md](docs/agent-v2.md) - Agent v2: ranked plan, verified fixes, optional Gemini
+- [docs/guards.md](docs/guards.md) - What it checks, BaseGuard architecture, built-in guards, API
+- [docs/ci.md](docs/ci.md) - Workflow integration and the CI/CD pipeline
+- [docs/development.md](docs/development.md) - Local development, scripts, tests, project structure, contributing
+- [docs/webview.md](docs/webview.md) - Documentation web view
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed architecture guide
 - [API.md](API.md) - Complete API reference
+- [docs/REFERENCE.md](docs/REFERENCE.md) - Generated reference (guards, public API, CLI, scripts, workflows)
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 
----
-
-##  License
-
+## 📄 License
 ISC © [Aya Almadhon](https://github.com/Ayaalmadhon2004) & [Jenan](https://github.com/Jenan04)
 
----
-
-##  Acknowledgments
-
+## 💛 Acknowledgments
 Built as an **AI-complementary DevTool** to enhance AI-generated code quality, security, and performance.
 
 **Key Features:**
@@ -618,3 +195,7 @@ Built as an **AI-complementary DevTool** to enhance AI-generated code quality, s
 - ✅ Integrates with CI/CD pipelines
 - ✅ TypeScript-first for type safety
 - ✅ Extensible through custom guards
+
+<p align="center">
+  <a href="https://github.com/Muraqib-Core/muraqib"><img src="docs/assets/footer.svg" width="100%" alt="Trust the code. Check it anyway. npx @muraqib/core audit"></a>
+</p>

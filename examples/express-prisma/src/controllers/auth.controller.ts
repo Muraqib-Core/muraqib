@@ -14,7 +14,7 @@ export const AuthController = { // muraqib-ignore-dead: auto-suppressed by scrip
         data: result,
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'ZodError') {
+      if (error instanceof Error && error.name === "ZodError") {
         const zodErr = error as Error & { errors: unknown[] };
         return res.status(400).json({ success: false, errors: zodErr.errors });
 // muraqib-unreachable: flagged by automated triage. Review before removal.

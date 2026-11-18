@@ -70,4 +70,46 @@ describe("performRenderBlockingAudit", () => {
     );
     expect(result.reports.some((r) => r.includes("late.js"))).toBe(true);
   });
+
+  test("reads a minified single-line document", () => {
+    const result = performRenderBlockingAudit(
+      `<html><head><script src="a.js"></script><link rel="stylesheet" href="a.css"></head><body></body></html>`
+    );
+    expect(result.blockingResources).toEqual(["a.js", "a.css"]);
+  });
+
+  test("reads a <head> that carries attributes", () => {
+    const result = performRenderBlockingAudit(`<html><head lang="en"><script src="a.js"></script></head></html>`);
+    expect(result.blockingResources).toEqual(["a.js"]);
+  });
+
+  test("accepts defer or async wherever the attribute sits", () => {
+    const result = performRenderBlockingAudit(
+      page(`<script src="a.js" defer></script>\n<script async src="b.js"></script>\n<script src="c.js" async="async"></script>`)
+    );
+    expect(result.blockingResources).toEqual([]);
+  });
+
+  test("does not mistake a path containing 'defer' for the attribute", () => {
+    const result = performRenderBlockingAudit(page(`<script src="/defer/app.js"></script>`));
+    expect(result.blockingResources).toEqual(["/defer/app.js"]);
+  });
+
+  test("ignores module scripts and non-JavaScript script types", () => {
+    const result = performRenderBlockingAudit(
+      page(
+        [
+          `<script type="module" src="m.js"></script>`,
+          `<script type="application/ld+json">{"a":1}</script>`,
+          `<script type="importmap">{}</script>`,
+        ].join("\n")
+      )
+    );
+    expect(result.blockingResources).toEqual([]);
+  });
+
+  test("reports the line of the blocking tag", () => {
+    const result = performRenderBlockingAudit(page(`<title>x</title>\n<script src="a.js"></script>`));
+    expect(result.criticalIssues[0]?.line).toBe(4);
+  });
 });

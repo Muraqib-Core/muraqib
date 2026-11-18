@@ -3,7 +3,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { isSilentMode, setSilentMode } from "../../../src/shared/logger.js";
-import { createProgress, createTimer, MetricsCollector } from "../../../src/shared/progress.js";
 import { isWithinSchedule } from "../../../src/utils/schedule-validator.js";
 import { loadEnv } from "../../../src/env/loaders.js";
 import { createEnvWithPresets } from "../../../src/env/presets.js";
@@ -68,21 +67,6 @@ describe("silent mode suppresses module output", () => {
     expect(logSpy).toHaveBeenCalledWith("[chatty] info");
     expect(warnSpy).toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
-  });
-
-  it("progress, timer and metrics output", () => {
-    setSilentMode(true);
-    const progress = createProgress("work");
-    progress.start();
-    progress.succeed("ok", 3);
-    progress.fail("bad");
-    const timer = createTimer("step");
-    timer.start();
-    timer.end();
-    const metrics = new MetricsCollector();
-    metrics.record("m", 10, 2, 1);
-    metrics.printSummary();
-    expectNoOutput();
   });
 
   it("invalid cron schedule warning", () => {

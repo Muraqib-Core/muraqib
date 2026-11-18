@@ -3,12 +3,12 @@ import * as logger from "../shared/logger.js";
 type ChalkLike = { red: { bold: (s: string) => string } };
 let chalkInstance: ChalkLike | null | undefined = undefined;
 
-async function getChalk() {
+async function getChalk(): Promise<ChalkLike | null> {
   if (chalkInstance === undefined) {
     try {
-      const module = await import('chalk');
+      const module = await import("chalk");
       chalkInstance = module.default;
-    } catch (_err) {
+    } catch {
       chalkInstance = null;
     }
   }
@@ -34,7 +34,7 @@ export async function createMuraqibEnv(rawEnv: Record<string, string | undefined
   }
 
   for (const key of Object.keys(sanitizedEnv)) {
-    if (key.startsWith('NEXT_PUBLIC_')) {
+    if (key.startsWith("NEXT_PUBLIC_")) {
       const chalk = await getChalk(); 
       const errorMessage = `[Muraqib Security Exception]: The server-side variable '${key}' cannot contain client-side prefixes!`;
       if (chalk) {

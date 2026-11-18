@@ -8,6 +8,7 @@ import type {
 } from "./resolution-plan.js";
 import { DependencyGraph } from "./dependency-graph.js";
 import { nonEmpty } from "../../../utils/defaults.js";
+import { compareVersions } from "../../../utils/version-compare.js";
 
 /**
  * Resolution engine class.
@@ -37,14 +38,14 @@ export class ResolutionEngine {
 
       // 1. Identify OSV fixed-version candidates. These are candidates, not proof of safety.
       // Sort fixed versions in ascending semver
-      const sortedCandidates = [...fixedVersions].sort((a, b) => this.compareSemver(a, b));
+      const sortedCandidates = [...fixedVersions].sort((a, b) => compareVersions(a, b));
       // Select the highest fixed boundary reported across applicable advisories.
       // A post-change OSV query is still required before the resolution is accepted.
       const selectedCandidate = sortedCandidates[sortedCandidates.length - 1];
       if (!selectedCandidate) continue;
 
       const currentVer = problem.installedVersion;
-      const isUp = this.compareSemver(selectedCandidate, currentVer) > 0;
+      const isUp = compareVersions(selectedCandidate, currentVer) > 0;
       const direction: ResolutionDirection = isUp ? "upgrade" : "downgrade";
 
       // Compatibility check
@@ -172,16 +173,5 @@ export class ResolutionEngine {
       // 4. Stable alphabetical ID
       return a.id.localeCompare(b.id);
     });
-  }
-
-  private compareSemver(v1: string, v2: string): number {
-    const p1 = v1.split(".").map((n) => parseInt(n.replace(/\D/g, ""), 10) || 0);
-    const p2 = v2.split(".").map((n) => parseInt(n.replace(/\D/g, ""), 10) || 0);
-    for (let i = 0; i < 3; i++) {
-      const a = p1[i] ?? 0;
-      const b = p2[i] ?? 0;
-      if (a !== b) return a - b;
-    }
-    return 0;
   }
 }

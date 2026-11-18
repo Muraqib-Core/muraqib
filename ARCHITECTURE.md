@@ -238,6 +238,20 @@ class DockerGuard extends BaseGuard {
 }
 ```
 
+**Workflow guards** - the audits that `muraqib audit` runs as numbered stages are guards too
+
+| Guard | Checks | Created by `createAllGuards` when |
+| --- | --- | --- |
+| `BundleBudgetGuard` | source files against the 14 KB budget | `bundleTargetPath` is set |
+| `RenderBlockingGuard` | blocking scripts/stylesheets in `index.html` `<head>` | `renderBlockingTargetPath` is set |
+| `HttpOptimizerGuard` | protocol and cookie size of a live URL | `httpOptimizer` is set |
+| `CachePerformanceGuard` | cache max-age and compression settings | `cachePerformance` is true |
+| `EnvGuard` | the process environment (presets, schedule, safe mode) | `envOptions` is set |
+
+They are opt-in because they depend on a URL, on `index.html` or on environment variables that most projects do not provide.
+A check that had nothing to measure reports `BaseGuard.skipped()` (status `ok` plus an info issue coded `CHECK_SKIPPED`), never a silent pass.
+`src/orchestrator/audit.ts` is the thin adapter that maps guard results (and the cores of the other guards) to the flat per-stage result the workflow prints.
+
 ---
 
 ## Execution Flow

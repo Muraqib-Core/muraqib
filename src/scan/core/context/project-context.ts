@@ -15,6 +15,7 @@ export interface ProjectContext {
 }
 
 import { discoverDockerFiles } from "./docker-discovery.js";
+import { detectProjectPackageManager } from "../../../utils/manager-detector.js";
 
 /**
  * Create project context.
@@ -23,8 +24,6 @@ import { discoverDockerFiles } from "./docker-discovery.js";
  * @returns Create project context result
  */
 export function createProjectContext(projectPath: string = process.cwd()): ProjectContext {
-  let packageManager: ProjectContext["packageManager"] = "npm";
-
   const pkgPath = path.join(projectPath, "package.json");
   let packageJson: Record<string, unknown> = {};
   if (fs.existsSync(pkgPath)) {
@@ -35,25 +34,7 @@ export function createProjectContext(projectPath: string = process.cwd()): Proje
     }
   }
 
-  const declaredManager = typeof packageJson.packageManager === "string"
-    ? packageJson.packageManager.split("@")[0]
-    : undefined;
-  const hasSupportedDeclaredManager =
-    declaredManager === "pnpm" ||
-    declaredManager === "npm" ||
-    declaredManager === "yarn" ||
-    declaredManager === "bun";
-  if (hasSupportedDeclaredManager) {
-    packageManager = declaredManager;
-  }
-
-  if (!hasSupportedDeclaredManager && fs.existsSync(path.join(projectPath, "pnpm-lock.yaml"))) {
-    packageManager = "pnpm";
-  } else if (!hasSupportedDeclaredManager && fs.existsSync(path.join(projectPath, "yarn.lock"))) {
-    packageManager = "yarn";
-  } else if (!hasSupportedDeclaredManager && fs.existsSync(path.join(projectPath, "bun.lockb"))) {
-    packageManager = "bun";
-  }
+  const packageManager = detectProjectPackageManager(projectPath);
 
   let envFiles: string[];
   try {
