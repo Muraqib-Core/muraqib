@@ -42,7 +42,7 @@ Generated from `package.json` (`peerDependencies`):
 <!-- AUTO:peer-deps:start -->
 | Package | Range | Kind | Install |
 |---------|-------|------|---------|
-| `@google/genai` | `^2.22.0` | optional | `npm i @google/genai` |
+| `@google/genai` | `^3.3.0` | optional | `npm i @google/genai` |
 | `arktype` | `^2.2.0` | optional | `npm i arktype` |
 | `valibot` | `^1.4.0` | optional | `npm i valibot` |
 <!-- AUTO:peer-deps:end -->
