@@ -11,7 +11,7 @@ export function auditHtmlFontLoading(htmlContent: string): { isValid: boolean; r
   
   if (match && match[1]) {
     const fontParams = match[1];
-    const fontFamilies = fontParams.split('|');
+    const fontFamilies = fontParams.split("|");
     
     if (fontFamilies.length > 2) { 
       return {
